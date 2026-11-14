@@ -104,6 +104,9 @@ namespace ClassPack
             new Color32(60, 200, 80, 255), new Color32(230, 40, 40, 255)
         };
 
+        // Sizes in the hand: the game's characters are small, so the long guns are shrunk.
+        private static readonly float[] HeldScale = { 1f, 0.8f, 0.6f, 0.55f, 0.6f };
+
         private const int ShotsPerGun = 1;
         private const int CrateCount = 4;
         private const float TakeReach = 2.2f;
@@ -274,17 +277,20 @@ namespace ClassPack
                 if (held.Model == null)
                 {
                     held.Model = BuildGun(held.Gun);
+                    held.Model.transform.localScale = Vector3.one * HeldScale[held.Gun];
                 }
                 held.Model.SetActive(true);
+                Transform neck = holder.GetPartRoot(EUnitPartType.HeadPosition);
+                Vector3 neckAt = neck != null ? neck.position : body.position + Vector3.up * 0.76f;
                 if (held.Gun == Rpg)
                 {
                     // Carried on the right shoulder.
-                    held.Model.transform.position = body.position + body.right * 0.22f + Vector3.up * 1.42f + body.forward * 0.12f;
+                    held.Model.transform.position = neckAt + body.right * 0.17f + Vector3.up * 0.05f + body.forward * 0.08f;
                 }
                 else
                 {
-                    // Held out in front at chest height, pointing where the body faces.
-                    held.Model.transform.position = body.position + body.right * 0.24f + Vector3.up * 1.10f + body.forward * 0.34f;
+                    // Held out in front just under the neck, pointing where the body faces.
+                    held.Model.transform.position = neckAt + body.right * 0.19f - Vector3.up * 0.04f + body.forward * 0.34f;
                 }
                 held.Model.transform.rotation = body.rotation;
             }

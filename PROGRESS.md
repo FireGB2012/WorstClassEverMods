@@ -257,3 +257,28 @@ Share zip: `share\ClassPack-0.7.0.zip` (12 MB).
 
 First things to check with him: the wardrobe picture shows the player; hats sit on the head;
 colours work; models are the right size in the hand (guns, tricks) and are not too dark.
+
+### Fit fix and how-to cards (version 0.7.1, built 2026-11-14, NOT installed yet)
+
+Gabriel's first look at 0.7.0 in the wardrobe: hat at eye level and too big, sunglasses huge and
+at the mouth, backpack down by the legs and far behind ("nothing is right position and size").
+Cause, from the log line `looks: my body root is role00, head anchor neck at height 0.76`: the
+game's `HeadPosition` part is the NECK. A student is about 1.1 m tall, the middle of the head is
+about 0.17 m above the neck and the head is about 0.16 m in radius (measured off his screenshot).
+
+- New fit defaults: `headUp` 0.17, `headForward` 0, `headSize` 1.45, `bodyOut` 0.11 (how far the
+  back and belly are from the body's middle). `fitVersion` in config.json makes old saved fit
+  numbers get replaced once. Back items sit 0.13 below the neck, belly items 0.24 below.
+- Hats now turn and tilt with the head: the head bone (first bone under the neck with "head" in
+  its name, else the neck) has its up and forward axes worked out while the head is upright.
+- Body items, the teachers' gear and the pot were converted smaller; glasses and moustache lower.
+- Held guns and tricks sit just under the neck in front (they were placed 1.1 m up, above a
+  student's head); long guns are shrunk in the hand (`HeldScale`).
+- What you see of your own outfit (his request): a student does not see their own head items,
+  body items stay visible; a teacher sees none of their own. Done with shadow-only rendering,
+  because the game's own camera does draw the `PlayerSelf` layer.
+- How-to cards (`Tips.cs`, his request "make it like first time using them so you understand"):
+  the first time in a class as a student, as a plain teacher, or as each new teacher type, a card
+  with the keys shows for 25 seconds. F1 hides it and brings it back. Seen cards are kept in
+  `seenTips`. The wardrobe also explains each teacher type and how to become the teacher.
+- The teacher's body size is still unknown; the log now prints the anchors for a teacher body too.

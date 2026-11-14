@@ -18,6 +18,15 @@ namespace ClassPack
 
         public static bool IsOpen { get; private set; }
 
+        private static readonly string[] TeacherHelp =
+        {
+            "Normal: the game's own teacher, plus eating snacks from drawers.",
+            "Gym teacher: bald on top with a big belly. X throws a slice of pizza that knocks a student over.",
+            "Lunch lady: X throws mashed potatoes that stick a student in place. No blackboard: hold B at her pot for stamina.",
+            "Janitor: X mops. That clears banana peels, glue and whoopee cushions and leaves a wet floor students slip on.",
+            "Bald with a wig: a student behind you can pull the wig off. No chalk until you walk over it and get it back."
+        };
+
         private static bool _openRequested;
 
         private readonly CursorGrab _cursor = new CursorGrab();
@@ -206,7 +215,7 @@ namespace ClassPack
                 int before = look.A;
                 int beforeB = look.B;
                 Settings fit = Plugin.Settings;
-                float fitBefore = fit.headUp + fit.headForward * 7f + fit.headSize * 13f + fit.bodyUp * 17f;
+                float fitBefore = fit.headUp + fit.headForward * 7f + fit.headSize * 13f + fit.bodyUp * 17f + fit.bodyOut * 23f;
 
                 GUILayout.BeginArea(new Rect(window.x + 340f, window.y + 54f, Width - 360f, Height - 70f));
                 _scroll = GUILayout.BeginScrollView(_scroll);
@@ -223,12 +232,16 @@ namespace ClassPack
                 look.BodyTint = Row("Skin colour (students)", look.BodyTint, Looks.TintNames, 6);
                 GUILayout.Space(6f);
                 look.Teacher = Row("When you are the teacher", look.Teacher, Looks.TeacherNames, 5);
+                GUILayout.Label(TeacherHelp[Mathf.Clamp(look.Teacher, 0, TeacherHelp.Length - 1)], _small);
+                GUILayout.Label("To be the teacher: before class, use the game's teacher wardrobe in the school to change role. "
+                    + "In class, press " + Plugin.Settings.HelpKeyCode + " to see your keys.", _small);
                 GUILayout.Space(8f);
                 GUILayout.Label("Fit: move these if hats sit in the wrong place", _label);
                 fit.headUp = Slide("Hats up or down", fit.headUp, -0.4f, 0.6f);
                 fit.headForward = Slide("Hats forward or back", fit.headForward, -0.4f, 0.4f);
                 fit.headSize = Slide("Hat size", fit.headSize, 0.4f, 3f);
                 fit.bodyUp = Slide("Backpack and belly up or down", fit.bodyUp, -0.5f, 0.5f);
+                fit.bodyOut = Slide("Backpack and belly in or out", fit.bodyOut, 0f, 0.4f);
                 GUILayout.EndScrollView();
                 GUILayout.EndArea();
 
@@ -237,7 +250,7 @@ namespace ClassPack
                     Looks.Mine = look;
                     Game.PlaySound(AudioEvents.sfx_UIButtonClick_sfx);
                 }
-                if (!Mathf.Approximately(fitBefore, fit.headUp + fit.headForward * 7f + fit.headSize * 13f + fit.bodyUp * 17f))
+                if (!Mathf.Approximately(fitBefore, fit.headUp + fit.headForward * 7f + fit.headSize * 13f + fit.bodyUp * 17f + fit.bodyOut * 23f))
                 {
                     _fitChanged = true;
                 }

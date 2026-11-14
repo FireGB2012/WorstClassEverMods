@@ -142,6 +142,11 @@ namespace ClassPack
             public bool PartsTouched;
             public Transform ScaledRoot;
             public Vector3 BaseScale;
+            public Transform HeadBone;
+            public int UpAxis = -1;
+            public int ForwardAxis;
+            public float UpSign;
+            public float ForwardSign;
             public readonly List<Piece> Pieces = new List<Piece>();
             public readonly HashSet<Renderer> Tinted = new HashSet<Renderer>();
         }
@@ -159,6 +164,7 @@ namespace ClassPack
         private static NetworkConnection _sentTo;
         private static float _nextSendAt;
         private static bool _loggedAnchors;
+        private static bool _loggedTeacher;
 
         /// <summary>This player's own pick, kept in the settings file.</summary>
         public static Look Mine
@@ -488,12 +494,42 @@ namespace ClassPack
                 Add(worn, BackModels[look.Back], OnBack, layer);
             }
 
-            if (!_loggedAnchors && local)
+            // What a player sees of their own outfit while playing: a student sees what is on
+            // their body but not what is on their head (a hat or glasses would be in the way),
+            // and a teacher sees none of it. Hidden pieces still cast a shadow, and everything
+            // shows in the wardrobe picture.
+            foreach (Piece piece in worn.Pieces)
             {
-                _loggedAnchors = true;
+                bool hideFromSelf = local && !preview && (piece.Anchor == Head || unit.IsTeacher);
+                foreach (Renderer renderer in piece.Model.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.shadowCastingMode = hideFromSelf ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.Off;
+                }
+            }
+
+            // The head bone is looked up again for a new body.
+            worn.HeadBone = null;
+            worn.UpAxis = -1;
+
+            // Once for a student body and once for a teacher body: what the game's anchors are.
+            if (local && (unit.IsTeacher ? !_loggedTeacher : !_loggedAnchors))
+            {
+                if (unit.IsTeacher)
+                {
+                    _loggedTeacher = true;
+                }
+                else
+                {
+                    _loggedAnchors = true;
+                }
                 Transform head = unit.GetPartRoot(EUnitPartType.HeadPosition);
-                Plugin.Log("looks: my body root is " + (root != null ? root.name : "missing") + ", head anchor "
+                Transform bone = head != null ? FindHeadBone(head) : null;
+                Transform hand = unit.GetPartRoot(EUnitPartType.HandPosition);
+                Plugin.Log("looks: my " + (unit.IsTeacher ? "teacher" : "student") + " body root is "
+                    + (root != null ? root.name : "missing") + ", head anchor "
                     + (head != null ? head.name + " at height " + (head.position.y - unit.transform.position.y).ToString("F2") : "missing")
+                    + ", head bone " + (bone != null ? bone.name : "none")
+                    + ", hand " + (hand != null ? hand.name + " at height " + (hand.position.y - unit.transform.position.y).ToString("F2") : "missing")
                     + ", layers self " + selfLayer + " other " + otherLayer);
             }
         }
@@ -681,13 +717,42 @@ namespace ClassPack
             {
                 return;
             }
+            // The game's head point is the neck, 0.76 m up on a student. Everything worn is
+            // placed from there: the head's middle is a hand's width above it, the back and the
+            // belly a little below it.
             Transform body = unit.transform;
-            Transform head = unit.GetPartRoot(EUnitPartType.HeadPosition);
-            Vector3 headAt = head != null ? head.position : body.position + Vector3.up * 1.55f;
+            Transform neck = unit.GetPartRoot(EUnitPartType.HeadPosition);
+            Vector3 neckAt = neck != null ? neck.position : body.position + Vector3.up * 0.76f;
             Quaternion yaw = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
             Settings fit = Plugin.Settings;
             float size = Mathf.Clamp(fit.headSize, 0.3f, 4f);
-            Vector3 headMiddle = headAt + yaw * new Vector3(0f, fit.headUp, fit.headForward);
+
+            // Hats turn and tilt with the head once it is known which way the head bone's own
+            // axes point. That is worked out while the head is upright and facing forward.
+            Quaternion headTurn = yaw;
+            if (neck != null)
+            {
+                if (worn.HeadBone == null)
+                {
+                    worn.HeadBone = FindHeadBone(neck) ?? neck;
+                    worn.UpAxis = -1;
+                }
+                if (worn.UpAxis < 0)
+                {
+                    Calibrate(worn, yaw * Vector3.forward);
+                }
+                if (worn.UpAxis >= 0)
+                {
+                    Vector3 up = Axis(worn.HeadBone, worn.UpAxis) * worn.UpSign;
+                    Vector3 forward = Axis(worn.HeadBone, worn.ForwardAxis) * worn.ForwardSign;
+                    if (up.sqrMagnitude > 0.5f && forward.sqrMagnitude > 0.5f)
+                    {
+                        headTurn = Quaternion.LookRotation(forward, up);
+                    }
+                }
+            }
+            Vector3 headMiddle = neckAt + headTurn * new Vector3(0f, fit.headUp, fit.headForward);
+            Vector3 headAt = neckAt;
             bool wigOff = Teachers.WigIsOff(unit.UID);
             foreach (Piece piece in worn.Pieces)
             {
@@ -703,25 +768,101 @@ namespace ClassPack
                         piece.Model.SetActive(!wigOff);
                     }
                 }
+                model.rotation = yaw;
                 switch (piece.Anchor)
                 {
                     case Head:
                         model.position = headMiddle;
                         model.localScale = Vector3.one * size;
+                        model.rotation = headTurn;
                         break;
                     case OnBack:
-                        model.position = headAt + yaw * new Vector3(0f, fit.bodyUp - 0.40f, -0.16f);
+                        model.position = headAt + yaw * new Vector3(0f, fit.bodyUp - 0.13f, -fit.bodyOut);
                         break;
                     case Front:
-                        model.position = headAt + yaw * new Vector3(0f, fit.bodyUp - 0.58f, 0.12f);
+                        model.position = headAt + yaw * new Vector3(0f, fit.bodyUp - 0.24f, fit.bodyOut - 0.02f);
                         break;
                     default:
                         Transform hand = unit.GetPartRoot(EUnitPartType.HandPosition);
-                        model.position = hand != null ? hand.position : body.position + yaw * new Vector3(0.26f, 1.0f, 0.2f);
+                        model.position = hand != null ? hand.position : body.position + yaw * new Vector3(0.2f, 0.45f, 0.15f);
                         break;
                 }
-                model.rotation = yaw;
             }
+        }
+
+        private static Vector3 Axis(Transform bone, int axis)
+        {
+            return axis == 0 ? bone.right : axis == 1 ? bone.up : bone.forward;
+        }
+
+        /// <summary>The bone that turns with the head: the first one below the neck with "head" in its name.</summary>
+        private static Transform FindHeadBone(Transform neck)
+        {
+            var queue = new Queue<Transform>();
+            queue.Enqueue(neck);
+            int looked = 0;
+            while (queue.Count > 0 && looked < 40)
+            {
+                Transform bone = queue.Dequeue();
+                looked++;
+                if (bone != neck && bone.name.ToLowerInvariant().Contains("head"))
+                {
+                    return bone;
+                }
+                for (int i = 0; i < bone.childCount; i++)
+                {
+                    queue.Enqueue(bone.GetChild(i));
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Finds which of the head bone's own axes point up and forward. Only decided while the
+        /// head is close to upright and facing the way the body faces; until then hats just
+        /// follow the body.
+        /// </summary>
+        private static void Calibrate(Worn worn, Vector3 bodyForward)
+        {
+            Transform bone = worn.HeadBone;
+            int upAxis = -1;
+            float upBest = 0.85f;
+            float upSign = 1f;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                float dot = Vector3.Dot(Axis(bone, axis), Vector3.up);
+                if (Mathf.Abs(dot) > upBest)
+                {
+                    upBest = Mathf.Abs(dot);
+                    upAxis = axis;
+                    upSign = Mathf.Sign(dot);
+                }
+            }
+            if (upAxis < 0)
+            {
+                return;
+            }
+            int forwardAxis = -1;
+            float forwardBest = 0.8f;
+            float forwardSign = 1f;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                float dot = Vector3.Dot(Axis(bone, axis), bodyForward);
+                if (axis != upAxis && Mathf.Abs(dot) > forwardBest)
+                {
+                    forwardBest = Mathf.Abs(dot);
+                    forwardAxis = axis;
+                    forwardSign = Mathf.Sign(dot);
+                }
+            }
+            if (forwardAxis < 0)
+            {
+                return;
+            }
+            worn.UpAxis = upAxis;
+            worn.UpSign = upSign;
+            worn.ForwardAxis = forwardAxis;
+            worn.ForwardSign = forwardSign;
         }
     }
 }

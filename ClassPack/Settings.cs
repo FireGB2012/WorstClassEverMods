@@ -55,10 +55,22 @@ namespace ClassPack
         public int lookB = 0;
         // Where hats sit compared with the game's own head point, and how big they are.
         // The wardrobe has sliders for these.
-        public float headUp = 0.05f;
-        public float headForward = -0.10f;
-        public float headSize = 1.8f;
+        // The game's head point is the neck, so the middle of a student's head is about
+        // 0.17 m above it and 1.45 times the size the hats were modelled for.
+        public float headUp = 0.17f;
+        public float headForward = 0f;
+        public float headSize = 1.45f;
         public float bodyUp = 0f;
+        // How far the back and the belly are from the middle of the body.
+        public float bodyOut = 0.11f;
+        // Raised whenever the fit numbers above get new defaults, so old saved ones are replaced.
+        public int fitVersion = 0;
+
+        // The how-to cards: shown the first time, and again with helpKey. seenTips lists
+        // the cards this player has already been shown.
+        public bool tips = true;
+        public string helpKey = "F1";
+        public string seenTips = "";
         // useKey takes or throws away a nerf gun and pulls the fire alarm. fireKey shoots
         // (a click on the mouse wheel shoots too). answerKey picks up a ringing phone.
         public string useKey = "B";
@@ -70,6 +82,8 @@ namespace ClassPack
 
         // The room owner's settings window
         public string panelKey = "F6";
+
+        private const int CurrentFit = 2;
 
         [NonSerialized]
         private string _path;
@@ -83,6 +97,16 @@ namespace ClassPack
                 if (File.Exists(path))
                 {
                     JsonUtility.FromJsonOverwrite(File.ReadAllText(path), settings);
+                }
+                if (settings.fitVersion < CurrentFit)
+                {
+                    var fresh = new Settings();
+                    settings.headUp = fresh.headUp;
+                    settings.headForward = fresh.headForward;
+                    settings.headSize = fresh.headSize;
+                    settings.bodyUp = fresh.bodyUp;
+                    settings.bodyOut = fresh.bodyOut;
+                    settings.fitVersion = CurrentFit;
                 }
                 settings._path = path;
                 settings.Save();
@@ -113,6 +137,8 @@ namespace ClassPack
         public KeyCode PanelKeyCode => ParseKey(panelKey, KeyCode.F6);
 
         public KeyCode WardrobeKeyCode => ParseKey(wardrobeKey, KeyCode.F7);
+
+        public KeyCode HelpKeyCode => ParseKey(helpKey, KeyCode.F1);
 
         public KeyCode UseKeyCode => ParseKey(useKey, KeyCode.B);
 

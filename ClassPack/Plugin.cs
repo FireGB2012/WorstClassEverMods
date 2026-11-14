@@ -46,7 +46,7 @@ namespace ClassPack
         private static readonly Action[] Features =
         {
             Game.Tick, Net.Tick, Poles.Tick, DoorDash.Tick, TeacherSnacks.Tick, PowerCut.Tick,
-            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick, Looks.Tick, Teachers.Tick
+            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick, Looks.Tick, Teachers.Tick, Tips.Tick
         };
 
         private readonly float[] _lastErrorLog = new float[Features.Length];

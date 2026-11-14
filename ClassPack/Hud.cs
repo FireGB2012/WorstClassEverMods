@@ -36,6 +36,7 @@ namespace ClassPack
                 string gun = NerfGuns.DrawHud(width, height);
                 string trick = Tricks.DrawHud(width, height);
                 string teacher = Teachers.DrawHud(width, height);
+                Tips.Draw(width, height);
                 string call = PrankCall.DrawHud();
                 // One line at a time: a ringing phone first, then the gun, the trick in hand,
                 // the teacher's own power or a wig to grab, the alarm box.

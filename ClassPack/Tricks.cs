@@ -370,7 +370,9 @@ namespace ClassPack
                     hand.Model = BuildItem(hand.Item);
                 }
                 hand.Model.SetActive(true);
-                hand.Model.transform.position = body.position + body.right * 0.22f + Vector3.up * 1.12f + body.forward * 0.36f;
+                Transform neck = holder.GetPartRoot(EUnitPartType.HeadPosition);
+                Vector3 neckAt = neck != null ? neck.position : body.position + Vector3.up * 0.76f;
+                hand.Model.transform.position = neckAt + body.right * 0.19f - Vector3.up * 0.04f + body.forward * 0.34f;
                 hand.Model.transform.rotation = body.rotation;
             }
 
@@ -905,7 +907,7 @@ namespace ClassPack
                 return;
             }
             ulong uid = player.UID;
-            Vector3 hand = player.Position + Vector3.up * 1.3f;
+            Vector3 hand = player.Position + Vector3.up * 0.8f;
             Vector3 to = ask.w;
             if ((to - hand).magnitude > Reach[item] + 4f)
             {
