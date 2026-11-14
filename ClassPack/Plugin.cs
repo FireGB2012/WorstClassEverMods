@@ -44,6 +44,7 @@ namespace ClassPack
             try
             {
                 Game.Tick();
+                Net.Tick();
                 DoorDash.Tick();
                 TeacherSnacks.Tick();
                 PowerCut.Tick();

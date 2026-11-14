@@ -19,6 +19,7 @@ namespace ClassPack
 
         // Teacher eats snacks out of student drawers for stamina
         public bool teacherSnacks = true;
+        public string teacherSnackKey = "G";
         public float teacherSnackStamina = 15f;
 
         // Power cut in the middle of class
@@ -44,18 +45,19 @@ namespace ClassPack
             return settings;
         }
 
-        public KeyCode DoorDashKeyCode
+        public KeyCode DoorDashKeyCode => ParseKey(doorDashKey, KeyCode.O);
+
+        public KeyCode TeacherSnackKeyCode => ParseKey(teacherSnackKey, KeyCode.G);
+
+        private static KeyCode ParseKey(string name, KeyCode fallback)
         {
-            get
+            try
             {
-                try
-                {
-                    return (KeyCode)Enum.Parse(typeof(KeyCode), doorDashKey, true);
-                }
-                catch (Exception)
-                {
-                    return KeyCode.O;
-                }
+                return (KeyCode)Enum.Parse(typeof(KeyCode), name, true);
+            }
+            catch (Exception)
+            {
+                return fallback;
             }
         }
     }

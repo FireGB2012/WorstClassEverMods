@@ -19,10 +19,21 @@ Ideas list: Google Doc "worst class ever mod ideas" (38 ideas).
 
 | Idea | State |
 |------|-------|
-| 11 DoorDash on the computers | Built, compiles. Not yet tried in the game. |
-| 6 (part) Teacher eats snacks from drawers for stamina | Not built |
-| 38 (part) Power cut in the middle of class | Not built |
+| 11 DoorDash on the computers | Built and installed. Not yet tried in the game. Student sits at a computer in class and presses O. |
+| 6 (part) Teacher eats snacks from drawers for stamina | Built and installed. Not yet tried in the game. Teacher stands by a desk and presses G. |
+| 38 (part) Power cut in the middle of class | Built and installed. Not yet tried in the game. Once per class, at a random moment, for 25 seconds. The darkening look is a guess until it is seen in the game. |
 | 3 Bald male teacher | Moved to the models pack: his hair is part of his body model, so it can't just be hidden |
+
+Version 0.1.0 was installed to the game's Mods folder on 2026-11-14. It still has to be switched on
+in the game's mod menu (new mods start switched off), then the game restarted.
+
+### Things to check in the first play test
+
+- Does "Class Pack" show in the mod menu without an error, and does the log say `[Mods] Loaded classpack`?
+- DoorDash: the hint when you sit at a computer, the order message, the food landing in the drawer.
+- Do the O and G keys clash with anything the game already uses? Both can be changed in config.json.
+- Teacher snack: does the snack vanish for the students too, and does the stamina bar go up?
+- Power cut: is the room dark enough, too dark, or not dark at all?
 
 ## Later
 
