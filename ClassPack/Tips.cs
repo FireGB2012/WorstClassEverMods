@@ -20,7 +20,7 @@ namespace ClassPack
         private static GUIStyle _titleStyle, _lineStyle, _footStyle;
 
         private static string Use => Plugin.Settings.UseKeyCode.ToString();
-        private static string Fire => Plugin.Settings.FireKeyCode + " or a wheel click";
+        private static string Fire => "Your eraser key, or " + Plugin.Settings.FireKeyCode + ",";
 
         /// <summary>The card for a way of playing: "student", or "teacher" plus the teacher type.</summary>
         private static bool Card(string id, out string title, out string[] lines)
@@ -34,7 +34,7 @@ namespace ClassPack
                     lines = new[]
                     {
                         Plugin.Settings.DoorDashKeyCode + "  pulls up your phone: DoorDash, prank calls, tricks and the wardrobe",
-                        "Tricks go in your hand:  " + Fire + "  uses one,  " + Use + "  puts it away",
+                        "Tricks go in your hand:  " + Plugin.Settings.FireKeyCode + " or a wheel click  uses one,  " + Use + "  puts it away",
                         "Eat snacks: now and then a nerf gun turns up in your desk.  " + Use + "  grabs it",
                         Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe: hats, outfits and colours"
                     };
@@ -64,8 +64,8 @@ namespace ClassPack
                     {
                         Fire + "  throws mashed potatoes where you look",
                         "A student who is hit is stuck for 4 seconds",
-                        "You can't write on the blackboard. Your big pot stands next to it instead",
-                        "Stand at the pot and hold  " + Use + "  to stir it: that fills your stamina"
+                        "You can't write on the blackboard. Your pot stands on the teacher's stand at the front",
+                        "Just stand next to the pot: you stir it by yourself and your stamina fills up"
                     };
                     return true;
                 case "teacher3":

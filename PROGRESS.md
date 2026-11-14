@@ -349,3 +349,24 @@ task ids and recipe in `meshy\tasks.md`).
 The log shows the mod loading. NOT yet seen in a class: the characters themselves, their size
 and whether they face the right way. A `character '...' loaded` log line appears the first
 time one is shown.
+
+### Pot on the stand, easier lunch lady (version 0.8.1, installed 2026-11-14, not yet run)
+
+Gabriel: "put the lady's pot on top of the thing and also easy to use her part". My reading of
+"the thing": the teacher's stand at the front of the class, the one the teaching plan lies on.
+
+- Pot: the host looks for the unit with `TeachingPlanComponent` nearest the lunch lady and puts
+  the pot on that same surface next to the plan (a ray down at eight spots around it, keeping
+  the first that lands at the plan's height), at half size. With no such unit it falls back to
+  the floor by the blackboard. The log line `teachers: the pot is at ...` says which.
+- Stirring needs no key any more: standing within 2.6 m of the pot fills stamina.
+- The gym teacher, lunch lady and janitor now use the game's own second throw key (the eraser
+  key, `eCmdType.UseItem2`) for their power; X and the wheel click still work. The hint line
+  shows the game's name for that key.
+- Fix found in the log of his 0.8.0 session: `my teacher body root is missing, head anchor neck
+  at height 1.51, hand HandPos at height 1.34`. The game's teacher has no `RenderRoot` part, so
+  in 0.8.0 the game's teacher was NOT hidden under the new character. Now the teacher's whole
+  model is used as its body root and only its own skinned parts are hidden.
+
+Installed with the game closed. He sent a message instead of answering whether to start the
+game, so it was not started and the load of 0.8.1 is not checked in the log.

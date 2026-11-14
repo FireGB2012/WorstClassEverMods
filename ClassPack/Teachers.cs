@@ -25,7 +25,7 @@ namespace ClassPack
         private const float ThrowReach = 24f;
         private const float EffectSeconds = 4f;
         private const float WetSeconds = 20f;
-        private const float StirReach = 2.4f;
+        private const float StirReach = 2.6f;
 
         private sealed class Shot
         {
@@ -59,6 +59,8 @@ namespace ClassPack
         private static float _nextStirAt;
         private static float _nextStirSoundAt;
         private static Texture2D _pizza;
+        private static string _secondKey;
+        private static float _secondKeyReadAt = -100f;
 
         // What only the host keeps
         private static readonly Dictionary<ulong, float> HostReadyAt = new Dictionary<ulong, float>();
@@ -160,6 +162,87 @@ namespace ClassPack
 
         // --------------------------------------------------------------- this player's keys
 
+        /// <summary>True when this is the local player as one of the teachers with a power of their own.</summary>
+        public static bool HasPower(Unit teacher)
+        {
+            int kind = teacher != null && teacher.isLocalPlayer && Game.InClass ? KindOf(teacher) : 0;
+            return kind >= Looks.Gym && kind <= Looks.Janitor;
+        }
+
+        /// <summary>
+        /// Uses the local teacher's own power: the gym teacher's pizza, the lunch lady's mashed
+        /// potatoes or the janitor's mop. Called for the mod's fire key and for the game's own
+        /// second throw key, which these teachers use for this instead of the eraser.
+        /// </summary>
+        public static void TryUsePower()
+        {
+            Unit me = Game.LocalPlayer;
+            if (me == null || !me.isActived || !Net.CanSendToHost || CursorGrab.Busy || me.IsStun || me.BodyActionsBlocked
+                || !HasPower(me) || NerfGuns.HoldingLocal)
+            {
+                return;
+            }
+            int kind = KindOf(me);
+            if (Time.time < _readyAt)
+            {
+                Tricks.Tip("Ready again in " + Mathf.CeilToInt(_readyAt - Time.time) + " seconds.");
+                return;
+            }
+            if (kind == Looks.Janitor)
+            {
+                _readyAt = Time.time + MopWait;
+                Net.SendToHost(new CpAsk { kind = CpKind.Mop });
+                return;
+            }
+            Camera camera = Camera.main;
+            UnitManager units = Game.Peek<UnitManager>();
+            if (camera == null || units == null)
+            {
+                return;
+            }
+            Vector3 from = camera.transform.position;
+            Vector3 end;
+            Unit target = NerfGuns.Trace(units, me, from, camera.transform.forward, ThrowReach, out end);
+            _readyAt = Time.time + ThrowWait;
+            Net.SendToHost(new CpAsk { kind = CpKind.TeacherThrow, i = kind, v = from, w = end, t0 = target != null ? target.UID : 0uL });
+        }
+
+        /// <summary>The name of the game's own second throw key, for the hint line.</summary>
+        private static string SecondKey()
+        {
+            if (_secondKey == null || Time.unscaledTime - _secondKeyReadAt > 3f)
+            {
+                _secondKeyReadAt = Time.unscaledTime;
+                _secondKey = null;
+                try
+                {
+                    if (MonoSingletonT<InputManager>.IsSingletonActive())
+                    {
+                        _secondKey = MonoSingletonT<InputManager>.Instance.BindingName(eCmdType.UseItem2);
+                    }
+                }
+                catch (Exception)
+                {
+                }
+                if (string.IsNullOrEmpty(_secondKey) || _secondKey == eCmdType.UseItem2.ToString())
+                {
+                    _secondKey = null;
+                }
+            }
+            return _secondKey;
+        }
+
+        private static string PowerKeys()
+        {
+            string second = SecondKey();
+            return "[" + (second != null ? second + " or " : "") + Plugin.Settings.FireKeyCode + "] ";
+        }
+
+        private static bool AtPot(Unit me)
+        {
+            return _potThere && Tricks.Flat(me.Position - _pot).magnitude < StirReach && Mathf.Abs(me.Position.y - _pot.y) < 2.5f;
+        }
+
         private static void HandleKeys()
         {
             Unit me = Game.LocalPlayer;
@@ -184,42 +267,19 @@ namespace ClassPack
             {
                 return;
             }
-            bool fire = Input.GetKeyDown(Plugin.Settings.FireKeyCode) || Input.GetMouseButtonDown(2);
-            if (fire && !NerfGuns.HoldingLocal && kind >= Looks.Gym && kind <= Looks.Janitor)
+            if (Input.GetKeyDown(Plugin.Settings.FireKeyCode) || Input.GetMouseButtonDown(2))
             {
-                if (Time.time < _readyAt)
-                {
-                    Tricks.Tip("Ready again in " + Mathf.CeilToInt(_readyAt - Time.time) + " seconds.");
-                }
-                else if (kind == Looks.Janitor)
-                {
-                    _readyAt = Time.time + MopWait;
-                    Net.SendToHost(new CpAsk { kind = CpKind.Mop });
-                }
-                else
-                {
-                    Camera camera = Camera.main;
-                    UnitManager units = Game.Peek<UnitManager>();
-                    if (camera != null && units != null)
-                    {
-                        Vector3 from = camera.transform.position;
-                        Vector3 end;
-                        Unit target = NerfGuns.Trace(units, me, from, camera.transform.forward, ThrowReach, out end);
-                        _readyAt = Time.time + ThrowWait;
-                        Net.SendToHost(new CpAsk { kind = CpKind.TeacherThrow, i = kind, v = from, w = end, t0 = target != null ? target.UID : 0uL });
-                    }
-                }
+                TryUsePower();
             }
 
-            // The lunch lady keeps the stir key held next to her pot.
-            if (kind == Looks.Lunch && _potThere && Input.GetKey(Plugin.Settings.UseKeyCode)
-                && Tricks.Flat(me.Position - _pot).magnitude < StirReach && Time.time >= _nextStirAt)
+            // The lunch lady only has to stand at her pot: she stirs by herself and her stamina fills.
+            if (kind == Looks.Lunch && AtPot(me) && Time.time >= _nextStirAt)
             {
                 _nextStirAt = Time.time + 0.25f;
                 SkillComponent skill = me.GetComponent<SkillComponent>();
                 if (skill != null)
                 {
-                    skill.AddSkillEnergy(1f);
+                    skill.AddSkillEnergy(1.25f);
                 }
                 if (Time.time >= _nextStirSoundAt)
                 {
@@ -421,12 +481,13 @@ namespace ClassPack
                 foreach (Unit player in units.playerList)
                 {
                     Vector3 spot;
-                    if (player != null && player.isActived && KindOf(player) == Looks.Lunch && FindPotSpot(units, player, out spot))
+                    bool onStand;
+                    if (player != null && player.isActived && KindOf(player) == Looks.Lunch && FindPotSpot(units, player, out spot, out onStand))
                     {
                         _hostPot = true;
-                        Net.SendToModded(new CpTell { kind = CpKind.Pot, j = 1, v = spot });
-                        Net.Toast(player, "Your pot is out by the blackboard. Hold " + Plugin.Settings.UseKeyCode + " next to it to stir for stamina.", 5f);
-                        Plugin.Log("teachers: the pot is at " + spot.ToString("F2"));
+                        Net.SendToModded(new CpTell { kind = CpKind.Pot, j = 1, v = spot, f = onStand ? 1f : 0f });
+                        Net.Toast(player, "Your pot is on the teacher's stand at the front. Stand next to it and your stamina fills up.", 5f);
+                        Plugin.Log("teachers: the pot is at " + spot.ToString("F2") + (onStand ? " on the teacher's stand" : " on the floor by the blackboard"));
                         break;
                     }
                 }
@@ -478,12 +539,19 @@ namespace ClassPack
             }
         }
 
-        /// <summary>A place on the floor a step out from the blackboard, towards the desks.</summary>
-        private static bool FindPotSpot(UnitManager units, Unit teacher, out Vector3 spot)
+        /// <summary>
+        /// Where the lunch lady's pot goes: on top of the teacher's stand at the front of the
+        /// class (the thing the teaching plan lies on), next to the plan. If the class has no
+        /// such stand, on the floor a step out from the blackboard.
+        /// </summary>
+        private static bool FindPotSpot(UnitManager units, Unit teacher, out Vector3 spot, out bool onStand)
         {
             spot = Vector3.zero;
+            onStand = false;
             Unit board = null;
-            float best = float.MaxValue;
+            Unit plan = null;
+            float bestBoard = float.MaxValue;
+            float bestPlan = float.MaxValue;
             Vector3 desks = Vector3.zero;
             int count = 0;
             foreach (Unit unit in units.unitsDict.Values)
@@ -492,20 +560,46 @@ namespace ClassPack
                 {
                     continue;
                 }
+                float distance = (unit.Position - teacher.Position).magnitude;
                 if (unit.IsStudent && Mathf.Abs(unit.Position.y - teacher.Position.y) < 2.5f)
                 {
                     desks += unit.Position;
                     count++;
                 }
-                else if (unit.GetComponent<BlackBoardComponent>() != null)
+                else if (unit.GetComponent<TeachingPlanComponent>() != null && distance < bestPlan)
                 {
-                    float distance = (unit.Position - teacher.Position).magnitude;
-                    if (distance < best)
+                    bestPlan = distance;
+                    plan = unit;
+                }
+                else if (unit.GetComponent<BlackBoardComponent>() != null && distance < bestBoard)
+                {
+                    bestBoard = distance;
+                    board = unit;
+                }
+            }
+            if (plan != null)
+            {
+                // The plan lies on the stand, so the stand's top is at the plan's height. Look
+                // for free room on that same surface next to the plan.
+                Vector3 top = plan.Position;
+                var steps = new[]
+                {
+                    new Vector3(0.3f, 0f, 0f), new Vector3(-0.3f, 0f, 0f), new Vector3(0f, 0f, 0.3f), new Vector3(0f, 0f, -0.3f),
+                    new Vector3(0.22f, 0f, 0.22f), new Vector3(-0.22f, 0f, 0.22f), new Vector3(0.22f, 0f, -0.22f), new Vector3(-0.22f, 0f, -0.22f)
+                };
+                onStand = true;
+                spot = top;
+                foreach (Vector3 step in steps)
+                {
+                    RaycastHit hit;
+                    if (Physics.Raycast(top + step + Vector3.up * 0.5f, Vector3.down, out hit, 1.2f, ~0, QueryTriggerInteraction.Ignore)
+                        && Mathf.Abs(hit.point.y - top.y) < 0.12f)
                     {
-                        best = distance;
-                        board = unit;
+                        spot = hit.point;
+                        break;
                     }
                 }
+                return true;
             }
             if (board == null)
             {
@@ -563,9 +657,12 @@ namespace ClassPack
                     _potThere = tell.j == 1;
                     if (_potThere)
                     {
-                        _pot = Tricks.Settle(tell.v);
+                        // On the stand it is put exactly where the host found room, and made smaller to fit.
+                        bool onStand = tell.f > 0.5f;
+                        _pot = onStand ? tell.v : Tricks.Settle(tell.v);
                         _potModel = Tricks.Build("prop_pot", new Color32(90, 94, 104, 255), 0.6f);
                         _potModel.transform.position = _pot;
+                        _potModel.transform.localScale = Vector3.one * (onStand ? 0.5f : 1f);
                     }
                     break;
                 case CpKind.Wet:
@@ -675,16 +772,15 @@ namespace ClassPack
             {
                 return null;
             }
-            string key = "[" + Plugin.Settings.FireKeyCode + " or wheel click] ";
+            string key = PowerKeys();
             string wait = Time.time < _readyAt ? "  (" + Mathf.CeilToInt(_readyAt - Time.time) + "s)" : "";
             switch (kind)
             {
                 case Looks.Gym:
                     return "Gym teacher     " + key + "throw pizza" + wait;
                 case Looks.Lunch:
-                    bool atPot = _potThere && Tricks.Flat(me.Position - _pot).magnitude < StirReach;
                     return "Lunch lady     " + key + "throw mashed potatoes" + wait + "     "
-                        + (atPot ? "[" + Plugin.Settings.UseKeyCode + "] hold to stir the pot" : "stir the pot for stamina");
+                        + (AtPot(me) ? "stirring the pot: stamina is filling up" : "stand at your pot for stamina");
                 case Looks.Janitor:
                     return "Janitor     " + key + "mop the floor" + wait;
                 case Looks.Wig:

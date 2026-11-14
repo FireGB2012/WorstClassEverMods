@@ -427,6 +427,11 @@ namespace ClassPack
             }
             Look look = worn.Look;
             Transform root = unit.GetPartRoot(EUnitPartType.RenderRoot);
+            if (root == null && unit.IsTeacher && unit.model != null)
+            {
+                // The game's teacher has no such part: its whole model is the body.
+                root = unit.model.transform;
+            }
             int selfLayer = LayerMask.NameToLayer("PlayerSelf");
             int otherLayer = LayerMask.NameToLayer("Player");
 
@@ -488,7 +493,9 @@ namespace ClassPack
                 {
                     foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
                     {
-                        if (!renderer.forceRenderingOff)
+                        // Only the teacher's own skin, not something another unit hangs on it.
+                        if (!renderer.forceRenderingOff && renderer is SkinnedMeshRenderer
+                            && renderer.GetComponentInParent<ObjectModel>() == unit.model)
                         {
                             renderer.forceRenderingOff = true;
                             worn.HiddenGame.Add(renderer);

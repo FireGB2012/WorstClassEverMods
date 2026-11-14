@@ -38,8 +38,21 @@ namespace ClassPack
             }
             try
             {
-                return !(Tricks.HandIsGlued(__instance.owner, __1 == eClickType.Down)
-                    || Teachers.NoThrowing(__instance.owner, __1 == eClickType.Down));
+                if (Tricks.HandIsGlued(__instance.owner, __1 == eClickType.Down)
+                    || Teachers.NoThrowing(__instance.owner, __1 == eClickType.Down))
+                {
+                    return false;
+                }
+                // The gym teacher, lunch lady and janitor use the eraser key for their own power.
+                if (__0 == eCmdType.UseItem2 && Teachers.HasPower(__instance.owner))
+                {
+                    if (__1 == eClickType.Down)
+                    {
+                        Teachers.TryUsePower();
+                    }
+                    return false;
+                }
+                return true;
             }
             catch (Exception)
             {
