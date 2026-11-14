@@ -1,7 +1,8 @@
 # Builds ClassPack.dll against the game's own files and assembles the mod folder in dist\classpack.
 # Usage:  .\build.ps1            build only
 #         .\build.ps1 -Install   build, then copy the mod into the game's Mods folder
-param([switch]$Install)
+#         .\build.ps1 -Share     build, then make a zip in share\ to give to friends
+param([switch]$Install, [switch]$Share)
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -33,6 +34,34 @@ if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 
 Copy-Item (Join-Path $root 'package\*') $dist -Recurse -Force
 Write-Host "Built $dist"
+
+if ($Share) {
+    # A zip holding the classpack folder plus the install note, named after the mod version.
+    $version = (Get-Content (Join-Path $root 'package\mod.json') -Raw | ConvertFrom-Json).version
+    $stage = Join-Path $root 'dist\share-stage'
+    if (Test-Path $stage) { Remove-Item $stage -Recurse -Force -Confirm:$false }
+    New-Item -ItemType Directory -Force (Join-Path $stage 'classpack') | Out-Null
+    Copy-Item (Join-Path $dist '*') (Join-Path $stage 'classpack') -Recurse -Force
+    Copy-Item (Join-Path $root 'share-notes\*') $stage -Force
+    $shareDir = Join-Path $root 'share'
+    New-Item -ItemType Directory -Force $shareDir | Out-Null
+    $zip = Join-Path $shareDir "ClassPack-$version.zip"
+    if (Test-Path $zip) { Remove-Item $zip -Force -Confirm:$false }
+    # Entries are added one by one so their names use forward slashes, which every unzip tool reads.
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($file in Get-ChildItem $stage -Recurse -File) {
+            $name = $file.FullName.Substring($stage.Length + 1).Replace('\', '/')
+            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $name)
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+    Write-Host "Share zip: $zip"
+}
 
 if ($Install) {
     $target = Join-Path $game 'Mods\classpack'

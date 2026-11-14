@@ -1,0 +1,27 @@
+CLASS PACK - a mod for Worst Class Ever
+
+HOW TO INSTALL
+
+1. Close Worst Class Ever if it is open.
+2. In Steam, right-click Worst Class Ever, then Manage, then Browse local files.
+3. Open the "Mods" folder you see there.
+4. Copy the whole "classpack" folder from this zip into that Mods folder.
+5. Start the game and open the mod menu.
+6. Switch "Class Pack" on, then restart the game.
+
+Everyone in the room should have the same version of the mod.
+The extra stuff only works in rooms where the room owner has the mod too.
+
+WHAT IT ADDS
+
+- DoorDash: sit at a computer during class and press O. Food lands in your desk drawer.
+- Hungry teacher: the teacher stands next to a desk and presses G to eat a snack
+  from its drawer and get stamina back.
+- Power cut: once per class the lights go out for a bit.
+- Play alone: the room owner can start a class with only the bot classmates.
+- Owner settings: the room owner presses F6 between classes to set class length,
+  number of teachers and points to win.
+
+TO REMOVE IT
+
+Switch it off in the mod menu, or delete the "classpack" folder from the Mods folder.
