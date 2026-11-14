@@ -209,3 +209,26 @@ test models for 45 credits. Recipe used, 15 credits a model: `meshy_text_to_3d` 
 - He then said "dont put in just show me them", so they were only shown as pictures. NOTHING from
   Meshy is in `package\models` or in the game yet. Wait for his word before converting or installing.
 - Still to make if he likes them: 34 models, about 510 credits.
+
+### Game-style Meshy recipe (2026-11-14, after "they look wrong, make them the same style as the game")
+
+The first three models were too realistic. The game's look, from its Steam screenshots: chibi
+characters with very big round heads, smooth rounded toy-like props, flat bright colours.
+Hats will need to be much bigger than a real head: start `headSize` well above 1.
+
+Recipe that matched the style, 21 credits a model:
+1. `meshy_image_to_image`, `ai_model: nano-banana-2` (6 credits), `remove_background: true`,
+   `aspect_ratio: 1:1`, with two Steam screenshots of the game as `reference_image_urls`
+   (`.../apps/5175310/5e243e63.../ss_5e243e63....1920x1080.jpg` shows props in a drawer,
+   `.../12f3c437.../ss_12f3c437....1920x1080.jpg` shows characters). Prompt pattern: "Draw one
+   new object: a <thing>, as a 3D game prop in exactly the same art style as the objects and
+   characters in these game screenshots: smooth, rounded, chunky toy-like shapes, soft plastic
+   vinyl-toy look, flat bright solid colours with soft simple shading, no realistic texture, no
+   fine detail. <colours>. The <thing> alone, centred, seen from the front and slightly from
+   above, on a plain white background. No characters, no hands, no text."
+2. `meshy_image_to_3d` with `input_task_id` = that image task, `model_type: smart-topology`,
+   `ai_model: meshy-t2.5`, `target_polycount: 5000`, `texture_model: meshy-n1`,
+   `target_formats: [glb]` (15 credits).
+
+Made this way: `meshy\hat_cowboy_toy.glb` (style picture in `meshy\style\`, render in
+`meshy\pictures\`). Gabriel asked for just this one first. Still nothing from Meshy in the game.
