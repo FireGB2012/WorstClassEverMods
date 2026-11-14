@@ -370,3 +370,31 @@ Gabriel: "put the lady's pot on top of the thing and also easy to use her part".
 
 Installed with the game closed. He sent a message instead of answering whether to start the
 game, so it was not started and the load of 0.8.1 is not checked in the log.
+
+## Swim class and dance class (asked for 2026-11-14, plan only, nothing built)
+
+Gabriel: "now make the swim class and the dance class" (ideas 4 and 9). What the game's code
+says about floors, checked that day:
+
+- Every floor is in one scene (`Assets/Pack/Scenes/101_ClassroomScene.unity`; TbScene has no
+  per-floor scenes). A "floor" is an area plus an index (`ClassroomManager.currentFloor`,
+  `ClassroomItem.floorIndex`). So a new room can be built in code in an empty spot of that scene.
+- Moving a player: the pattern of `ClassroomManager.TeleportClassPlayer`: fill a
+  `UnitTeleportPositionMessageResponse_S2C` (unitUID, position, rotation, floor), call
+  `RoomManager.GetUnitMessageHandler().OnUnitTeleportPositionMessageResponse(msg)` on the host
+  and `BroadcastToAllExceptHost(msg)`.
+- Emotes: TbExpression has eight (AnimParam DH1-DH4, SH1-SH2, POS1-POS2), played by
+  `StudentExpressionComponent`. They are the only extra moves the game's students have, so a
+  "dance" has to be made of them; new moves can't be put on the game's own characters.
+- Limits to tell him: the classmate bots only know their own classroom and desks, so a room the
+  mod builds has real players only; the game's characters have no swimming moves; a real new
+  floor in the elevator would need the game's level tools, so the class type is picked in the
+  F6 owner window instead.
+
+Plan put to him (waiting for his yes): build one class at a time, swim class first.
+Swim: pool hall built by the mod, players sent there at the bell; mischief for jumping off the
+diving board, splashing a teacher at the pool's edge and staying under water; slow wading in
+the water; poles at the poolside; a lifeguard chair where the teacher gets stamina back.
+Dance: hall with a dance floor; two students close together who both dance (the game's emotes)
+earn mischief every second; a goofy dance, no twerk emote. About six Meshy props per class,
+roughly 130 credits each (477 left).
