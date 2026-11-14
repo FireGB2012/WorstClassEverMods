@@ -55,9 +55,9 @@ namespace ClassPack
         public int lookB = 0;
         // Where hats sit compared with the game's own head point, and how big they are.
         // The wardrobe has sliders for these.
-        public float headUp = 0.03f;
-        public float headForward = -0.06f;
-        public float headSize = 1f;
+        public float headUp = 0.05f;
+        public float headForward = -0.10f;
+        public float headSize = 1.8f;
         public float bodyUp = 0f;
         // useKey takes or throws away a nerf gun and pulls the fire alarm. fireKey shoots
         // (a click on the mouse wheel shoots too). answerKey picks up a ringing phone.

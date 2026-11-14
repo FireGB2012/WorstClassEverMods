@@ -240,3 +240,20 @@ Made this way: `meshy\hat_cowboy_toy.glb` (style picture in `meshy\style\`, rend
 Details and the weak ones in `meshy\tasks.md`. They were shown to him as three overview sheets.
 Still NOT converted and NOT installed: the game runs 0.6.0, and 0.7.0 (wardrobe and new
 teachers) waits with the old Blender-script models in `package\models`.
+
+### Meshy models in the game (version 0.7.0 installed 2026-11-14)
+
+Gabriel said "Yes, put them in". `tools\convert_all_meshy.py` converted all 35 toy-style models
+into `package\models` (`.cpm` plus a 512 px `.png` each; its MODELS table holds every model's
+size, origin and facing, and three greyish white models are brightened). Facing was checked on
+preview sheets in `dist\previews` (red bar = forward): guns, caps, sunglasses, backpack all right.
+The bald cap and the clown nose are still the Blender-script models.
+
+Version 0.7.0 (wardrobe, new teachers, Meshy models) is installed and the log shows
+`[Mods] Loaded classpack 0.7.0` with Looks=True Teachers=True and no errors. NOTHING of it has
+been seen in a room yet. Hat defaults were raised for the game's big heads (`headSize` 1.8,
+`headUp` 0.05, `headForward` -0.10); these are guesses, the wardrobe's Fit sliders correct them.
+Share zip: `share\ClassPack-0.7.0.zip` (12 MB).
+
+First things to check with him: the wardrobe picture shows the player; hats sit on the head;
+colours work; models are the right size in the hand (guns, tricks) and are not too dark.
