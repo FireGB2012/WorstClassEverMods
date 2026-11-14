@@ -178,3 +178,19 @@ Guesses to check in the game, in this order:
 ## Not building
 
 - Idea 8 as written, idea 5, and the twerk emote in idea 9 (dance class gets a goofy dance instead).
+
+## Models from Meshy (asked for on 2026-11-14)
+
+Gabriel saw the preview pictures of the Blender-script models and said to use Meshy instead
+("these look ass"). State when this was written:
+
+- The mod can now show models with a picture wrapped around them: `.cpm` takes an `x file.png`
+  line per colour group and `u v` at the end of each `v` line (`Models.cs`, `Shapes.Textured`).
+- `tools\convert_meshy.py` (run with Blender in the background) turns a Meshy `.glb` into a
+  `.cpm` plus a shrunk `.png`: joins the parts, thins it to about 6000 triangles, turns it to face
+  forward, sizes it, and puts (0, 0, 0) where the mod expects it. Tried on
+  `Downloads\Generated-Model.glb`: 237,986 triangles became 5,000 with its picture.
+- Not done: no model has been made in Meshy yet. There is no Meshy connector in this session and
+  the built-in browser was not signed in to www.meshy.ai. One model cost 20 credits on the page.
+  All 37 models would be about 740 credits, so ask Gabriel how many to make before spending any.
+- A replacement keeps the old model's file name (for example `hat_cap.cpm`), so no code changes.

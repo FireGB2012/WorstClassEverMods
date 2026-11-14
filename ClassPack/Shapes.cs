@@ -70,6 +70,38 @@ namespace ClassPack
             return material;
         }
 
+        private static readonly Dictionary<Texture2D, Material> Wraps = new Dictionary<Texture2D, Material>();
+
+        /// <summary>A material that shows a picture, for models that come with one.</summary>
+        public static Material Textured(Texture2D picture)
+        {
+            Material material;
+            if (Wraps.TryGetValue(picture, out material) && material != null)
+            {
+                return material;
+            }
+            Material plain = Paint(new Color32(255, 255, 255, 255));
+            if (plain == null)
+            {
+                return null;
+            }
+            material = new Material(plain) { hideFlags = HideFlags.HideAndDontSave };
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", picture);
+            }
+            if (material.HasProperty("_MainTex"))
+            {
+                material.SetTexture("_MainTex", picture);
+            }
+            if (material.HasProperty("_Smoothness"))
+            {
+                material.SetFloat("_Smoothness", 0.25f);
+            }
+            Wraps[picture] = material;
+            return material;
+        }
+
         public static GameObject Part(Transform parent, PrimitiveType type, Vector3 position, Vector3 size, Color32 color, Vector3 euler = default(Vector3))
         {
             GameObject part = GameObject.CreatePrimitive(type);
