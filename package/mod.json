@@ -1,0 +1,13 @@
+{
+  "id": "classpack",
+  "name": "Class Pack",
+  "author": "Gabriel",
+  "version": "0.1.0",
+  "supportedGameVersion": "1.0.2",
+  "description": "Extra mischief: DoorDash food from the classroom computers, a teacher who eats your snacks for stamina, and power cuts in the middle of class.",
+  "apiVersion": 1,
+  "assembly": "ClassPack.dll",
+  "entryType": "ClassPack.Plugin",
+  "tags": ["gameplay"],
+  "affectsNetworkMessages": true
+}
