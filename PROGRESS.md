@@ -24,8 +24,16 @@ Ideas list: Google Doc "worst class ever mod ideas" (38 ideas).
 | 38 (part) Power cut in the middle of class | Built and installed. Not yet tried in the game. Once per class, at a random moment, for 25 seconds. The darkening look is a guess until it is seen in the game. |
 | 3 Bald male teacher | Moved to the models pack: his hair is part of his body model, so it can't just be hidden |
 
-Version 0.1.0 was installed to the game's Mods folder on 2026-11-14. It still has to be switched on
-in the game's mod menu (new mods start switched off), then the game restarted.
+Version 0.1.0 was installed to the game's Mods folder on 2026-11-14 and switched on in the mod menu.
+
+## Testing helpers (version 0.2.0, installed 2026-11-14, log shows it loads)
+
+| Helper | State |
+|--------|-------|
+| Solo class | Built and installed. Not yet tried in the game. A lone host can ring the bell. You keep the role picked at the wardrobe; the classmates are the game's bots. There is no bot teacher. |
+| Owner settings window (F6) | Built and installed. Not yet seen in the game. Class length, teachers, points to win. It writes the game's own room rules, so it works for players without the mod too. Owner only, between classes. |
+
+The game must be closed before installing an update, because it holds the mod file open.
 
 ### Things to check in the first play test
 

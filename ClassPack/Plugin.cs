@@ -24,8 +24,10 @@ namespace ClassPack
             var host = new GameObject("[ClassPack]");
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<Runner>();
+            host.AddComponent<HostPanel>();
 
-            Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut);
+            Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut
+                + " SoloClass=" + Settings.soloClass + " PanelKey=" + Settings.PanelKeyCode);
         }
 
         public static void Log(string message)

@@ -26,6 +26,15 @@ namespace ClassPack
         public bool powerCut = true;
         public float powerCutSeconds = 25f;
 
+        // Start a class with only one player in the room (the classmates are bots)
+        public bool soloClass = true;
+
+        // The room owner's settings window
+        public string panelKey = "F6";
+
+        [NonSerialized]
+        private string _path;
+
         public static Settings Load(string configDirectory)
         {
             var settings = new Settings();
@@ -36,7 +45,8 @@ namespace ClassPack
                 {
                     JsonUtility.FromJsonOverwrite(File.ReadAllText(path), settings);
                 }
-                File.WriteAllText(path, JsonUtility.ToJson(settings, true));
+                settings._path = path;
+                settings.Save();
             }
             catch (Exception ex)
             {
@@ -44,6 +54,24 @@ namespace ClassPack
             }
             return settings;
         }
+
+        public void Save()
+        {
+            if (string.IsNullOrEmpty(_path))
+            {
+                return;
+            }
+            try
+            {
+                File.WriteAllText(_path, JsonUtility.ToJson(this, true));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log("could not save config.json: " + ex.Message);
+            }
+        }
+
+        public KeyCode PanelKeyCode => ParseKey(panelKey, KeyCode.F6);
 
         public KeyCode DoorDashKeyCode => ParseKey(doorDashKey, KeyCode.O);
 
