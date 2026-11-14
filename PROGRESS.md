@@ -324,3 +324,28 @@ Gabriel asked for the new teachers as their own Meshy models and for all the mod
   2026-11-17). NOT done: the 3D models, skeletons and moves, and the code that would show a
   moving character in place of the game's teacher. That code does not exist yet: the mod can
   only show still models. The game's own teacher is a tall thin adult, about twice a student.
+
+### New teachers as moving characters (version 0.8.0, installed 2026-11-14)
+
+Gabriel approved the drawings ("Yes, build them"). The gym teacher, lunch lady and janitor are
+now whole Meshy characters with a skeleton and idle, walk and run moves (105 credits, 477 left;
+task ids and recipe in `meshy\tasks.md`).
+
+- `tools\convert_character.py` turns a rigged, animated `.glb` into a `.cpc` character: body,
+  picture, bones and every bone's place in every frame at about 15 frames a second, in
+  whole-body space, 1 m tall, feet on the ground, walking on the spot. The maths was checked
+  against Blender's own skinning (difference 0.0000 m on 400 points in a running pose).
+- `Characters.cs` loads a `.cpc`, builds a skinned body with bones side by side under one root
+  and plays the moves itself, easing between them.
+- `Looks.cs`: a teacher whose type is gym teacher, lunch lady or janitor gets that body. The
+  game's own teacher is hidden (`forceRenderingOff`) and keeps running underneath; the new body
+  follows its position and facing, is sized from the tallest the neck point has been plus
+  0.28 m, and plays idle, walk or run from how fast it moves. The single pieces (belly, apron,
+  cap, hats) are not used on these three any more. The wig teacher is still the game's teacher.
+- Known limits: no moves for throwing, writing on the board or carrying a student, so those
+  moments show the idle or walk move; what the game's teacher holds or carries floats where the
+  hidden body's hand is.
+
+The log shows the mod loading. NOT yet seen in a class: the characters themselves, their size
+and whether they face the right way. A `character '...' loaded` log line appears the first
+time one is shown.

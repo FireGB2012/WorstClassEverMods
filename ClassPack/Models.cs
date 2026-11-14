@@ -28,7 +28,7 @@ namespace ClassPack
         private static readonly Dictionary<string, Loaded> Cache = new Dictionary<string, Loaded>();
         private static readonly Dictionary<string, Texture2D> Pictures = new Dictionary<string, Texture2D>();
 
-        private static Texture2D Picture(string path)
+        internal static Texture2D Picture(string path)
         {
             Texture2D picture;
             if (Pictures.TryGetValue(path, out picture))

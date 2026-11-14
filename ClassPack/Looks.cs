@@ -143,6 +143,12 @@ namespace ClassPack
             public bool PartsTouched;
             public Transform ScaledRoot;
             public Vector3 BaseScale;
+            // A new teacher's whole body, shown in place of the game's teacher.
+            public CharacterView Body;
+            public readonly List<Renderer> HiddenGame = new List<Renderer>();
+            public float NeckMax;
+            public Vector3 LastAt;
+            public float Speed;
             public Transform HeadBone;
             public int UpAxis = -1;
             public int ForwardAxis;
@@ -268,7 +274,7 @@ namespace ClassPack
                 Unit unit = units.GetUnitByUID(pair.Key);
                 if (unit == null || !unit.isActived || unit.model == null || unit.transform == null)
                 {
-                    if (worn.Pieces.Count > 0)
+                    if (worn.Pieces.Count > 0 || worn.Body != null)
                     {
                         DropPieces(worn);
                     }
@@ -385,6 +391,19 @@ namespace ClassPack
                 }
             }
             worn.Pieces.Clear();
+            if (worn.Body != null)
+            {
+                worn.Body.Destroy();
+                worn.Body = null;
+            }
+            foreach (Renderer hidden in worn.HiddenGame)
+            {
+                if (hidden != null)
+                {
+                    hidden.forceRenderingOff = false;
+                }
+            }
+            worn.HiddenGame.Clear();
         }
 
         private static void Add(Worn worn, string name, int anchor, int layer)
@@ -452,8 +471,41 @@ namespace ClassPack
             // player's camera skips, so a hat never blocks the view.
             int layer = local && selfLayer >= 0 ? selfLayer : 0;
             int teacher = unit.IsTeacher && Plugin.Settings.teachers ? look.Teacher : 0;
-            switch (teacher)
+
+            // The gym teacher, lunch lady and janitor are whole characters of their own. The
+            // game's teacher keeps running underneath, unseen, and the new body follows it.
+            string bodyName = teacher == Gym ? "teacher_gym" : teacher == Lunch ? "teacher_lunch" : teacher == Janitor ? "teacher_janitor" : null;
+            worn.NeckMax = 0f;
+            worn.Speed = 0f;
+            worn.LastAt = unit.transform.position;
+            if (bodyName != null)
             {
+                worn.Body = Characters.Create(bodyName);
+            }
+            if (worn.Body != null)
+            {
+                if (root != null)
+                {
+                    foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+                    {
+                        if (!renderer.forceRenderingOff)
+                        {
+                            renderer.forceRenderingOff = true;
+                            worn.HiddenGame.Add(renderer);
+                        }
+                    }
+                }
+                worn.Body.Root.layer = layer;
+                worn.Body.Renderer.gameObject.layer = layer;
+                // Like the game's own body: the player does not see it, but it casts a shadow
+                // and shows in the wardrobe picture.
+                worn.Body.Renderer.shadowCastingMode = local && !preview ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
+            }
+            switch (worn.Body != null ? -1 : teacher)
+            {
+                case -1:
+                    // A whole body needs none of the single pieces.
+                    break;
                 case Gym:
                     // The bald cap covers the top of the head and leaves the teacher's own hair
                     // showing around the sides: a monk cut.
@@ -486,14 +538,14 @@ namespace ClassPack
                     }
                     break;
             }
-            for (int i = 1; i < FaceModels.Length; i++)
+            for (int i = 1; worn.Body == null && i < FaceModels.Length; i++)
             {
                 if ((look.Face & (1 << (i - 1))) != 0)
                 {
                     Add(worn, FaceModels[i], Head, layer);
                 }
             }
-            for (int i = 1; i < BackModels.Length; i++)
+            for (int i = 1; worn.Body == null && i < BackModels.Length; i++)
             {
                 if ((look.Back & (1 << (i - 1))) != 0)
                 {
@@ -718,8 +770,39 @@ namespace ClassPack
 
         // ------------------------------------------------------------------ following along
 
+        /// <summary>Keeps a whole-body character on the game's teacher and picks its move from how fast it goes.</summary>
+        private static void PlaceBody(Unit unit, Worn worn)
+        {
+            Transform body = unit.transform;
+            Transform neck = unit.GetPartRoot(EUnitPartType.HeadPosition);
+            if (neck != null)
+            {
+                // The tallest the neck has been is the standing height.
+                worn.NeckMax = Mathf.Max(worn.NeckMax, neck.position.y - body.position.y);
+            }
+            float tall = worn.NeckMax > 0.3f ? Mathf.Clamp(worn.NeckMax + 0.28f, 1.0f, 2.4f) : 1.7f;
+            Transform character = worn.Body.Root.transform;
+            character.position = body.position;
+            character.rotation = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
+            character.localScale = Vector3.one * tall;
+
+            Vector3 moved = body.position - worn.LastAt;
+            moved.y = 0f;
+            worn.LastAt = body.position;
+            if (Time.deltaTime > 0f)
+            {
+                worn.Speed = Mathf.Lerp(worn.Speed, moved.magnitude / Time.deltaTime, 0.15f);
+            }
+            worn.Body.Play(worn.Speed < 0.25f ? "idle" : worn.Speed < 3.4f ? "walk" : "run");
+            worn.Body.Tick(Time.deltaTime);
+        }
+
         private static void Place(Unit unit, Worn worn)
         {
+            if (worn.Body != null)
+            {
+                PlaceBody(unit, worn);
+            }
             if (worn.Pieces.Count == 0)
             {
                 return;

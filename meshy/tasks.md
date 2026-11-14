@@ -22,3 +22,20 @@ realistic than the rest). White things look grey in the renders; check them unde
 NOT done: none of these is converted to `.cpm` or installed. `tools\convert_meshy.py` does the
 conversion; each model needs its size, origin and facing set (hats sit on a head point, guns
 point forward from the hand, flat things lie on the floor).
+
+## Teacher characters, 2026-11-14 (105 credits, 477 left)
+
+Recipe per teacher: style picture (`meshy_image_to_image`, nano-banana-2, the game's teacher
+screenshot `.../apps/5175310/142910416f.../ss_142910416f....1920x1080.jpg` as reference, A-pose,
+3:4) -> `meshy_image_to_3d` (smart-topology meshy-t2.5, 8000 faces, meshy-n1, pose_mode a-pose)
+-> `meshy_rig` -> `meshy_animate` with action_ids [0, 613, 14] (Idle, Casual Walk in place,
+Run 2) -> `meshy_download_model` with task_type animation gives the URL of one
+`merged_animations.glb` holding the body and all three moves; fetch it with Invoke-WebRequest.
+
+| Teacher | 3D task | Rig task | Moves task |
+|---------|---------|----------|------------|
+| gym | 01a1dc13-1081-74b1-b0e8-890575f750b4 | 01a1dc13-f5e1-73df-ad9f-422ec38c9b50 | 01a1dc15-0247-741c-b247-17a3914a5f02 |
+| lunch lady | 01a1dc13-1531-7269-aa29-70c6f16b06a5 | 01a1dc14-0290-76de-a4d4-97f87340c2e6 | 01a1dc15-03d2-706c-9da8-6d597aa55cc2 |
+| janitor | 01a1dc13-18ff-74f3-a0e5-1443789b9f5a | 01a1dc14-212d-70b2-ac72-cf3544e08530 | 01a1dc15-0549-76be-88a8-d272950c6139 |
+
+Saved: `meshy\teachers\teacher_<name>.glb` (still) and `teacher_<name>_moves.glb` (with moves).
