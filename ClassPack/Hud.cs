@@ -43,16 +43,9 @@ namespace ClassPack
                 string line = call ?? gun ?? trick ?? teacher ?? hint;
                 if (!string.IsNullOrEmpty(line) && !CursorGrab.Busy)
                 {
-                    if (_hint == null)
-                    {
-                        _hint = new GUIStyle { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                        _hint.normal.textColor = new Color32(255, 255, 255, 255);
-                        _shadow = new GUIStyle(_hint);
-                        _shadow.normal.textColor = new Color32(0, 0, 0, 200);
-                    }
+                    Skin.Ensure();
                     var area = new Rect(0f, height - 118f, width, 28f);
-                    GUI.Label(new Rect(area.x + 1.5f, area.y + 1.5f, area.width, area.height), line, _shadow);
-                    GUI.Label(area, line, _hint);
+                    Skin.Outlined(area, line, Skin.Hint, Skin.White, Skin.Outline, 1.5f);
                 }
             }
             finally

@@ -164,13 +164,13 @@ namespace ClassPack
                 _targetPercent = Slider("Points to win", _targetPercent, targetRule, 5f, DescribeTarget());
 
                 GUILayout.Space(6f);
-                bool solo = GUILayout.Toggle(Plugin.Settings.soloClass, "  Let a class start with only me and the bots", _toggle);
+                bool solo = GUILayout.Toggle(Plugin.Settings.soloClass, "Let a class start with only me and the bots", _toggle);
                 if (solo != Plugin.Settings.soloClass)
                 {
                     Plugin.Settings.soloClass = solo;
                     Plugin.Settings.Save();
                 }
-                bool always = GUILayout.Toggle(Plugin.Settings.nerfAlwaysForTesting, "  Every snack eaten gives a nerf gun (for testing)", _toggle);
+                bool always = GUILayout.Toggle(Plugin.Settings.nerfAlwaysForTesting, "Every snack eaten gives a nerf gun (for testing)", _toggle);
                 if (always != Plugin.Settings.nerfAlwaysForTesting)
                 {
                     Plugin.Settings.nerfAlwaysForTesting = always;
@@ -206,7 +206,7 @@ namespace ClassPack
             }
             GUILayout.BeginHorizontal();
             GUILayout.Label(name, _label, GUILayout.Width(120f));
-            float picked = max > min ? GUILayout.HorizontalSlider(Mathf.Clamp(value, min, max), min, max, GUILayout.Width(190f)) : min;
+            float picked = max > min ? GUILayout.HorizontalSlider(Mathf.Clamp(value, min, max), min, max, Skin.Track, Skin.Thumb, GUILayout.Width(190f)) : min;
             GUILayout.Space(12f);
             GUILayout.Label(shown, _label);
             GUILayout.EndHorizontal();
@@ -278,21 +278,15 @@ namespace ClassPack
             {
                 return;
             }
-            _background = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            _background.hideFlags = HideFlags.HideAndDontSave;
-            _background.SetPixel(0, 0, new Color32(28, 31, 38, 242));
-            _background.Apply(false, true);
-
-            _box = new GUIStyle(GUI.skin.box);
-            _box.normal.background = _background;
-            _label = new GUIStyle(GUI.skin.label) { fontSize = 16, wordWrap = true };
-            _label.normal.textColor = new Color32(240, 243, 248, 255);
-            _title = new GUIStyle(_label) { fontSize = 20, fontStyle = FontStyle.Bold };
+            Skin.Ensure();
+            _box = Skin.Panel;
+            _label = new GUIStyle(Skin.Label) { fontSize = 16 };
+            _title = new GUIStyle(Skin.Label) { fontSize = 24 };
+            _title.normal.textColor = Skin.Orange;
             _title.margin = new RectOffset(0, 0, 0, 10);
-            _button = new GUIStyle(GUI.skin.button) { fontSize = 16 };
-            _toggle = new GUIStyle(GUI.skin.toggle) { fontSize = 16 };
-            _toggle.normal.textColor = _label.normal.textColor;
-            _toggle.onNormal.textColor = _label.normal.textColor;
+            _button = Skin.GreenButton;
+            _toggle = new GUIStyle(Skin.Cell) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
+            _toggle.padding = new RectOffset(12, 12, 2, 2);
         }
 
         private void OnDestroy()

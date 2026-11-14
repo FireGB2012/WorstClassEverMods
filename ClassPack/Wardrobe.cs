@@ -78,7 +78,7 @@ namespace ClassPack
                 _camera = holder.AddComponent<Camera>();
                 _camera.cullingMask = 1 << layer;
                 _camera.clearFlags = CameraClearFlags.SolidColor;
-                _camera.backgroundColor = new Color(0.17f, 0.19f, 0.25f, 1f);
+                _camera.backgroundColor = new Color(0.86f, 0.82f, 0.72f, 1f);
                 _camera.fieldOfView = 30f;
                 _camera.nearClipPlane = 0.1f;
                 _camera.farClipPlane = 15f;
@@ -182,7 +182,7 @@ namespace ClassPack
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(label + "  " + value.ToString("F2"), _small, GUILayout.Width(190f));
-            float result = GUILayout.HorizontalSlider(value, low, high, GUILayout.Height(18f));
+            float result = GUILayout.HorizontalSlider(value, low, high, Skin.Track, Skin.Thumb);
             GUILayout.EndHorizontal();
             return result;
         }
@@ -209,7 +209,7 @@ namespace ClassPack
                 float height = Screen.height / scale;
                 var window = new Rect((width - Width) * 0.5f, (height - Height) * 0.5f, Width, Height);
                 GUI.Box(window, GUIContent.none, _panelStyle);
-                GUI.Label(new Rect(window.x + 20f, window.y + 10f, 400f, 34f), "Wardrobe", _title);
+                Skin.Outlined(new Rect(window.x + 22f, window.y + 8f, 400f, 40f), "Wardrobe", _title, Skin.Orange, Skin.Outline, 2f);
                 if (GUI.Button(new Rect(window.xMax - 150f, window.y + 12f, 130f, 30f), "Close (" + Plugin.Settings.WardrobeKeyCode + ")", _button))
                 {
                     Close();
@@ -217,6 +217,7 @@ namespace ClassPack
                 }
 
                 var picture = new Rect(window.x + 20f, window.y + 56f, PictureWidth, PictureHeight);
+                GUI.Box(new Rect(picture.x - 6f, picture.y - 6f, picture.width + 12f, picture.height + 12f), GUIContent.none, Skin.Card);
                 if (_picture != null)
                 {
                     GUI.DrawTexture(picture, _picture, ScaleMode.ScaleToFit, false);
@@ -225,9 +226,9 @@ namespace ClassPack
                 {
                     GUI.Label(picture, "No picture here, but everybody else sees your outfit.", _small);
                 }
-                GUI.Label(new Rect(picture.x, picture.yMax + 8f, 60f, 20f), "Turn", _small);
-                _turn = GUI.HorizontalSlider(new Rect(picture.x + 50f, picture.yMax + 12f, PictureWidth - 50f, 18f), _turn, -180f, 180f);
-                GUI.Label(new Rect(picture.x, picture.yMax + 34f, PictureWidth, 40f), Net.CanSendToHost
+                GUI.Label(new Rect(picture.x, picture.yMax + 12f, 60f, 20f), "Turn", _small);
+                _turn = GUI.HorizontalSlider(new Rect(picture.x + 50f, picture.yMax + 12f, PictureWidth - 50f, 16f), _turn, -180f, 180f, Skin.Track, Skin.Thumb);
+                GUI.Label(new Rect(picture.x, picture.yMax + 40f, PictureWidth, 40f), Net.CanSendToHost
                     ? "Everybody with the mod sees this on you. You only see it here."
                     : "The room owner doesn't have Class Pack, so outfits are off in this room.", _small);
 
@@ -301,39 +302,14 @@ namespace ClassPack
             {
                 return;
             }
-            Color32 white = new Color32(245, 247, 250, 255);
-            Color32 grey = new Color32(170, 178, 190, 255);
-            _panel = Solid(new Color32(24, 27, 36, 245));
-            _card = Solid(new Color32(48, 54, 68, 255));
-            _cardHover = Solid(new Color32(70, 78, 96, 255));
-            _cardOn = Solid(new Color32(132, 80, 220, 255));
-
-            _panelStyle = new GUIStyle();
-            _panelStyle.normal.background = _panel;
-            _title = new GUIStyle { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            _title.normal.textColor = white;
-            _label = new GUIStyle { fontSize = 14, fontStyle = FontStyle.Bold };
-            _label.normal.textColor = white;
+            Skin.Ensure();
+            _panelStyle = Skin.Panel;
+            _title = Skin.Title;
+            _label = new GUIStyle(Skin.Label) { fontSize = 14 };
             _label.margin = new RectOffset(0, 0, 8, 3);
-            _small = new GUIStyle { fontSize = 12, wordWrap = true };
-            _small.normal.textColor = grey;
-
-            _cell = new GUIStyle { fontSize = 13, alignment = TextAnchor.MiddleCenter, fixedHeight = 28f };
-            _cell.margin = new RectOffset(2, 2, 2, 2);
-            _cell.normal.background = _card;
-            _cell.normal.textColor = white;
-            _cell.hover.background = _cardHover;
-            _cell.hover.textColor = white;
-            _cell.active.background = _cardHover;
-            _cell.active.textColor = white;
-            _cell.onNormal.background = _cardOn;
-            _cell.onNormal.textColor = white;
-            _cell.onHover.background = _cardOn;
-            _cell.onHover.textColor = white;
-            _cell.onActive.background = _cardOn;
-            _cell.onActive.textColor = white;
-
-            _button = new GUIStyle(_cell);
+            _small = Skin.Small;
+            _cell = Skin.Cell;
+            _button = Skin.GreenButton;
         }
     }
 }

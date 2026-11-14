@@ -202,8 +202,8 @@ namespace ClassPack
             for (int item = Tricks.Airplane; item <= Tricks.Nap; item++)
             {
                 string status = Tricks.StatusOf(item);
-                string label = Tricks.Names[item] + (status != null ? "   <color=#ffc85a>" + status + "</color>" : "")
-                    + "\n<size=11><color=#aab2be>" + Tricks.Blurbs[item] + "</color></size>";
+                string label = Tricks.Names[item] + (status != null ? "   <color=#d2601a>" + status + "</color>" : "")
+                    + "\n<size=11><color=#8c765e>" + Tricks.Blurbs[item] + "</color></size>";
                 GUI.enabled = Tricks.CanPick(item);
                 if (GUILayout.Button(label, _trick, GUILayout.Height(46f)) && Tricks.Pick(item))
                 {
@@ -358,89 +358,58 @@ namespace ClassPack
             return style;
         }
 
+        private static GUIStyle Coloured(Color32 fill, Color32 edge, int radius, int size)
+        {
+            GUIStyle style = Skin.Box(fill, edge, radius, 3);
+            style.fontSize = size;
+            style.alignment = TextAnchor.MiddleCenter;
+            style.normal.textColor = Skin.White;
+            style.hover.textColor = Skin.White;
+            style.active.textColor = Skin.White;
+            return style;
+        }
+
         private void EnsureStyles()
         {
             if (_text != null)
             {
                 return;
             }
-            Color32 white = new Color32(245, 247, 250, 255);
-            Color32 grey = new Color32(170, 178, 190, 255);
-            _bezel = Solid(new Color32(12, 13, 16, 255));
-            _wall = Solid(new Color32(30, 34, 44, 255));
-            _red = Solid(new Color32(235, 23, 0, 255));
-            _card = Solid(new Color32(48, 54, 68, 255));
-            _cardHover = Solid(new Color32(70, 78, 96, 255));
-            _muted = Solid(new Color32(40, 45, 57, 255));
+            Skin.Ensure();
+            var red = new Color32(232, 72, 52, 255);
+            var redDark = new Color32(160, 40, 28, 255);
+            var purple = new Color32(150, 100, 226, 255);
+            var purpleDark = new Color32(96, 58, 160, 255);
+            var blue = new Color32(72, 142, 236, 255);
+            var blueDark = new Color32(38, 88, 168, 255);
 
-            _bezelStyle = Filled(_bezel, _bezel);
-            _wallStyle = Filled(_wall, _wall);
+            // The phone itself is dark; its screen is the game's cream paper.
+            _bezelStyle = Skin.Box(new Color32(52, 42, 34, 255), new Color32(26, 20, 16, 255), 26, 4);
+            _wallStyle = Skin.Box(Skin.Cream, Skin.Line, 18, 2);
 
-            _text = new GUIStyle { fontSize = 15, wordWrap = true };
-            _text.normal.textColor = white;
-            _small = new GUIStyle(_text) { fontSize = 13 };
-            _small.normal.textColor = grey;
-            _note = new GUIStyle(_text) { fontSize = 14, fontStyle = FontStyle.Bold };
-            _note.normal.textColor = new Color32(255, 200, 90, 255);
+            _text = new GUIStyle(Skin.Label);
+            _small = new GUIStyle(Skin.Small) { fontSize = 13 };
+            _note = new GUIStyle(Skin.Note);
             _note.margin = new RectOffset(0, 0, 4, 8);
-            _clock = new GUIStyle(_text) { fontSize = 12, alignment = TextAnchor.MiddleCenter };
-            _clock.normal.textColor = grey;
+            _clock = new GUIStyle(Skin.Small) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
 
-            _header = Filled(_red, _red);
-            _header.fontSize = 20;
-            _header.fontStyle = FontStyle.Bold;
-            _header.alignment = TextAnchor.MiddleCenter;
-            _header.normal.textColor = white;
-
-            _icon = Filled(_red, _red);
-            _icon.fontSize = 34;
-            _icon.fontStyle = FontStyle.Bold;
-            _icon.alignment = TextAnchor.MiddleCenter;
-            _icon.normal.textColor = white;
-            _icon.hover.textColor = white;
-            _icon.active.textColor = white;
-            _green = Solid(new Color32(40, 180, 90, 255));
-            _headerGreen = new GUIStyle(_header);
-            _headerGreen.normal.background = _green;
-            _iconGreen = new GUIStyle(_icon) { fontSize = 24 };
-            _iconGreen.normal.background = _green;
-            _iconGreen.hover.background = _green;
-            _iconGreen.active.background = _green;
-            _iconLabel = new GUIStyle(_text) { fontSize = 12, alignment = TextAnchor.UpperCenter };
+            _header = Coloured(red, redDark, 12, 20);
+            _headerGreen = Coloured(Skin.Green, Skin.GreenDark, 12, 20);
+            _headerPurple = Coloured(purple, purpleDark, 12, 20);
+            _icon = Coloured(red, redDark, 18, 30);
+            _iconGreen = Coloured(Skin.Green, Skin.GreenDark, 18, 22);
+            _iconPurple = Coloured(purple, purpleDark, 18, 18);
+            _iconBlue = Coloured(blue, blueDark, 18, 18);
+            _iconLabel = new GUIStyle(Skin.Label) { fontSize = 12, alignment = TextAnchor.UpperCenter, wordWrap = false };
             _iconLabel.margin = new RectOffset(0, 0, 4, 0);
-            _purple = Solid(new Color32(132, 80, 220, 255));
-            _headerPurple = new GUIStyle(_header);
-            _headerPurple.normal.background = _purple;
-            _iconPurple = new GUIStyle(_icon) { fontSize = 19 };
-            _iconPurple.normal.background = _purple;
-            _iconPurple.hover.background = _purple;
-            _iconPurple.active.background = _purple;
 
-            _dish = Filled(_card, _cardHover);
-            _dish.fontSize = 15;
-            _dish.alignment = TextAnchor.MiddleLeft;
+            _dish = new GUIStyle(Skin.Button) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
             _dish.padding = new RectOffset(12, 12, 0, 0);
             _dish.margin = new RectOffset(0, 0, 3, 3);
-            _dish.normal.textColor = white;
-            _dish.hover.textColor = white;
-            _dish.active.textColor = white;
-
-            _blue = Solid(new Color32(50, 120, 230, 255));
-            _iconBlue = new GUIStyle(_iconPurple);
-            _iconBlue.normal.background = _blue;
-            _iconBlue.hover.background = _blue;
-            _iconBlue.active.background = _blue;
-
             _trick = new GUIStyle(_dish) { richText = true };
             _trick.margin = new RectOffset(0, 0, 2, 2);
-
-            _plain = Filled(_muted, _cardHover);
-            _plain.fontSize = 13;
-            _plain.alignment = TextAnchor.MiddleCenter;
+            _plain = new GUIStyle(Skin.Button) { fontSize = 13 };
             _plain.margin = new RectOffset(0, 0, 4, 4);
-            _plain.normal.textColor = grey;
-            _plain.hover.textColor = white;
-            _plain.active.textColor = white;
         }
 
         private void OnDestroy()

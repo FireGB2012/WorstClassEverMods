@@ -304,3 +304,23 @@ eyes about 0.205 m above the neck, mouth about 0.10 m.
 
 The log shows `[Mods] Loaded classpack 0.7.2` and the new fit numbers in config.json. Not yet
 seen by him. Share zip: `share\ClassPack-0.7.2.zip`.
+
+### Game-style windows and teacher drawings (version 0.7.3, installed 2026-11-14)
+
+Gabriel asked for the new teachers as their own Meshy models and for all the mod's windows to
+"use the game's UI and look perfect".
+
+- Windows: the game's menus are uGUI with TextMeshPro; a player screenshot of its results window
+  showed the look: cream paper panels with a brown line and round corners, white cells, green
+  round buttons with white text, an orange title with a dark outline, white outlined text on
+  the playing screen. `Skin.cs` now holds that look (round-cornered boxes painted in code, the
+  OS font Arial Rounded MT Bold) and the phone, wardrobe, owner window, hint line and how-to
+  cards all take their styles from it. Still IMGUI, not the game's real widgets. Not yet seen
+  by him: check fonts, spacing and the sliders in a screenshot.
+- Teachers: he approved about 100 credits for three full characters. Drawings are made (18
+  credits) and were shown to him: `meshy\style\teacher_gym.png`, `teacher_lunch.png`,
+  `teacher_janitor.png` (picture tasks 01a1dc0d-dcbf-76d4-8301-8a71456db809,
+  01a1dc0d-dfa0-70ba-aded-3673c642e337, 01a1dc0d-e1b1-7708-8707-de97e752f516, expiring
+  2026-11-17). NOT done: the 3D models, skeletons and moves, and the code that would show a
+  moving character in place of the game's teacher. That code does not exist yet: the mod can
+  only show still models. The game's own teacher is a tall thin adult, about twice a student.

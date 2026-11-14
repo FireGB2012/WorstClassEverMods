@@ -160,32 +160,24 @@ namespace ClassPack
             {
                 return;
             }
-            if (_back == null)
+            Skin.Ensure();
+            if (_titleStyle == null)
             {
-                _back = new Texture2D(1, 1, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
-                _back.SetPixel(0, 0, Color.white);
-                _back.Apply(false, true);
-                _titleStyle = new GUIStyle { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                _titleStyle.normal.textColor = new Color32(255, 214, 90, 255);
-                _lineStyle = new GUIStyle { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-                _lineStyle.normal.textColor = new Color32(255, 255, 255, 255);
-                _footStyle = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter };
-                _footStyle.normal.textColor = new Color32(190, 198, 210, 255);
+                _titleStyle = new GUIStyle(Skin.Title) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+                _lineStyle = new GUIStyle(Skin.Label) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+                _footStyle = new GUIStyle(Skin.Small) { fontSize = 14, alignment = TextAnchor.MiddleCenter, wordWrap = false };
             }
-            float panelWidth = 760f;
-            float panelHeight = 96f + _lines.Length * 32f;
+            float panelWidth = 780f;
+            float panelHeight = 104f + _lines.Length * 32f;
             var panel = new Rect((width - panelWidth) * 0.5f, 70f, panelWidth, panelHeight);
-            Color old = GUI.color;
-            GUI.color = new Color(0.07f, 0.08f, 0.12f, 0.88f);
-            GUI.DrawTexture(panel, _back);
-            GUI.color = old;
-            GUI.Label(new Rect(panel.x, panel.y + 10f, panel.width, 36f), _title, _titleStyle);
+            GUI.Box(panel, GUIContent.none, Skin.Panel);
+            Skin.Outlined(new Rect(panel.x, panel.y + 12f, panel.width, 38f), _title, _titleStyle, Skin.Orange, Skin.Outline, 2f);
             for (int i = 0; i < _lines.Length; i++)
             {
-                GUI.Label(new Rect(panel.x + 34f, panel.y + 54f + i * 32f, panel.width - 60f, 30f), "-  " + _lines[i], _lineStyle);
+                GUI.Label(new Rect(panel.x + 36f, panel.y + 60f + i * 32f, panel.width - 64f, 30f), "-  " + _lines[i], _lineStyle);
             }
             int left = Mathf.CeilToInt(_until - Time.unscaledTime);
-            GUI.Label(new Rect(panel.x, panel.yMax - 34f, panel.width, 26f),
+            GUI.Label(new Rect(panel.x, panel.yMax - 36f, panel.width, 26f),
                 "Press " + Plugin.Settings.HelpKeyCode + " to hide this. Press it again any time to see it.   (" + left + "s)", _footStyle);
         }
     }
