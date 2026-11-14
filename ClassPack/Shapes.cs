@@ -57,6 +57,15 @@ namespace ClassPack
             {
                 material.SetTexture("_BaseMap", Texture2D.whiteTexture);
             }
+            // A soft shine, like toy plastic.
+            if (material.HasProperty("_Smoothness"))
+            {
+                material.SetFloat("_Smoothness", 0.45f);
+            }
+            if (material.HasProperty("_Metallic"))
+            {
+                material.SetFloat("_Metallic", 0f);
+            }
             Paints[color] = material;
             return material;
         }

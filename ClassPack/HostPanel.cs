@@ -14,7 +14,7 @@ namespace ClassPack
     internal sealed class HostPanel : MonoBehaviour
     {
         private const float Width = 520f;
-        private const float Height = 380f;
+        private const float Height = 420f;
 
         private bool _open;
         private float _length;
@@ -168,6 +168,12 @@ namespace ClassPack
                 if (solo != Plugin.Settings.soloClass)
                 {
                     Plugin.Settings.soloClass = solo;
+                    Plugin.Settings.Save();
+                }
+                bool always = GUILayout.Toggle(Plugin.Settings.nerfAlwaysForTesting, "  Everyone finds a nerf gun every class (for testing)", _toggle);
+                if (always != Plugin.Settings.nerfAlwaysForTesting)
+                {
+                    Plugin.Settings.nerfAlwaysForTesting = always;
                     Plugin.Settings.Save();
                 }
                 GUI.enabled = true;

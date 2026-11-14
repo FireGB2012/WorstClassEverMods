@@ -6,13 +6,16 @@ using UnityEngine;
 namespace ClassPack
 {
     /// <summary>
-    /// Idea 1: nerf guns for teacher and students. Four guns float around the classroom at the
-    /// start of class. Anyone can take one. A student who is hit goes straight up on a pole
-    /// and can't be rescued; a teacher who is hit falls over like on a banana peel. The RPG
-    /// has one shot and hits everybody in the class, the shooter included.
+    /// Idea 1: nerf guns for teacher and students.
     ///
-    /// The shooter's own game works out what the dart hit; the host checks it and applies it.
-    /// The guns are block models built in code until there are real ones.
+    /// Guns are rare finds, not something everyone gets. At the start of class the host rolls
+    /// for each player: a student who wins finds a gun lying in their desk drawer, a teacher
+    /// who wins finds one floating in the teacher's office. Every gun has one shot.
+    ///
+    /// A student who is hit goes straight up on a pole and can't be rescued; a teacher who is
+    /// hit falls over like on a banana peel. The RPG hits everybody in the class, the shooter
+    /// included. The shooter's own game works out what the dart hit; the host checks it and
+    /// applies it.
     /// </summary>
     internal static class NerfGuns
     {
@@ -21,16 +24,22 @@ namespace ClassPack
         public const int Sniper = 3;
         public const int Rpg = 4;
 
+        private const int DrawerSlot = -1;
+
         private static readonly string[] Names = { "", "Nerf pistol", "Nerf shotgun", "Nerf sniper", "Nerf RPG" };
-        private static readonly int[] Shots = { 0, 15, 6, 5, 1 };
+        private static readonly string[] ModelNames = { "", "pistol", "shotgun", "sniper", "rpg" };
         private static readonly float[] Reach = { 0f, 22f, 8f, 70f, 0f };
-        private static readonly float[] Wait = { 0f, 0.45f, 1.1f, 1.6f, 1f };
+        // How often each kind turns up when a gun is found, out of 100.
+        private static readonly int[] Rarity = { 0, 45, 25, 22, 8 };
+        // Shrink factors that make each gun fit in a desk drawer.
+        private static readonly float[] DrawerScale = { 1f, 0.85f, 0.5f, 0.3f, 0.3f };
         private static readonly Color32[] Tint =
         {
             new Color32(255, 255, 255, 255), new Color32(255, 130, 20, 255), new Color32(40, 120, 255, 255),
             new Color32(60, 200, 80, 255), new Color32(230, 40, 40, 255)
         };
 
+        private const int ShotsPerGun = 1;
         private const int CrateCount = 4;
         private const float TakeReach = 2.2f;
 
@@ -51,6 +60,9 @@ namespace ClassPack
 
         private static readonly Crate[] Crates = new Crate[CrateCount];
         private static readonly Dictionary<ulong, Held> Guns = new Dictionary<ulong, Held>();
+        private static int _drawerGun;
+        private static GameObject _drawerModel;
+        private static bool _drawerGunInReach;
         private static float _nextShotAt;
         private static float _flashUntil;
         private static Texture2D _white;
@@ -60,13 +72,13 @@ namespace ClassPack
         {
             public int Gun;
             public int Shots;
-            public float NextAt;
         }
 
         private static readonly int[] HostCrateGun = new int[CrateCount];
         private static readonly Vector3[] HostCratePosition = new Vector3[CrateCount];
+        private static readonly Dictionary<ulong, int> HostDrawerGun = new Dictionary<ulong, int>();
         private static readonly Dictionary<ulong, HostGun> HostGuns = new Dictionary<ulong, HostGun>();
-        private static bool _spawned;
+        private static bool _dealt;
 
         public static void Tick()
         {
@@ -75,12 +87,12 @@ namespace ClassPack
                 Clear();
                 return;
             }
-            if (NetworkServer.active && !_spawned)
+            if (NetworkServer.active && !_dealt)
             {
-                _spawned = true;
+                _dealt = true;
                 if (Plugin.Settings.nerfGuns)
                 {
-                    SpawnCrates();
+                    DealGuns();
                 }
             }
             Animate();
@@ -106,48 +118,54 @@ namespace ClassPack
                 }
             }
             Guns.Clear();
+            SetDrawerGun(0);
             HostGuns.Clear();
-            _spawned = false;
+            HostDrawerGun.Clear();
+            _dealt = false;
         }
 
         // ------------------------------------------------------------------ models
 
         private static GameObject BuildGun(int gun)
         {
-            var root = new GameObject("[ClassPack " + Names[gun] + "]");
-            Transform t = root.transform;
-            Color32 orange = new Color32(255, 130, 20, 255);
-            Color32 blue = new Color32(40, 120, 255, 255);
-            Color32 yellow = new Color32(250, 215, 40, 255);
-            Color32 green = new Color32(60, 200, 80, 255);
-            Color32 grey = new Color32(120, 125, 135, 255);
-            Color32 dark = new Color32(30, 30, 34, 255);
-            Color32 red = new Color32(230, 40, 40, 255);
-            switch (gun)
+            GameObject model = Models.Build(ModelNames[gun]);
+            if (model != null)
             {
-                case Pistol:
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, 0f, 0.10f), new Vector3(0.05f, 0.07f, 0.24f), orange);
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, -0.08f, 0.02f), new Vector3(0.045f, 0.11f, 0.06f), blue);
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, 0f, 0.24f), new Vector3(0.03f, 0.03f, 0.04f), yellow);
-                    break;
-                case Shotgun:
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, 0f, 0.25f), new Vector3(0.07f, 0.08f, 0.55f), blue);
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, -0.05f, 0.35f), new Vector3(0.06f, 0.05f, 0.16f), orange);
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, -0.03f, -0.08f), new Vector3(0.05f, 0.10f, 0.18f), orange);
-                    break;
-                case Sniper:
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, 0f, 0.45f), new Vector3(0.04f, 0.04f, 0.90f), green);
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, 0f, 0.10f), new Vector3(0.06f, 0.09f, 0.40f), yellow);
-                    Shapes.Part(t, PrimitiveType.Cylinder, new Vector3(0f, 0.08f, 0.15f), new Vector3(0.05f, 0.09f, 0.05f), dark, new Vector3(90f, 0f, 0f));
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, -0.03f, -0.20f), new Vector3(0.05f, 0.10f, 0.25f), green);
-                    break;
-                default:
-                    Shapes.Part(t, PrimitiveType.Cylinder, new Vector3(0f, 0f, 0.25f), new Vector3(0.13f, 0.40f, 0.13f), grey, new Vector3(90f, 0f, 0f));
-                    Shapes.Part(t, PrimitiveType.Sphere, new Vector3(0f, 0f, 0.72f), new Vector3(0.20f, 0.20f, 0.30f), red);
-                    Shapes.Part(t, PrimitiveType.Cube, new Vector3(0f, -0.12f, 0.15f), new Vector3(0.04f, 0.14f, 0.05f), orange);
-                    break;
+                return model;
             }
+            // The model file is missing: fall back to a plain coloured block so the gun still shows.
+            var root = new GameObject("[ClassPack " + Names[gun] + "]");
+            float length = gun == Pistol ? 0.24f : gun == Shotgun ? 0.55f : 0.9f;
+            Shapes.Part(root.transform, PrimitiveType.Cube, new Vector3(0f, 0.04f, length * 0.4f), new Vector3(0.06f, 0.08f, length), Tint[gun]);
+            Shapes.Part(root.transform, PrimitiveType.Cube, new Vector3(0f, -0.06f, 0f), new Vector3(0.045f, 0.12f, 0.06f), new Color32(40, 42, 48, 255));
             return root;
+        }
+
+        private static void SetDrawerGun(int gun)
+        {
+            _drawerGun = gun;
+            _drawerGunInReach = false;
+            if (_drawerModel != null)
+            {
+                UnityEngine.Object.Destroy(_drawerModel);
+                _drawerModel = null;
+            }
+        }
+
+        /// <summary>The drawer of the desk the player sits at, or null.</summary>
+        private static DrawerComponent MyDrawer(Unit me)
+        {
+            if (me == null || !me.IsSitting || me.currentSitUnit == null)
+            {
+                return null;
+            }
+            ChairComponent chair = me.currentSitUnit.GetComponent<ChairComponent>();
+            if (chair == null || chair.config == null)
+            {
+                return null;
+            }
+            Unit drawerUnit = chair.config.GetDrawerUnit();
+            return drawerUnit != null ? drawerUnit.GetComponent<DrawerComponent>() : null;
         }
 
         private static void Animate()
@@ -164,10 +182,10 @@ namespace ClassPack
                 if (crate.Model == null)
                 {
                     crate.Model = BuildGun(crate.Gun);
-                    crate.Model.transform.localScale = Vector3.one * 1.6f;
+                    crate.Model.transform.localScale = Vector3.one * (crate.Gun == Pistol ? 1.5f : 0.9f);
                 }
-                crate.Model.transform.position = crate.Position + Vector3.up * (1.05f + bob);
-                crate.Model.transform.rotation = Quaternion.Euler(-15f, spin, 0f);
+                crate.Model.transform.position = crate.Position + Vector3.up * (1.15f + bob);
+                crate.Model.transform.rotation = Quaternion.Euler(-12f, spin, 0f);
             }
 
             UnitManager units = Game.Peek<UnitManager>();
@@ -192,11 +210,67 @@ namespace ClassPack
                 {
                     held.Model = BuildGun(held.Gun);
                 }
-                // Carried at chest height, pointing where the body faces.
                 held.Model.SetActive(true);
-                held.Model.transform.position = body.position + body.right * 0.26f + Vector3.up * 1.12f + body.forward * 0.36f;
+                if (held.Gun == Rpg)
+                {
+                    // Carried on the right shoulder.
+                    held.Model.transform.position = body.position + body.right * 0.22f + Vector3.up * 1.42f + body.forward * 0.12f;
+                }
+                else
+                {
+                    // Held out in front at chest height, pointing where the body faces.
+                    held.Model.transform.position = body.position + body.right * 0.24f + Vector3.up * 1.10f + body.forward * 0.34f;
+                }
                 held.Model.transform.rotation = body.rotation;
             }
+
+            // The gun this player found lies in their own desk drawer and shows while it is open.
+            _drawerGunInReach = false;
+            if (_drawerGun == 0)
+            {
+                return;
+            }
+            DrawerComponent drawer = MyDrawer(Game.LocalPlayer);
+            bool open = drawer != null && drawer.IsActive && drawer.openState && drawer.owner != null && drawer.owner.transform != null;
+            if (!open)
+            {
+                if (_drawerModel != null)
+                {
+                    _drawerModel.SetActive(false);
+                }
+                return;
+            }
+            if (_drawerModel == null)
+            {
+                _drawerModel = BuildGun(_drawerGun);
+                _drawerModel.transform.localScale = Vector3.one * DrawerScale[_drawerGun];
+            }
+            Transform tray = drawer.owner.transform;
+            Vector3 spot = tray.position;
+            List<Transform> snacks = drawer.GetItemTransforms();
+            if (snacks != null && snacks.Count > 0)
+            {
+                // Rest it on top of whatever else is in the drawer.
+                Vector3 sum = Vector3.zero;
+                int counted = 0;
+                foreach (Transform snack in snacks)
+                {
+                    if (snack != null)
+                    {
+                        sum += snack.position;
+                        counted++;
+                    }
+                }
+                if (counted > 0)
+                {
+                    spot = sum / counted;
+                }
+            }
+            _drawerModel.SetActive(true);
+            _drawerModel.transform.position = spot + Vector3.up * 0.07f;
+            // Lying on its side, along the width of the drawer.
+            _drawerModel.transform.rotation = tray.rotation * Quaternion.Euler(0f, 90f, 90f);
+            _drawerGunInReach = true;
         }
 
         // -------------------------------------------------------------- local keys
@@ -241,7 +315,11 @@ namespace ClassPack
             if (Input.GetKeyDown(Plugin.Settings.UseKeyCode) && !blocked)
             {
                 int near = NearestCrate(me.Position);
-                if (mine == null && near >= 0)
+                if (mine == null && _drawerGunInReach)
+                {
+                    Net.SendToHost(new CpAsk { kind = CpKind.GunTake, i = DrawerSlot });
+                }
+                else if (mine == null && near >= 0)
                 {
                     Net.SendToHost(new CpAsk { kind = CpKind.GunTake, i = near });
                 }
@@ -257,7 +335,7 @@ namespace ClassPack
             bool fire = Input.GetKeyDown(Plugin.Settings.FireKeyCode) || Input.GetMouseButtonDown(2);
             if (mine != null && fire && !blocked && Time.time >= _nextShotAt)
             {
-                _nextShotAt = Time.time + Wait[mine.Gun];
+                _nextShotAt = Time.time + 0.5f;
                 Fire(me, mine.Gun);
             }
         }
@@ -339,7 +417,22 @@ namespace ClassPack
 
         // --------------------------------------------------------------- host side
 
-        private static void SpawnCrates()
+        private static int RollKind()
+        {
+            int roll = UnityEngine.Random.Range(0, 100);
+            for (int gun = Pistol; gun <= Rpg; gun++)
+            {
+                roll -= Rarity[gun];
+                if (roll < 0)
+                {
+                    return gun;
+                }
+            }
+            return Pistol;
+        }
+
+        /// <summary>Host, once per class: decide who finds a gun.</summary>
+        private static void DealGuns()
         {
             ClassroomManager classroom = Game.Peek<ClassroomManager>();
             UnitManager units = Game.Peek<UnitManager>();
@@ -347,79 +440,52 @@ namespace ClassPack
             {
                 return;
             }
+            Settings settings = Plugin.Settings;
+            float studentChance = settings.nerfAlwaysForTesting ? 1f : Mathf.Clamp01(settings.nerfStudentChance);
+            float teacherChance = settings.nerfAlwaysForTesting ? 1f : Mathf.Clamp01(settings.nerfTeacherChance);
+            int teacherGuns = 0;
+            foreach (Unit player in new List<Unit>(units.playerList))
+            {
+                if (player == null || !player.isActived || !player.isPlayer)
+                {
+                    continue;
+                }
+                if (player.IsStudent)
+                {
+                    if (UnityEngine.Random.value < studentChance)
+                    {
+                        int gun = RollKind();
+                        HostDrawerGun[player.UID] = gun;
+                        Net.TellPlayer(player, new CpTell { kind = CpKind.Crate, i = DrawerSlot, j = gun });
+                        Plugin.Log("nerf guns: " + Poles.NameOf(player) + " has a " + Names[gun] + " in their drawer");
+                    }
+                }
+                else if (player.IsTeacher && UnityEngine.Random.value < teacherChance)
+                {
+                    teacherGuns++;
+                }
+            }
+
             ClassroomItem room = TeacherOffice.FindClassroom(classroom.currentFloor);
-            var spots = new List<Vector3>();
-            Vector3 centre = room != null ? room.transform.position : (Game.LocalPlayer != null ? Game.LocalPlayer.Position : Vector3.zero);
-            float floorY = centre.y;
-            if (room != null && room.studentPos != null)
+            if (teacherGuns > 0 && (room == null || room.teacherPos == null))
             {
-                floorY = room.studentPos.position.y;
-                AddSpot(spots, room.studentPos.position, floorY);
+                Plugin.Log("nerf guns: no teacher start point on floor " + classroom.currentFloor + ", teacher gun skipped");
+                teacherGuns = 0;
             }
-            if (room != null && room.teacherPos != null)
+            for (int i = 0; i < Mathf.Min(teacherGuns, CrateCount); i++)
             {
-                AddSpot(spots, room.teacherPos.position, floorY);
+                int gun = RollKind();
+                // In the teacher's office, where the teacher stands before class.
+                Vector3 spot = room.teacherPos.position + room.teacherPos.right * (i * 0.9f);
+                HostCrateGun[i] = gun;
+                HostCratePosition[i] = spot;
+                Net.SendToModded(new CpTell { kind = CpKind.Crate, i = i, j = gun, v = spot });
+                Plugin.Log("nerf guns: " + Names[gun] + " for the teacher at " + spot.ToString("F2"));
             }
-            foreach (Unit unit in units.unitsDict.Values)
+            if (HostDrawerGun.Count == 0 && teacherGuns == 0)
             {
-                if (unit == null || !unit.isActived || unit.transform == null)
-                {
-                    continue;
-                }
-                EUnitSubType kind = unit.UnitSubType;
-                if (kind != EUnitSubType.ClassroomDoor && kind != EUnitSubType.ClassroomBackDoor && kind != EUnitSubType.BlackBoard)
-                {
-                    continue;
-                }
-                Vector3 offset = unit.Position - centre;
-                if (Mathf.Abs(offset.y) > 3.5f || new Vector2(offset.x, offset.z).magnitude > 35f)
-                {
-                    continue;
-                }
-                Vector3 spot = unit.Position;
-                if (kind == EUnitSubType.BlackBoard && room != null && room.studentPos != null)
-                {
-                    // Step off the wall, towards the seats.
-                    Vector3 toSeats = room.studentPos.position - spot;
-                    toSeats.y = 0f;
-                    spot += toSeats.normalized * 1.6f;
-                }
-                AddSpot(spots, spot, floorY);
+                Plugin.Log("nerf guns: nobody found one this class");
             }
-
-            int[] guns = { Pistol, Shotgun, Sniper, Rpg };
-            for (int i = guns.Length - 1; i > 0; i--)
-            {
-                int swap = UnityEngine.Random.Range(0, i + 1);
-                int keep = guns[i];
-                guns[i] = guns[swap];
-                guns[swap] = keep;
-            }
-            int count = Mathf.Min(CrateCount, spots.Count);
-            for (int i = 0; i < count; i++)
-            {
-                HostCrateGun[i] = guns[i];
-                HostCratePosition[i] = spots[i];
-                Net.SendToModded(new CpTell { kind = CpKind.Crate, i = i, j = guns[i], v = spots[i] });
-                Plugin.Log("nerf guns: " + Names[guns[i]] + " at " + spots[i].ToString("F2"));
-            }
-            if (count == 0)
-            {
-                Plugin.Log("nerf guns: found nowhere to put them on floor " + classroom.currentFloor);
-            }
-        }
-
-        private static void AddSpot(List<Vector3> spots, Vector3 spot, float floorY)
-        {
-            spot.y = floorY;
-            foreach (Vector3 other in spots)
-            {
-                if ((other - spot).sqrMagnitude < 2.5f * 2.5f)
-                {
-                    return;
-                }
-            }
-            spots.Add(spot);
         }
 
         public static void OnAsk(Unit player, CpAsk ask)
@@ -433,14 +499,30 @@ namespace ClassPack
             switch (ask.kind)
             {
                 case CpKind.GunTake:
-                    if (gun == null && ask.i >= 0 && ask.i < CrateCount && HostCrateGun[ask.i] != 0
+                    int taken = 0;
+                    if (gun != null)
+                    {
+                        break;
+                    }
+                    if (ask.i == DrawerSlot)
+                    {
+                        if (HostDrawerGun.TryGetValue(player.UID, out taken))
+                        {
+                            HostDrawerGun.Remove(player.UID);
+                            Net.TellPlayer(player, new CpTell { kind = CpKind.Crate, i = DrawerSlot, j = 0 });
+                        }
+                    }
+                    else if (ask.i >= 0 && ask.i < CrateCount && HostCrateGun[ask.i] != 0
                         && (player.Position - HostCratePosition[ask.i]).sqrMagnitude < 4.5f * 4.5f)
                     {
-                        int taken = HostCrateGun[ask.i];
+                        taken = HostCrateGun[ask.i];
                         HostCrateGun[ask.i] = 0;
-                        HostGuns[player.UID] = new HostGun { Gun = taken, Shots = Shots[taken] };
                         Net.SendToModded(new CpTell { kind = CpKind.Crate, i = ask.i, j = 0, v = HostCratePosition[ask.i] });
-                        Net.SendToModded(new CpTell { kind = CpKind.GunState, a = player.UID, i = taken, j = Shots[taken] });
+                    }
+                    if (taken != 0)
+                    {
+                        HostGuns[player.UID] = new HostGun { Gun = taken, Shots = ShotsPerGun };
+                        Net.SendToModded(new CpTell { kind = CpKind.GunState, a = player.UID, i = taken, j = ShotsPerGun });
                         Plugin.Log("nerf guns: " + Poles.NameOf(player) + " took the " + Names[taken]);
                     }
                     break;
@@ -452,7 +534,7 @@ namespace ClassPack
                     }
                     break;
                 case CpKind.GunFire:
-                    if (gun != null && gun.Shots > 0 && Time.time >= gun.NextAt && !player.IsStun && !player.BodyActionsBlocked)
+                    if (gun != null && gun.Shots > 0 && !player.IsStun && !player.BodyActionsBlocked)
                     {
                         Shoot(player, gun, ask);
                     }
@@ -468,7 +550,6 @@ namespace ClassPack
                 return;
             }
             gun.Shots--;
-            gun.NextAt = Time.time + Wait[gun.Gun] - 0.1f;
             int fired = gun.Gun;
             Net.SendToModded(new CpTell { kind = CpKind.GunFx, a = shooter.UID, i = fired, v = ask.v, w = ask.w });
             if (gun.Shots <= 0)
@@ -511,6 +592,7 @@ namespace ClassPack
                     Hit(shooter, target, false);
                 }
             }
+            Plugin.Log("nerf guns: " + Poles.NameOf(shooter) + " fired the " + Names[fired] + " and hit " + done.Count);
         }
 
         private static void Hit(Unit shooter, Unit target, bool blast)
@@ -555,7 +637,15 @@ namespace ClassPack
             switch (tell.kind)
             {
                 case CpKind.Crate:
-                    if (tell.i >= 0 && tell.i < CrateCount)
+                    if (tell.i == DrawerSlot)
+                    {
+                        SetDrawerGun(Mathf.Clamp(tell.j, 0, Rpg));
+                        if (tell.j != 0)
+                        {
+                            Game.Notify("There is something in your desk drawer...", 4f);
+                        }
+                    }
+                    else if (tell.i >= 0 && tell.i < CrateCount)
                     {
                         if (Crates[tell.i] != null && Crates[tell.i].Model != null)
                         {
@@ -608,7 +698,7 @@ namespace ClassPack
             }
         }
 
-        /// <summary>Crosshair, ammo line and pick-up hint. Drawn in a 1280 by 720 frame.</summary>
+        /// <summary>Crosshair, gun line and pick-up hint. Drawn in a 1280 by 720 frame.</summary>
         public static string DrawHud(float width, float height)
         {
             if (!Game.InClass)
@@ -641,8 +731,12 @@ namespace ClassPack
                 GUI.DrawTexture(new Rect(x - 1f, y - 9f, 2f, 6f), _white);
                 GUI.DrawTexture(new Rect(x - 1f, y + 3f, 2f, 6f), _white);
                 GUI.color = old;
-                return Names[mine.Gun] + "  " + mine.Shots + "/" + Shots[mine.Gun] + "     [" + Plugin.Settings.FireKeyCode
+                return Names[mine.Gun] + ", one shot     [" + Plugin.Settings.FireKeyCode
                     + " or wheel click] shoot     [" + Plugin.Settings.UseKeyCode + "] throw away";
+            }
+            if (_drawerGunInReach)
+            {
+                return "Press " + Plugin.Settings.UseKeyCode + " to take the " + Names[_drawerGun] + " from your drawer";
             }
             if (me != null)
             {

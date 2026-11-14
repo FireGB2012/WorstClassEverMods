@@ -76,6 +76,26 @@ each pack before the next. He chose nerf guns for both teacher and students.
 | 29 Prank call | Built as a second app on the phone. The teacher's phone rings 8 seconds; H answers; ignoring it costs 10 stamina. Caller gets 3 mischief, one call a minute. |
 | 34 Fire alarm | Built. Red box above the nearest classroom door, B under it, once per class. 15 seconds of siren and red flashing, and a teacher who sprints slips. No water and no reaction from the classmates yet. |
 
+### Nerf guns reworked (version 0.5.0, installed 2026-11-14, not yet tried in the game)
+
+After trying 0.4.0 (the log showed all four parts working) Gabriel asked for way better gun
+models, guns that come out of the drawers, one shot each, and low odds.
+
+- **Models:** `tools\make_nerf_models.py` builds four toy blasters in Blender (run in the
+  background) and writes them to `package\models\*.cpm`, the mod's own small text format.
+  `Models.cs` loads them. Preview pictures land in `dist\previews`. To change a gun, edit the
+  script and run:
+  `& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --python tools\make_nerf_models.py -- package\models dist\previews`
+- **Where guns come from:** at class start the host rolls per player. A student who wins finds a
+  gun in their own desk drawer (open it, press B). A teacher who wins finds one floating at the
+  teacher start point in the office. Nothing floats around the classroom any more.
+- **Odds:** student 20% per class, teacher 12% (`nerfStudentChance`, `nerfTeacherChance` in
+  config.json). Kind: pistol 45, shotgun 25, sniper 22, RPG 8 out of 100.
+- **One shot** per gun.
+- **Testing switch:** the F6 owner window has "Everyone finds a nerf gun every class".
+- Only desks with a normal drawer count, so no student guns on the restroom, dormitory or
+  schoolyard floors yet.
+
 Things to check: where the guns and the alarm box show up, whether B, X and H clash with the
 game's own keys, whether block shapes are drawn in colour, and whether window poles appear at all
 (the log says how many windows were usable).
