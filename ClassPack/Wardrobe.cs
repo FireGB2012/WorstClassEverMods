@@ -158,6 +158,26 @@ namespace ClassPack
             return GUILayout.SelectionGrid(Mathf.Clamp(value, 0, names.Length - 1), names, perRow, _cell);
         }
 
+        /// <summary>A row where every item can be switched on by itself. names[0] is "None" and is skipped.</summary>
+        private int Several(string label, int worn, string[] names)
+        {
+            GUILayout.Label(label, _label);
+            GUILayout.BeginHorizontal();
+            for (int i = 1; i < names.Length; i++)
+            {
+                int bit = 1 << (i - 1);
+                bool on = GUILayout.Toggle((worn & bit) != 0, names[i], _cell, GUILayout.Width(120f));
+                worn = on ? worn | bit : worn & ~bit;
+            }
+            if (GUILayout.Button("Take all off", _cell, GUILayout.Width(110f)))
+            {
+                worn = 0;
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            return worn;
+        }
+
         private float Slide(string label, float value, float low, float high)
         {
             GUILayout.BeginHorizontal();
@@ -220,8 +240,8 @@ namespace ClassPack
                 GUILayout.BeginArea(new Rect(window.x + 340f, window.y + 54f, Width - 360f, Height - 70f));
                 _scroll = GUILayout.BeginScrollView(_scroll);
                 look.Hat = Row("Hat", look.Hat, Looks.HatNames, 5);
-                look.Face = Row("Face", look.Face, Looks.FaceNames, 5);
-                look.Back = Row("Back", look.Back, Looks.BackNames, 5);
+                look.Face = Several("Face (wear as many as you like)", look.Face, Looks.FaceNames);
+                look.Back = Several("Back (wear as many as you like)", look.Back, Looks.BackNames);
                 GUILayout.Space(6f);
                 look.Hair = Row("Hair (students)", look.Hair, Looks.HairNames, 6);
                 look.Body = Row("Face and body (students)", look.Body, Looks.PartNames, 6);

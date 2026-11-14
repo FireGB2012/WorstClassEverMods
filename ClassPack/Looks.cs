@@ -13,6 +13,7 @@ namespace ClassPack
         public int Hair, Body, Cloth;
         // 0 means no colour change, otherwise a colour from Looks.TintNames.
         public int HairTint, ClothTint, BodyTint;
+        // Hat is one pick. Face and Back are sets: one bit per item, so several can be worn.
         public int Hat, Face, Back;
         // Only matters while the player is the teacher. See the constants in Looks.
         public int Teacher;
@@ -34,8 +35,8 @@ namespace ClassPack
                 BodyTint = Mathf.Min((a >> 17) & 15, Looks.TintNames.Length - 1),
                 Teacher = Mathf.Min((a >> 21) & 7, Looks.TeacherNames.Length - 1),
                 Hat = Mathf.Min(b & 63, Looks.HatNames.Length - 1),
-                Face = Mathf.Min((b >> 6) & 63, Looks.FaceNames.Length - 1),
-                Back = Mathf.Min((b >> 12) & 63, Looks.BackNames.Length - 1)
+                Face = (b >> 6) & ((1 << (Looks.FaceNames.Length - 1)) - 1),
+                Back = (b >> 12) & ((1 << (Looks.BackNames.Length - 1)) - 1)
             };
         }
     }
@@ -485,13 +486,19 @@ namespace ClassPack
                     }
                     break;
             }
-            if (look.Face > 0)
+            for (int i = 1; i < FaceModels.Length; i++)
             {
-                Add(worn, FaceModels[look.Face], Head, layer);
+                if ((look.Face & (1 << (i - 1))) != 0)
+                {
+                    Add(worn, FaceModels[i], Head, layer);
+                }
             }
-            if (look.Back > 0)
+            for (int i = 1; i < BackModels.Length; i++)
             {
-                Add(worn, BackModels[look.Back], OnBack, layer);
+                if ((look.Back & (1 << (i - 1))) != 0)
+                {
+                    Add(worn, BackModels[i], OnBack, layer);
+                }
             }
 
             // What a player sees of their own outfit while playing: a student sees what is on

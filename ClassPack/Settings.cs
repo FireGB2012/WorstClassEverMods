@@ -55,11 +55,12 @@ namespace ClassPack
         public int lookB = 0;
         // Where hats sit compared with the game's own head point, and how big they are.
         // The wardrobe has sliders for these.
-        // The game's head point is the neck, so the middle of a student's head is about
-        // 0.17 m above it and 1.45 times the size the hats were modelled for.
-        public float headUp = 0.17f;
-        public float headForward = 0f;
-        public float headSize = 1.45f;
+        // The game's head point is the neck. With the hair, a student's head is about 0.19 m
+        // in radius, so its middle is that far above the neck and hats are 1.7 times the size
+        // they were modelled for.
+        public float headUp = 0.19f;
+        public float headForward = 0.01f;
+        public float headSize = 1.7f;
         public float bodyUp = 0f;
         // How far the back and the belly are from the middle of the body.
         public float bodyOut = 0.11f;
@@ -83,7 +84,7 @@ namespace ClassPack
         // The room owner's settings window
         public string panelKey = "F6";
 
-        private const int CurrentFit = 2;
+        private const int CurrentFit = 3;
 
         [NonSerialized]
         private string _path;
