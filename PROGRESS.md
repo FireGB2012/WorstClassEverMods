@@ -111,14 +111,38 @@ Things to check: where the guns and the alarm box show up, whether B, X and H cl
 game's own keys, whether block shapes are drawn in colour, and whether window poles appear at all
 (the log says how many windows were usable).
 
+## Third pack: student tricks (version 0.6.0, installed 2026-11-14, not yet tried in the game)
+
+On 2026-11-14 Gabriel confirmed the easier gun pick-up and said to make all the rest of the doc
+"but not the skin part". Read as: skip idea 2, customizable characters. Still pack by pack.
+
+All seven tricks are in `Tricks.cs` and are picked from a new Tricks app on the phone (O).
+Five go in the hand: X or a wheel click uses them, B puts them away. Models come from
+`tools\make_nerf_models.py` (it now builds the trick props too).
+
+| Idea | How it plays |
+|------|--------------|
+| 24 Paper airplane | Throw it. Hitting a teacher from behind pays mischief; from the front the teacher is told who threw it. A miss lies on the floor for 25 seconds pointing back at the thrower. 15 second wait. |
+| 27 Water balloon | Throw it at a blackboard: the board is soaked for 20 seconds and the teacher can't start writing on it (`SoakedBoardPatch` on `BlackBoardComponent.Interect`). 40 second wait. |
+| 26 Super glue | Two per class. Squirted at a teacher: no chalk or eraser throws for 10 seconds (`GluedHandPatch` on `SkillComponent.GetCmdInput`). Squirted at the floor: a puddle; the first teacher to walk in is stuck for 4 seconds (the game's own taser stun, `TeacherStunComponent.TryGetProjectileStun`, so the teacher's tip says taser). |
+| 25 Laser pointer | Hold X. Everybody sees the red line. A teacher facing the student gets a white screen while it is on them; mischief per second. Six seconds of battery that refills. |
+| 23 Whoopee cushion | Put it on a seat or the floor. The first other person within half a metre, classmate bots included, sets it off after 2 seconds: mischief, more for a teacher. |
+| 31 Pass notes | The note hops to the classmate furthest away. Mischief on arrival, more for a longer trip. A teacher within about 1.4 m grabs it and is told who wrote it. 30 second wait. |
+| 30 Sleep in class | Only while seated. Pays 1, then 2, then 3 mischief every 2 seconds. Everybody sees "Z z z" over the sleeper, and the snore is heard room-wide after about 20 seconds. Any key wakes you. |
+
+Guesses to check in the game: the sounds (snore is the balloon-blowing sound, the cushion is the
+balloon-leak sound), whether the held prop shows where the hand is, whether bots count as
+`IsStudent` for the note and the cushion, and the mischief amounts.
+Alone with bots there is no teacher, so the teacher halves (airplane hit, laser blinding, both
+glue effects, note grab) need a second player.
+
 ## Packs still to do
 
-- **Pack 3, student tricks:** sleep in class (30), pass notes (31), laser pointer (25), whoopee
-  cushion (23), paper airplane (24), water balloon (27), super glue (26).
 - **Pack 4, teacher and class events:** coffee mug and hot sauce (28), teacher's pet snitch (36),
   class hamster (33), food fight (35), more random events (38), points shop at the vending
   machine (37), the principal (21).
-- **Pack 5, looks:** customizable characters (2), bald teacher and wig (3, 22), the toilet idea (10).
+- **Pack 5, looks:** bald teacher and wig (3, 22), the toilet idea (10). Idea 2, customizable
+  characters, is left out at Gabriel's request ("not the skin part").
 - **Pack 6, new teachers:** gym teacher (6), lunch lady (19), janitor (20). They reuse the current
   teacher's body with a new look and new powers; a brand new body needs a 3D model.
 - **Pack 7, new floors and modes, the slow part:** pool (4), dance class (9), science lab (12),
@@ -128,3 +152,4 @@ game's own keys, whether block shapes are drawn in colour, and whether window po
 ## Not building
 
 - Idea 8 as written, idea 5, and the twerk emote in idea 9 (dance class gets a goofy dance instead).
+- Idea 2, customizable characters: Gabriel said to skip "the skin part" on 2026-11-14.

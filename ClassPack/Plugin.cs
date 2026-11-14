@@ -30,7 +30,7 @@ namespace ClassPack
 
             Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut
                 + " SoloClass=" + Settings.soloClass + " NerfGuns=" + Settings.nerfGuns + " WindowPoles=" + Settings.windowPoles
-                + " PrankCall=" + Settings.prankCall + " FireAlarm=" + Settings.fireAlarm);
+                + " PrankCall=" + Settings.prankCall + " FireAlarm=" + Settings.fireAlarm + " Tricks=" + Settings.tricks);
         }
 
         public static void Log(string message)
@@ -45,7 +45,7 @@ namespace ClassPack
         private static readonly Action[] Features =
         {
             Game.Tick, Net.Tick, Poles.Tick, DoorDash.Tick, TeacherSnacks.Tick, PowerCut.Tick,
-            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick
+            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick
         };
 
         private readonly float[] _lastErrorLog = new float[Features.Length];

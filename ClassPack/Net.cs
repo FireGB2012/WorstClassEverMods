@@ -62,7 +62,22 @@ namespace ClassPack
         Ring = 21,          // tell: your phone rings for f seconds
         AlarmPull = 30,     // ask: pull the fire alarm
         Alarm = 31,         // tell: the fire alarm runs for f seconds, box at v
-        AlarmBox = 32       // tell: the fire alarm box is at v (i = 1 while it can be pulled)
+        AlarmBox = 32,      // tell: the fire alarm box is at v (i = 1 while it can be pulled)
+        TrickHold = 40,     // ask: take trick i in hand (0 = put it away)
+        TrickHeld = 41,     // tell: player a now holds trick i
+        TrickUse = 42,      // ask: I used held trick i from v at w, on t0
+        Plane = 43,         // tell: a paper airplane flies from v to w (i = how it ended, a = thrower)
+        Balloon = 44,       // tell: a water balloon flies from v to w (i = 1 soaks board a for f seconds)
+        GlueHand = 45,      // tell: teacher a can't throw for f seconds
+        GluePuddle = 46,    // tell: glue puddle i at v (j = 1 there, 0 gone)
+        GlueFeet = 47,      // tell: teacher a is stuck for f seconds
+        LaserAsk = 48,      // ask: my laser shines from v to w on t0
+        Laser = 49,         // tell: a laser line from v to w (a = the teacher it blinds, or 0)
+        Cushion = 50,       // tell: whoopee cushion i at v (j = 1 put down, 2 went off, 0 gone)
+        NoteAsk = 51,       // ask: pass a note
+        Note = 52,          // tell: note i goes from v to w in f seconds (j = 1 start, 2 arrived, 3 grabbed)
+        NapAsk = 53,        // ask: i = 1 fall asleep, 0 wake up
+        Snore = 54          // tell: player a snores at v, loudness f (below 0: woke up), i = mischief paid
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -301,6 +316,13 @@ namespace ClassPack
                 case CpKind.AlarmPull:
                     FireAlarm.OnAsk(player);
                     break;
+                case CpKind.TrickHold:
+                case CpKind.TrickUse:
+                case CpKind.LaserAsk:
+                case CpKind.NoteAsk:
+                case CpKind.NapAsk:
+                    Tricks.OnAsk(player, ask);
+                    break;
             }
         }
 
@@ -323,6 +345,18 @@ namespace ClassPack
                 case CpKind.Alarm:
                 case CpKind.AlarmBox:
                     FireAlarm.OnTell(tell);
+                    break;
+                case CpKind.TrickHeld:
+                case CpKind.Plane:
+                case CpKind.Balloon:
+                case CpKind.GlueHand:
+                case CpKind.GluePuddle:
+                case CpKind.GlueFeet:
+                case CpKind.Laser:
+                case CpKind.Cushion:
+                case CpKind.Note:
+                case CpKind.Snore:
+                    Tricks.OnTell(tell);
                     break;
             }
         }

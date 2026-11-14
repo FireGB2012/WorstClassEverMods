@@ -43,6 +43,9 @@ namespace ClassPack
         public bool windowPoles = true;
         public bool prankCall = true;
         public bool fireAlarm = true;
+        // The student tricks on the phone: paper airplane, water balloon, super glue, laser
+        // pointer, whoopee cushion, passing notes and napping.
+        public bool tricks = true;
         // useKey takes or throws away a nerf gun and pulls the fire alarm. fireKey shoots
         // (a click on the mouse wheel shoots too). answerKey picks up a ringing phone.
         public string useKey = "B";

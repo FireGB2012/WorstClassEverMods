@@ -1,10 +1,11 @@
-"""Builds the four nerf gun models and writes them as .cpm files for the mod.
+"""Builds the mod's 3D models (nerf guns and trick props) and writes them as .cpm files.
 
 Run with Blender in the background:
     blender --background --python tools/make_nerf_models.py -- <models_out_dir> <previews_out_dir>
 
 Each gun points along +Y, with +Z up and its thickness along X, in metres.
-(0, 0, 0) is where the trigger hand sits.
+(0, 0, 0) is where the trigger hand sits. The trick props follow the same axes;
+each builder says where its own (0, 0, 0) is.
 
 .cpm is the mod's own tiny text format, already converted to Unity's axes:
     m r g b              start a colour group (0-255)
@@ -29,6 +30,16 @@ WHITE = (244, 244, 244)
 GREY = (128, 134, 146)
 DARK = (38, 40, 48)
 LENS = (70, 170, 255)
+PAPER = (246, 246, 240)
+PAPER_FOLD = (226, 226, 214)
+INK = (90, 130, 220)
+PINK = (236, 90, 130)
+PINK_DARK = (198, 58, 100)
+WATER = (56, 136, 235)
+WATER_LIGHT = (150, 205, 255)
+CREAM = (244, 238, 200)
+CREAM_LIGHT = (253, 250, 228)
+SILVER = (196, 200, 208)
 
 SMOOTH_ANGLE = math.radians(42.0)
 
@@ -87,6 +98,38 @@ class Model:
         bm = bmesh.new()
         bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=1.0,
                                   matrix=Matrix.Translation(center) @ Matrix.Diagonal((*scale, 1.0)))
+        self.add(bm, color)
+
+    def sheet(self, points, color, thickness=0.004):
+        """A flat piece through the given (x, y, z) corners, just thick enough to show from both sides."""
+        corners = [Vector(p) for p in points]
+        normal = (corners[1] - corners[0]).cross(corners[2] - corners[0]).normalized() * (thickness * 0.5)
+        bm = bmesh.new()
+        top = [bm.verts.new(c + normal) for c in corners]
+        bottom = [bm.verts.new(c - normal) for c in corners]
+        bm.faces.new(top)
+        bm.faces.new(list(reversed(bottom)))
+        n = len(corners)
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((top[i], bottom[i], bottom[j], top[j]))
+        self.add(bm, color)
+
+    def slab(self, points, z0, z1, color, bevel=0.0):
+        """Extrude a top-view outline (list of (x, y)) from height z0 up to z1."""
+        bm = bmesh.new()
+        low = [bm.verts.new((x, y, z0)) for x, y in points]
+        high = [bm.verts.new((x, y, z1)) for x, y in points]
+        bm.faces.new(list(reversed(low)))
+        bm.faces.new(high)
+        n = len(points)
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((low[i], low[j], high[j], high[i]))
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+        if bevel > 0.0:
+            bmesh.ops.bevel(bm, geom=list(bm.edges), offset=bevel, segments=2, profile=0.5,
+                            affect='EDGES', clamp_overlap=True)
         self.add(bm, color)
 
     # -- shared details -----------------------------------------------------
@@ -221,6 +264,123 @@ def rpg():
     return m
 
 
+# ------------------------------------------------------------- trick props
+
+
+def blob(radius, wobble, lobes, steps=44, phase=0.0):
+    """A wobbly round outline, for puddles and splashes."""
+    points = []
+    for i in range(steps):
+        a = 2.0 * math.pi * i / steps
+        r = radius * (1.0 + wobble * math.sin(lobes * a + phase)
+                      + wobble * 0.5 * math.sin((lobes + 3) * a + 1.7 * phase + 0.6))
+        points.append((r * math.cos(a), r * math.sin(a)))
+    return points
+
+
+def airplane():
+    """A folded paper dart, nose along +Y. (0, 0, 0) is where the fingers pinch it."""
+    m = Model('airplane')
+    nose = Vector((0.0, 0.150, 0.0))
+    tail = -0.130
+    for side in (-1.0, 1.0):
+        root = Vector((side * 0.012, tail, 0.004))
+        tip = Vector((side * 0.105, tail, 0.024))
+        m.sheet([nose, root, tip], PAPER)
+        # The fold under each wing: together they make the keel you hold it by.
+        m.sheet([nose, root, Vector((side * 0.004, tail, -0.042))], PAPER_FOLD)
+        # A ruled line and a stripe on top of the wing, like a page torn from a notebook.
+        lift = (root - nose).cross(tip - nose).normalized()
+        if lift.z < 0.0:
+            lift = -lift
+        lift *= 0.003
+
+        def on_wing(u, v, nose=nose, root=root, tip=tip, lift=lift):
+            return nose + (root - nose) * u + (tip - nose) * v + lift
+
+        m.sheet([on_wing(0.42, 0.34), on_wing(0.34, 0.66), on_wing(0.26, 0.74), on_wing(0.36, 0.40)], INK, 0.002)
+        m.sheet([on_wing(0.10, 0.62), on_wing(0.04, 0.96), on_wing(0.00, 1.00), on_wing(0.06, 0.66)], RED, 0.002)
+    return m
+
+
+def balloon():
+    """A filled water balloon, knot towards -Y. (0, 0, 0) is its middle."""
+    m = Model('balloon')
+    m.ball((0.0, 0.010, 0.0), (0.062, 0.074, 0.060), WATER)
+    m.tube((0.0, -0.058, 0.0), (0.0, -0.080, 0.0), 0.017, WATER, r2=0.007, segments=18)
+    m.tube((0.0, -0.080, 0.0), (0.0, -0.092, 0.0), 0.007, WATER_LIGHT, r2=0.014, segments=18)
+    m.ball((0.024, 0.040, 0.034), (0.013, 0.018, 0.010), WATER_LIGHT)
+    return m
+
+
+def glue():
+    """A squeeze tube of super glue, nozzle along +Y. (0, 0, 0) is the middle of the tube."""
+    m = Model('glue')
+    m.tube((0.0, -0.060, 0.0), (0.0, 0.040, 0.0), 0.022, WHITE, segments=26)
+    m.box((0.0, -0.070, 0.0), (0.052, 0.024, 0.007), GREY, 0.002)
+    m.tube((0.0, 0.040, 0.0), (0.0, 0.058, 0.0), 0.022, WHITE, r2=0.008, segments=26)
+    m.tube((0.0, 0.058, 0.0), (0.0, 0.068, 0.0), 0.008, WHITE, segments=18)
+    m.tube((0.0, 0.066, 0.0), (0.0, 0.112, 0.0), 0.012, RED, r2=0.004, segments=18)
+    m.tube((0.0, -0.034, 0.0), (0.0, 0.020, 0.0), 0.0228, RED, segments=26)
+    m.tube((0.0, -0.022, 0.0), (0.0, 0.008, 0.0), 0.0235, YELLOW, segments=26)
+    return m
+
+
+def laser():
+    """A pen-sized laser pointer, lens along +Y. (0, 0, 0) is where the thumb rests."""
+    m = Model('laser')
+    m.tube((0.0, -0.090, 0.0), (0.0, 0.075, 0.0), 0.013, DARK, segments=22)
+    m.tube((0.0, 0.075, 0.0), (0.0, 0.094, 0.0), 0.0145, SILVER, segments=22)
+    m.tube((0.0, 0.092, 0.0), (0.0, 0.098, 0.0), 0.010, RED, segments=18)
+    m.tube((0.0, -0.100, 0.0), (0.0, -0.090, 0.0), 0.0145, SILVER, segments=22)
+    m.tube((0.0, -0.016, 0.0), (0.0, -0.002, 0.0), 0.0138, SILVER, segments=22)
+    m.box((0.0, 0.030, 0.0140), (0.012, 0.028, 0.006), RED, 0.002)
+    m.ball((0.0, -0.112, 0.0), (0.009, 0.012, 0.009), SILVER)
+    return m
+
+
+def cushion():
+    """A whoopee cushion lying flat, mouthpiece along +Y. (0, 0, 0) is the floor under its middle."""
+    m = Model('cushion')
+    m.ball((0.0, 0.0, 0.024), (0.115, 0.115, 0.024), PINK)
+    m.ball((0.0, 0.0, 0.022), (0.123, 0.123, 0.009), PINK_DARK)
+    m.tube((0.0, 0.104, 0.024), (0.0, 0.168, 0.024), 0.019, PINK, r2=0.012, segments=18)
+    m.tube((0.0, 0.162, 0.024), (0.0, 0.176, 0.024), 0.016, PINK_DARK, segments=18)
+    m.ball((-0.034, -0.030, 0.043), (0.022, 0.030, 0.006), (250, 150, 178))
+    return m
+
+
+def note():
+    """A folded note. (0, 0, 0) is its middle."""
+    m = Model('note')
+    m.box((0.0, 0.0, 0.0), (0.100, 0.070, 0.009), PAPER, 0.002)
+    m.sheet([(-0.050, 0.035, 0.0052), (0.050, 0.035, 0.0052), (0.0, -0.006, 0.0086)], PAPER_FOLD, 0.002)
+    for i in range(3):
+        m.box((0.0, -0.014 - i * 0.008, 0.0050), (0.062 - i * 0.012, 0.0024, 0.0014), INK)
+    m.ball((0.0, 0.004, 0.0088), (0.007, 0.007, 0.0024), RED)
+    return m
+
+
+def puddle():
+    """A pool of spilled glue. (0, 0, 0) is the floor under its middle."""
+    m = Model('puddle')
+    m.slab(blob(0.210, 0.16, 5, phase=0.4), 0.0, 0.010, CREAM, 0.003)
+    m.slab(blob(0.125, 0.20, 4, phase=1.3), 0.008, 0.016, CREAM_LIGHT, 0.003)
+    for x, y, r in ((0.215, 0.130, 0.036), (-0.200, -0.140, 0.030), (0.050, -0.250, 0.028)):
+        m.ball((x, y, 0.004), (r, r, 0.008), CREAM)
+    return m
+
+
+def splat():
+    """The wet patch a water balloon leaves. Flat, facing +Z; (0, 0, 0) is its middle."""
+    m = Model('splat')
+    m.slab(blob(0.300, 0.30, 7, steps=70, phase=0.9), 0.0, 0.008, WATER)
+    m.slab(blob(0.170, 0.22, 5, phase=2.0), 0.006, 0.013, WATER_LIGHT)
+    for x, y, r in ((0.330, 0.180, 0.030), (-0.340, 0.060, 0.026), (-0.120, -0.360, 0.034), (0.210, -0.310, 0.022)):
+        m.ball((x, y, 0.004), (r, r, 0.007), WATER)
+    return m
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -326,7 +486,7 @@ def main():
     out_dir = os.path.abspath(args[0])
     preview_dir = os.path.abspath(args[1]) if len(args) > 1 else None
     os.makedirs(out_dir, exist_ok=True)
-    for build in (pistol, shotgun, sniper, rpg):
+    for build in (pistol, shotgun, sniper, rpg, airplane, balloon, glue, laser, cushion, note, puddle, splat):
         model = build()
         if preview_dir:
             os.makedirs(preview_dir, exist_ok=True)

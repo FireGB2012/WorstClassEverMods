@@ -411,6 +411,9 @@ namespace ClassPack
 
         // -------------------------------------------------------------- local keys
 
+        /// <summary>True while this player carries a nerf gun.</summary>
+        public static bool HoldingLocal => Mine() != null;
+
         private static Held Mine()
         {
             Unit me = Game.LocalPlayer;
@@ -448,7 +451,8 @@ namespace ClassPack
             }
             bool blocked = me.IsStun || me.BodyActionsBlocked;
             Held mine = Mine();
-            if (Input.GetKeyDown(Plugin.Settings.UseKeyCode) && !blocked)
+            // With a trick in hand the same key puts the trick away instead (see Tricks.cs).
+            if (Input.GetKeyDown(Plugin.Settings.UseKeyCode) && !blocked && Tricks.HeldLocal == 0)
             {
                 int near = NearestCrate(me.Position);
                 if (mine == null && _drawerGunWaiting)
@@ -523,7 +527,7 @@ namespace ClassPack
         }
 
         /// <summary>Follows one dart until it hits a player, a classmate or something solid.</summary>
-        private static Unit Trace(UnitManager units, Unit me, Vector3 from, Vector3 direction, float reach, out Vector3 end)
+        internal static Unit Trace(UnitManager units, Unit me, Vector3 from, Vector3 direction, float reach, out Vector3 end)
         {
             end = from + direction * reach;
             RaycastHit[] hits = Physics.RaycastAll(from, direction, reach, ~0, QueryTriggerInteraction.Collide);
