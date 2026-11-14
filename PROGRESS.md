@@ -232,3 +232,11 @@ Recipe that matched the style, 21 credits a model:
 
 Made this way: `meshy\hat_cowboy_toy.glb` (style picture in `meshy\style\`, render in
 `meshy\pictures\`). Gabriel asked for just this one first. Still nothing from Meshy in the game.
+
+### All toy-style Meshy models made (2026-11-14)
+
+34 more models made with the game-style recipe after Gabriel said "Yes, make the rest":
+`meshy\toy\*.glb` (35 with the cowboy hat), pictures in `meshy\pictures\`. 582 credits left.
+Details and the weak ones in `meshy\tasks.md`. They were shown to him as three overview sheets.
+Still NOT converted and NOT installed: the game runs 0.6.0, and 0.7.0 (wardrobe and new
+teachers) waits with the old Blender-script models in `package\models`.
