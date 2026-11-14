@@ -194,3 +194,18 @@ Gabriel saw the preview pictures of the Blender-script models and said to use Me
   the built-in browser was not signed in to www.meshy.ai. One model cost 20 credits on the page.
   All 37 models would be about 740 credits, so ask Gabriel how many to make before spending any.
 - A replacement keeps the old model's file name (for example `hat_cap.cpm`), so no code changes.
+
+### First Meshy models (2026-11-14)
+
+Gabriel installed the Meshy MCP (tools `mcp__meshy__*`; 1,362 credits at the start) and approved 3
+test models for 45 credits. Recipe used, 15 credits a model: `meshy_text_to_3d` with
+`model_type: smart-topology`, `ai_model: meshy-t2.5`, `target_polycount: 5000`, `target_formats: [glb]`
+(5 credits), then `meshy_text_to_3d_refine` with a short `texture_prompt` (10 credits), then
+`meshy_download_model` with `save_to`. Prompts that worked start with the thing, then
+"stylized cartoon game prop ... single object, no head, no mannequin".
+
+- Saved: `meshy\hat_crown.glb`, `meshy\hat_cowboy.glb`, `meshy\back_pack.glb`, pictures in
+  `meshy\pictures\`. The download links expire on 2026-11-17; the files here are the copies to keep.
+- He then said "dont put in just show me them", so they were only shown as pictures. NOTHING from
+  Meshy is in `package\models` or in the game yet. Wait for his word before converting or installing.
+- Still to make if he likes them: 34 models, about 510 credits.

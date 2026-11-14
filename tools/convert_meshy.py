@@ -153,5 +153,56 @@ def main():
         f.write('\n'.join(lines) + '\n')
     print('wrote %s: %d vertices, %d triangles (from %d), pictures: %s' % (name, base, total, before, ', '.join(picture_files.values()) or 'none'))
 
+    preview = option(args, '--preview', '')
+    if preview:
+        render_preview(obj, os.path.abspath(preview))
+
+
+def render_preview(obj, path):
+    """A picture of the finished model seen from the front (+Y side), a little from the right and above.
+
+    The red bar on the ground starts at (0, 0, 0) and points forward (+Y), the blue bar
+    points up, so the model's facing and its origin can be checked before it goes in the game.
+    """
+    scene = bpy.context.scene
+    corners = [Vector(c) for c in obj.bound_box]
+    low = Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
+    high = Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
+    reach = max((high - low).length, 0.1)
+
+    def bar(name, size, at, color):
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=at)
+        marker = bpy.context.active_object
+        marker.name = name
+        marker.scale = size
+        material = bpy.data.materials.new(name)
+        material.diffuse_color = color
+        marker.data.materials.append(material)
+
+    thick = reach * 0.012
+    bar('forward', (thick, reach * 0.6, thick), (0.0, reach * 0.3, 0.0), (1.0, 0.1, 0.1, 1.0))
+    bar('up', (thick, thick, reach * 0.35), (0.0, 0.0, reach * 0.175), (0.1, 0.3, 1.0, 1.0))
+
+    centre = (low + high) * 0.5
+    camera_data = bpy.data.cameras.new('cam')
+    camera_data.type = 'ORTHO'
+    camera_data.ortho_scale = reach * 1.5
+    camera = bpy.data.objects.new('cam', camera_data)
+    scene.collection.objects.link(camera)
+    direction = Vector((0.55, 1.0, 0.5)).normalized()
+    camera.location = centre + direction * 5.0
+    camera.rotation_euler = (-direction).to_track_quat('-Z', 'Y').to_euler()
+    scene.camera = camera
+    scene.render.engine = 'BLENDER_WORKBENCH'
+    scene.render.resolution_x = 900
+    scene.render.resolution_y = 700
+    scene.render.filepath = path
+    scene.display.shading.light = 'STUDIO'
+    scene.display.shading.color_type = 'TEXTURE'
+    scene.world = bpy.data.worlds.new('w')
+    scene.world.color = (0.82, 0.85, 0.9)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    bpy.ops.render.render(write_still=True)
+
 
 main()
