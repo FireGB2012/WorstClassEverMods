@@ -20,9 +20,10 @@ WHAT IT ADDS
 - Prank call: the phone also has a Call app. Ring the teacher. If the teacher does not
   press H to answer in time, the teacher loses stamina.
 - Nerf guns: a rare find. Each time a student finishes a snack there is a small chance
-  a gun turns up in their desk drawer, and the teacher gets a warning. Open the drawer
-  and press B to take it. A teacher who eats a snack from a student's drawer can find
-  one too, more rarely. Every gun has one shot. Press X, or click the mouse wheel, to
+  a gun turns up in their desk drawer, and the teacher gets a warning. Press B in your
+  seat to grab it, or open the drawer, look at the gun floating over it and press the
+  same key you pick up snacks with. A teacher who eats a snack from a student's drawer
+  can find one too, more rarely. Every gun has one shot. Press X, or click the mouse wheel, to
   shoot. A student who is hit goes up on a pole and can't be rescued. A teacher who is
   hit falls over. The RPG is the rarest and hits everybody, you too.
 - Fire alarm: a red box hangs above a classroom door. A student presses B under it,

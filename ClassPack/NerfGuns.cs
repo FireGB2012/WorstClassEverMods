@@ -39,12 +39,41 @@ namespace ClassPack
     }
 
     /// <summary>
+    /// The game's own pick-up key, the one that grabs a snack. When the player is looking at
+    /// the nerf gun over their drawer, that press takes the gun and the game does nothing
+    /// else with it (otherwise the same press would also shut the drawer).
+    /// </summary>
+    [HarmonyLib.HarmonyPatch(typeof(InputManager), "SendMsg")]
+    internal static class PickUpKeyPatch
+    {
+        private static bool Prefix(eCmdType command, eClickType click)
+        {
+            if (command != eCmdType.Interect1 || click != eClickType.Down)
+            {
+                return true;
+            }
+            try
+            {
+                return !NerfGuns.TryTakeWithPickUpKey();
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+        }
+    }
+
+    /// <summary>
     /// Idea 1: nerf guns for teacher and students.
     ///
     /// Guns are rare finds that turn up the way snacks do. Each time a student finishes a
     /// snack there is a small chance a gun appears in their desk drawer, and the teacher gets
     /// a warning. A teacher who eats a snack out of a student's drawer has a smaller chance
     /// of finding one hidden there. Every gun has one shot.
+    ///
+    /// Taking the drawer gun is meant to be easy: it hovers over the open drawer, big and
+    /// turning, and is picked up like a snack (look at it, press the pick-up key). The mod's
+    /// own key also takes it from anywhere in the seat, drawer open or shut.
     ///
     /// A student who is hit goes straight up on a pole and can't be rescued; a teacher who is
     /// hit falls over like on a banana peel. The RPG hits everybody in the class, the shooter
@@ -65,8 +94,10 @@ namespace ClassPack
         private static readonly float[] Reach = { 0f, 22f, 8f, 70f, 0f };
         // How often each kind turns up when a gun is found, out of 100.
         private static readonly int[] Rarity = { 0, 45, 25, 22, 8 };
-        // Shrink factors that make each gun fit in a desk drawer.
-        private static readonly float[] DrawerScale = { 1f, 0.85f, 0.5f, 0.3f, 0.3f };
+        // Sizes for the gun hovering over the desk drawer: big enough to spot at a glance.
+        private static readonly float[] DrawerScale = { 1f, 1.15f, 0.7f, 0.48f, 0.48f };
+        // How far off the middle of the gun the player may look and still pick it up, in metres.
+        private const float AimSlack = 0.26f;
         private static readonly Color32[] Tint =
         {
             new Color32(255, 255, 255, 255), new Color32(255, 130, 20, 255), new Color32(40, 120, 255, 255),
@@ -96,10 +127,18 @@ namespace ClassPack
         private static readonly Dictionary<ulong, Held> Guns = new Dictionary<ulong, Held>();
         private static int _drawerGun;
         private static GameObject _drawerModel;
-        private static bool _drawerGunInReach;
+        private static Vector3 _drawerModelMiddle;
+        // True while the player sits at their desk with a gun waiting in it.
+        private static bool _drawerGunWaiting;
+        // True while the player is also looking at the gun over the open drawer.
+        private static bool _drawerGunAimed;
+        private static bool _drawerGunLogged;
         private static float _nextShotAt;
         private static float _flashUntil;
         private static Texture2D _white;
+        private static GUIStyle _prompt;
+        private static string _pickUpKey;
+        private static float _pickUpKeyReadAt = -100f;
 
         // What only the host keeps
         private sealed class HostGun
@@ -168,7 +207,9 @@ namespace ClassPack
         private static void SetDrawerGun(int gun)
         {
             _drawerGun = gun;
-            _drawerGunInReach = false;
+            _drawerGunWaiting = false;
+            _drawerGunAimed = false;
+            _drawerGunLogged = false;
             if (_drawerModel != null)
             {
                 UnityEngine.Object.Destroy(_drawerModel);
@@ -248,13 +289,17 @@ namespace ClassPack
                 held.Model.transform.rotation = body.rotation;
             }
 
-            // The gun this player found lies in their own desk drawer and shows while it is open.
-            _drawerGunInReach = false;
+            // The gun this player found waits in their own desk. It can be taken from the seat
+            // at any time, and it shows, hovering and turning, while the drawer is open.
+            _drawerGunWaiting = false;
+            _drawerGunAimed = false;
             if (_drawerGun == 0)
             {
                 return;
             }
-            DrawerComponent drawer = MyDrawer(Game.LocalPlayer);
+            Unit me = Game.LocalPlayer;
+            _drawerGunWaiting = me != null && me.isActived && me.IsSitting;
+            DrawerComponent drawer = MyDrawer(me);
             bool open = drawer != null && drawer.IsActive && drawer.openState && drawer.owner != null && drawer.owner.transform != null;
             if (!open)
             {
@@ -268,6 +313,8 @@ namespace ClassPack
             {
                 _drawerModel = BuildGun(_drawerGun);
                 _drawerModel.transform.localScale = Vector3.one * DrawerScale[_drawerGun];
+                MeshFilter filter = _drawerModel.GetComponent<MeshFilter>();
+                _drawerModelMiddle = filter != null && filter.sharedMesh != null ? filter.sharedMesh.bounds.center : Vector3.zero;
             }
             Transform tray = drawer.owner.transform;
             Vector3 spot = tray.position;
@@ -290,11 +337,76 @@ namespace ClassPack
                     spot = sum / counted;
                 }
             }
+            // Hovering a hand's width over the snacks and turning slowly around its own middle.
+            Vector3 middle = spot + Vector3.up * (0.2f + bob * 0.35f);
+            Quaternion turn = Quaternion.Euler(-10f, spin * 0.6f, 0f);
             _drawerModel.SetActive(true);
-            _drawerModel.transform.position = spot + Vector3.up * 0.07f;
-            // Lying on its side, along the width of the drawer.
-            _drawerModel.transform.rotation = tray.rotation * Quaternion.Euler(0f, 90f, 90f);
-            _drawerGunInReach = true;
+            _drawerModel.transform.rotation = turn;
+            _drawerModel.transform.position = middle - turn * (_drawerModelMiddle * DrawerScale[_drawerGun]);
+            if (!_drawerGunLogged)
+            {
+                _drawerGunLogged = true;
+                Plugin.Log("nerf guns: showing the " + Names[_drawerGun] + " over the drawer at " + middle.ToString("F2"));
+            }
+
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                Vector3 to = middle - camera.transform.position;
+                float along = Vector3.Dot(to, camera.transform.forward);
+                float off = (to - camera.transform.forward * along).magnitude;
+                _drawerGunAimed = _drawerGunWaiting && along > 0.05f && along < 4f && off < AimSlack;
+            }
+        }
+
+        private static void TakeFromDrawer(string how)
+        {
+            Plugin.Log("nerf guns: asking for the " + Names[_drawerGun] + " from the drawer (" + how + ")");
+            Net.SendToHost(new CpAsk { kind = CpKind.GunTake, i = DrawerSlot });
+        }
+
+        /// <summary>
+        /// Called when the game's pick-up key goes down. True when the player was looking at
+        /// the gun over their drawer, in which case the gun is taken and the press is used up.
+        /// </summary>
+        public static bool TryTakeWithPickUpKey()
+        {
+            if (!_drawerGunAimed || _drawerGun == 0 || !Game.InClass || CursorGrab.Busy || !Net.CanSendToHost)
+            {
+                return false;
+            }
+            Unit me = Game.LocalPlayer;
+            if (me == null || !me.isActived || me.IsStun || me.BodyActionsBlocked || Mine() != null)
+            {
+                return false;
+            }
+            TakeFromDrawer("pick-up key");
+            return true;
+        }
+
+        private static string PickUpKeyName()
+        {
+            if (_pickUpKey == null || Time.unscaledTime - _pickUpKeyReadAt > 3f)
+            {
+                _pickUpKeyReadAt = Time.unscaledTime;
+                _pickUpKey = null;
+                try
+                {
+                    if (MonoSingletonT<InputManager>.IsSingletonActive())
+                    {
+                        _pickUpKey = MonoSingletonT<InputManager>.Instance.BindingName(eCmdType.Interect1);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Fall through to the plain wording below.
+                }
+                if (string.IsNullOrEmpty(_pickUpKey) || _pickUpKey == eCmdType.Interect1.ToString())
+                {
+                    _pickUpKey = "pick-up key";
+                }
+            }
+            return _pickUpKey;
         }
 
         // -------------------------------------------------------------- local keys
@@ -339,9 +451,9 @@ namespace ClassPack
             if (Input.GetKeyDown(Plugin.Settings.UseKeyCode) && !blocked)
             {
                 int near = NearestCrate(me.Position);
-                if (mine == null && _drawerGunInReach)
+                if (mine == null && _drawerGunWaiting)
                 {
-                    Net.SendToHost(new CpAsk { kind = CpKind.GunTake, i = DrawerSlot });
+                    TakeFromDrawer(Plugin.Settings.UseKeyCode + " key");
                 }
                 else if (mine == null && near >= 0)
                 {
@@ -664,7 +776,8 @@ namespace ClassPack
                         if (tell.j != 0)
                         {
                             Game.PlaySound(AudioEvents.sfx_GameAddItem_sfx);
-                            Game.Notify("A " + Names[Mathf.Clamp(tell.j, 0, Rpg)] + " turned up in your desk drawer! The teacher has been warned.", 5f);
+                            Game.Notify("A " + Names[Mathf.Clamp(tell.j, 0, Rpg)] + " turned up in your desk drawer! Press "
+                                + Plugin.Settings.UseKeyCode + " in your seat to grab it. The teacher has been warned.", 7f);
                         }
                     }
                     else if (tell.i >= 0 && tell.i < CrateCount)
@@ -756,9 +869,24 @@ namespace ClassPack
                 return Names[mine.Gun] + ", one shot     [" + Plugin.Settings.FireKeyCode
                     + " or wheel click] shoot     [" + Plugin.Settings.UseKeyCode + "] throw away";
             }
-            if (_drawerGunInReach)
+            if (_drawerGunWaiting)
             {
-                return "Press " + Plugin.Settings.UseKeyCode + " to take the " + Names[_drawerGun] + " from your drawer";
+                if (_drawerGunAimed && !CursorGrab.Busy)
+                {
+                    // The same kind of prompt a snack gets, right under the crosshair.
+                    if (_prompt == null)
+                    {
+                        _prompt = new GUIStyle { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+                        _prompt.normal.textColor = new Color32(255, 255, 255, 255);
+                    }
+                    var box = new Rect(width * 0.5f - 170f, height * 0.5f + 36f, 340f, 34f);
+                    Color old = GUI.color;
+                    GUI.color = new Color(0f, 0f, 0f, 0.6f);
+                    GUI.DrawTexture(box, _white);
+                    GUI.color = old;
+                    GUI.Label(box, "[" + PickUpKeyName() + "]  Pick up " + Names[_drawerGun], _prompt);
+                }
+                return "A " + Names[_drawerGun] + " is in your desk.     [" + Plugin.Settings.UseKeyCode + "] grab it";
             }
             if (me != null)
             {

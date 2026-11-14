@@ -94,6 +94,15 @@ models, guns that come out of the drawers, one shot each, and low odds.
   `nerfTeacherChancePerSnack` in config.json). Kind: pistol 45, shotgun 25, sniper 22, RPG 8.
   0.5.0 rolled 20% once per class; he lost it five classes running and asked where they spawn.
 - **One shot** per gun.
+- **Picking it up (made easier in 0.5.2, installed 2026-11-14, not yet tried in the game):**
+  in 0.5.1 the log showed a sniper turning up in Gabriel's drawer and never being taken; he said
+  it was too hard to pick up. It lay small among the snacks and only the B key took it, only with
+  the drawer open. Now: B takes it any time he sits at his desk, drawer open or shut, and a line
+  at the bottom of the screen says so for as long as the gun waits. With the drawer open the gun
+  hovers over it, bigger and turning, and looking at it and pressing the game's own pick-up key
+  takes it like a snack (`PickUpKeyPatch` on `InputManager.SendMsg` uses up that press so the
+  drawer doesn't shut). The log now says when the gun is shown and which key asked for it
+  (`nerf guns: showing the ...`, `nerf guns: asking for the ...`).
 - **Testing switch:** the F6 owner window has "Every snack eaten gives a nerf gun".
 - Only desks with a normal drawer count, so no student guns on the restroom, dormitory or
   schoolyard floors yet.
