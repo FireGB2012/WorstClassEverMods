@@ -282,3 +282,8 @@ about 0.17 m above the neck and the head is about 0.16 m in radius (measured off
   with the keys shows for 25 seconds. F1 hides it and brings it back. Seen cards are kept in
   `seenTips`. The wardrobe also explains each teacher type and how to become the teacher.
 - The teacher's body size is still unknown; the log now prints the anchors for a teacher body too.
+
+Version 0.7.1 was installed on 2026-11-14 after Gabriel said "Yes, close and restart". The log
+shows `[Mods] Loaded classpack 0.7.1` with no errors, and config.json now holds the new fit
+numbers (`fitVersion` 2). Not yet seen in a room: the new hat, glasses and backpack placement,
+the how-to cards, and the teacher's own outfit. Share zip: `share\ClassPack-0.7.1.zip`.
