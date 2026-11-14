@@ -398,3 +398,33 @@ the water; poles at the poolside; a lifeguard chair where the teacher gets stami
 Dance: hall with a dance floor; two students close together who both dance (the game's emotes)
 earn mischief every second; a goofy dance, no twerk emote. About six Meshy props per class,
 roughly 130 credits each (477 left).
+
+## Swim class: build in progress (2026-11-14, stopped at the usage limit, NOT finished)
+
+Gabriel said "Yes, build it" and approved 126 Meshy credits for six pool props (all made, 351 left).
+
+Done:
+- `meshy\toy\pool_board|chair|ladder|ring|bench|duck.glb`, pictures in `meshy\pictures\pool\` and
+  one sheet `meshy\pictures\pool_models.png` (he has NOT seen it yet). Task ids in `meshy\tasks.md`.
+- `ClassPack\Rooms.cs`: tiled boxes, water sheet, lamps, props, unseen blocks.
+- `ClassPack\Swim.cs`: the whole swim class (hall, teleport at the bell, poles, diving board,
+  splash, under water by crawling, wading, lifeguard chair, HUD). Written, never compiled.
+
+The project does NOT build right now. Still to do, in order:
+1. `Net.cs`: add `Pool = 70` (tell), `SplashAsk = 71` (ask), `Splash = 72` (tell) to CpKind, route
+   them to `Swim.OnAsk` / `Swim.OnTell`, call `Swim.OnPeerJoined(connection)` in OnHello, add
+   `public static bool IsModded(Unit player)` (local player, or a connection in ModdedConnections).
+2. `Settings.cs`: `swimClass = true`, `nextClass = 0`, `poolLight = 1f`.
+3. `Plugin.cs`: add `Swim.Tick` to Features. `Hud.cs`: `Swim.DrawHud` in the line order after trick.
+4. `HostPanel.cs`: "Next class" picker (Swim.ClassNames, Skin.Cell toggles) and a pool light slider.
+5. `Tips.cs`: cards "swim" and "swimteacher" when `Swim.Active`.
+6. `tools\convert_all_meshy.py`: add the six pool models in real metres, origin at the bottom
+   middle, +Y forward. Then check the board against Swim.cs (plank top 1.0 m, tip x 6.2, back
+   x 10.2, model placed at the plank's back end with yaw 270) and the chair, bench, ladder, ring.
+7. Bump mod.json to 0.9.0 (Edit tool), build, install with the game closed, ask before starting it.
+
+Facts found for this: unit vertical positions travel as centimetres in a short (keep within
+about 300 m), `InputComponent.speedFac` is a free walking-speed factor, max walkable slope 65
+degrees, max step 0.325 m, there is no jump (walk off the board), crawl is `eCmdType.Crawl` and
+`StudentCrawlComponent.IsCrawling` is synced, teleport with floor 0 leaves floor visibility alone.
+The installed mod is still 0.8.1 and untouched.

@@ -39,3 +39,17 @@ Run 2) -> `meshy_download_model` with task_type animation gives the URL of one
 | janitor | 01a1dc13-18ff-74f3-a0e5-1443789b9f5a | 01a1dc14-212d-70b2-ac72-cf3544e08530 | 01a1dc15-0549-76be-88a8-d272950c6139 |
 
 Saved: `meshy\teachers\teacher_<name>.glb` (still) and `teacher_<name>_moves.glb` (with moves).
+
+## Pool props for the swim class, 2026-11-14 (126 credits approved, 477 before)
+
+Same game-style recipe (style picture, then smart-topology meshy-t2.5 with 5000 faces and the
+meshy-n1 texture). Saved as `meshy\toy\pool_<name>.glb`.
+
+| Prop | Picture task | 3D task |
+|------|--------------|---------|
+| pool_board (diving board) | 01a1dc3c-65f9-749d-b9f2-36d984170e69 | 01a1dc3c-a9f2-72fd-88bf-d459adb9eb74 |
+| pool_chair (lifeguard chair) | 01a1dc3c-6802-702a-b20d-0dc7c5be4189 | 01a1dc3c-ac87-72ea-bfb3-fea8ab7c9c99 |
+| pool_ladder | 01a1dc3c-69fc-7731-be06-54a0a150ebd4 | 01a1dc3c-af51-77bc-9afd-e4bf802e81f2 |
+| pool_ring (life ring) | 01a1dc3c-6bfc-726c-a6a7-fc3faf43cdcb | 01a1dc3c-b248-768b-a69b-298115a61a30 |
+| pool_bench | 01a1dc3c-6e18-7041-b145-e7a6e2465304 | 01a1dc3c-b551-7343-bb28-8f8da6d3d82d |
+| pool_duck (duck float) | 01a1dc3c-7051-7628-8a80-9c277cd734a2 | 01a1dc3e-b446-703e-9610-cf4c1c587e6f |
