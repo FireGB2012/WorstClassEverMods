@@ -287,3 +287,20 @@ Version 0.7.1 was installed on 2026-11-14 after Gabriel said "Yes, close and res
 shows `[Mods] Loaded classpack 0.7.1` with no errors, and config.json now holds the new fit
 numbers (`fitVersion` 2). Not yet seen in a room: the new hat, glasses and backpack placement,
 the how-to cards, and the teacher's own outfit. Share zip: `share\ClassPack-0.7.1.zip`.
+
+### Second refit and several items at once (version 0.7.2, installed 2026-11-14)
+
+Gabriel's second screenshot (front view, cap + sunglasses): "still meh". The cap was sunk into
+the hair with only its peak showing, and the eyes poked out over the top of the glasses.
+Measured off that picture: with the hair the head is about 0.19 m in radius and 0.36 m wide,
+eyes about 0.205 m above the neck, mouth about 0.10 m.
+
+- Fit defaults now `headUp` 0.19, `headForward` 0.01, `headSize` 1.7 (`fitVersion` 3), so a hat's
+  rim lands just above the eyes and its dome covers the hair.
+- Glasses raised to the eyes and pushed 2 cm further out so the eyes are behind the lenses;
+  moustache raised to sit between eyes and mouth.
+- His request "have more on the head": Face and Back are now sets (one bit per item in
+  `Look.Face` / `Look.Back`), with toggle buttons in the wardrobe. Hat is still one pick.
+
+The log shows `[Mods] Loaded classpack 0.7.2` and the new fit numbers in config.json. Not yet
+seen by him. Share zip: `share\ClassPack-0.7.2.zip`.
