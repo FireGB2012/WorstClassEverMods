@@ -35,6 +35,16 @@ Version 0.1.0 was installed to the game's Mods folder on 2026-11-14 and switched
 
 The game must be closed before installing an update, because it holds the mod file open.
 
+### The host must not message itself (fixed in 0.3.1)
+
+In 0.3.0 every DoorDash order from the room owner was "cancelled". The log showed no error and no
+delivery. Cause: the mod sent the owner's own requests over the network to itself, and in this game
+such a message is never delivered. The game's own code never does that; the host calls its handlers
+directly and only real clients use the wire. `Net.cs` now does the same (`SendToHost`, `SendTo`,
+`SendToModded` each take a direct path when the other end is this same game). The same bug would
+have stopped the owner's teacher snack and kept the owner's screen bright during a power cut.
+Not yet confirmed in the game.
+
 ### Where DoorDash drops the food
 
 The game has no marker for "the teacher's office", so `TeacherOffice.cs` works it out on the host:

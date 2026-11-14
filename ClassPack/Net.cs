@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
@@ -46,8 +47,24 @@ namespace ClassPack
         public float seconds;
     }
 
+    /// <summary>
+    /// Sends the mod's messages between players.
+    ///
+    /// The host never sends a message to itself over the network. The game doesn't either:
+    /// everywhere in its code the host calls its own handler directly and only real clients
+    /// use the wire, and a message the host posts to itself is never delivered. So every send
+    /// here has two paths: a direct call when the other end is this same game, and a network
+    /// message when it is another player's.
+    /// </summary>
     internal static class Net
     {
+        /// <summary>The mod's handlers for one message type, callable without the network.</summary>
+        private static class Route<T> where T : struct, NetworkMessage
+        {
+            public static Action<NetworkConnectionToClient, T> OnHost;
+            public static Action<T> OnClient;
+        }
+
         private static readonly HashSet<int> ModdedConnections = new HashSet<int>();
         private static float _nextRegisterAt;
         private static bool _serverRegistered;
@@ -90,6 +107,13 @@ namespace ClassPack
                 writer.WriteFloat(value.seconds);
             };
             Reader<CpPowerCut>.read = reader => new CpPowerCut { on = reader.ReadBool(), seconds = reader.ReadFloat() };
+
+            Route<CpHello>.OnHost = OnHello;
+            Route<CpSnackRequest>.OnHost = TeacherSnacks.OnServerRequest;
+            Route<CpOrder>.OnHost = DoorDash.OnServerOrder;
+            Route<CpSnackResult>.OnClient = TeacherSnacks.OnClientResult;
+            Route<CpDelivery>.OnClient = DoorDash.OnClientDelivery;
+            Route<CpPowerCut>.OnClient = PowerCut.OnClientState;
         }
 
         public static void Tick()
@@ -116,23 +140,22 @@ namespace ClassPack
             }
             if (serverActive && (refresh || !_serverRegistered))
             {
-                NetworkServer.ReplaceHandler<CpHello>(OnHello);
-                NetworkServer.ReplaceHandler<CpSnackRequest>(TeacherSnacks.OnServerRequest);
-                NetworkServer.ReplaceHandler<CpOrder>(DoorDash.OnServerOrder);
+                NetworkServer.ReplaceHandler<CpHello>(Route<CpHello>.OnHost);
+                NetworkServer.ReplaceHandler<CpSnackRequest>(Route<CpSnackRequest>.OnHost);
+                NetworkServer.ReplaceHandler<CpOrder>(Route<CpOrder>.OnHost);
                 _serverRegistered = true;
             }
-            if (clientActive && (refresh || !_clientRegistered))
+            if (clientActive && !serverActive && (refresh || !_clientRegistered))
             {
-                NetworkClient.ReplaceHandler<CpSnackResult>(TeacherSnacks.OnClientResult);
-                NetworkClient.ReplaceHandler<CpDelivery>(DoorDash.OnClientDelivery);
-                NetworkClient.ReplaceHandler<CpPowerCut>(PowerCut.OnClientState);
+                NetworkClient.ReplaceHandler<CpSnackResult>(Route<CpSnackResult>.OnClient);
+                NetworkClient.ReplaceHandler<CpDelivery>(Route<CpDelivery>.OnClient);
+                NetworkClient.ReplaceHandler<CpPowerCut>(Route<CpPowerCut>.OnClient);
                 _clientRegistered = true;
             }
 
-            // Say hello once per connection, and only to a host that has the mod. When we are
-            // the host ourselves, our own handlers must be in place first.
+            // A real client says hello once per connection, and only to a host that has the mod.
             NetworkConnection connection = NetworkClient.connection;
-            if (CanSendToHost && connection != _helloSentTo && (!serverActive || _serverRegistered))
+            if (!serverActive && CanSendToHost && connection != _helloSentTo)
             {
                 _helloSentTo = connection;
                 NetworkClient.Send(default(CpHello));
@@ -144,6 +167,10 @@ namespace ClassPack
         {
             get
             {
+                if (NetworkServer.active)
+                {
+                    return true;
+                }
                 NetworkConnection connection = NetworkClient.connection;
                 return NetworkClient.active && NetworkClient.isConnected && connection != null
                     && connection.isAuthenticated && Game.RoomHasMod;
@@ -152,23 +179,87 @@ namespace ClassPack
 
         private static void OnHello(NetworkConnectionToClient connection, CpHello message)
         {
-            ModdedConnections.Add(connection.connectionId);
+            if (!IsLocal(connection))
+            {
+                ModdedConnections.Add(connection.connectionId);
+            }
         }
 
-        /// <summary>Host: send to every connected player whose game runs the mod.</summary>
+        /// <summary>Any player: send a request to the host.</summary>
+        public static void SendToHost<T>(T message) where T : struct, NetworkMessage
+        {
+            if (NetworkServer.active)
+            {
+                Action<NetworkConnectionToClient, T> handler = Route<T>.OnHost;
+                if (handler != null)
+                {
+                    handler(NetworkServer.localConnection, message);
+                }
+            }
+            else if (CanSendToHost)
+            {
+                NetworkClient.Send(message);
+            }
+        }
+
+        /// <summary>Host: answer one player.</summary>
+        public static void SendTo<T>(NetworkConnectionToClient connection, T message) where T : struct, NetworkMessage
+        {
+            if (IsLocal(connection))
+            {
+                Action<T> handler = Route<T>.OnClient;
+                if (handler != null)
+                {
+                    handler(message);
+                }
+            }
+            else
+            {
+                connection.Send(message);
+            }
+        }
+
+        /// <summary>Host: tell every player whose game runs the mod, the host's own included.</summary>
         public static void SendToModded<T>(T message) where T : struct, NetworkMessage
         {
             if (!NetworkServer.active)
             {
                 return;
             }
+            Action<T> local = Route<T>.OnClient;
+            if (local != null)
+            {
+                local(message);
+            }
             foreach (KeyValuePair<int, NetworkConnectionToClient> pair in NetworkServer.connections)
             {
-                if (pair.Value != null && ModdedConnections.Contains(pair.Key))
+                if (pair.Value != null && !IsLocal(pair.Value) && ModdedConnections.Contains(pair.Key))
                 {
                     pair.Value.Send(message);
                 }
             }
+        }
+
+        /// <summary>Host: the player unit behind a connection.</summary>
+        public static Unit PlayerOf(NetworkConnectionToClient connection)
+        {
+            if (IsLocal(connection))
+            {
+                return Game.LocalPlayer;
+            }
+            RoomManager room = Game.Peek<RoomManager>();
+            UnitManager units = Game.Peek<UnitManager>();
+            if (room == null || units == null)
+            {
+                return null;
+            }
+            return units.GetUnitByUID(room.GetPlayerUIDByConnection(connection));
+        }
+
+        /// <summary>The game treats "no connection" as the host itself, and so does the mod.</summary>
+        public static bool IsLocal(NetworkConnectionToClient connection)
+        {
+            return connection == null || connection == NetworkServer.localConnection;
         }
     }
 }

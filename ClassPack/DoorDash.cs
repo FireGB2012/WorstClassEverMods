@@ -39,6 +39,7 @@ namespace ClassPack
         private sealed class Pending
         {
             public ulong PlayerUID;
+            public bool Local;
             public int ConnectionId;
             public int Food;
             public float At;
@@ -98,7 +99,7 @@ namespace ClassPack
             Current = Stage.OnTheWay;
             ArrivesAt = Time.time + Mathf.Max(1f, Plugin.Settings.doorDashWaitSeconds);
             Game.PlaySound(AudioEvents.sfx_StudentPhone_sfx);
-            NetworkClient.Send(new CpOrder { food = food });
+            Net.SendToHost(new CpOrder { food = food });
         }
 
         public static void Tick()
@@ -140,27 +141,49 @@ namespace ClassPack
 
         public static void OnServerOrder(NetworkConnectionToClient connection, CpOrder message)
         {
-            RoomManager room = Game.Peek<RoomManager>();
-            UnitManager units = Game.Peek<UnitManager>();
-            ulong playerUID = room != null ? room.GetPlayerUIDByConnection(connection) : 0uL;
-            Unit player = units != null ? units.GetUnitByUID(playerUID) : null;
+            Unit player = Net.PlayerOf(connection);
+            ulong playerUID = player != null ? player.UID : 0uL;
             float readyAt;
-            bool ok = Plugin.Settings.doorDash && Game.InClass && player != null && player.IsStudent
-                && message.food >= 0 && message.food < MenuIds.Length
-                && !HostPending.Exists(p => p.PlayerUID == playerUID)
-                && !(HostReadyAt.TryGetValue(playerUID, out readyAt) && Time.time < readyAt - 1f);
-            if (!ok)
+            string refused = null;
+            if (!Plugin.Settings.doorDash)
             {
-                connection.Send(new CpDelivery { ok = false, ordererUID = playerUID, food = message.food });
+                refused = "DoorDash is switched off on the host";
+            }
+            else if (!Game.InClass)
+            {
+                refused = "no class is running";
+            }
+            else if (player == null || !player.IsStudent)
+            {
+                refused = "the sender is not a student the host knows";
+            }
+            else if (message.food < 0 || message.food >= MenuIds.Length)
+            {
+                refused = "unknown dish " + message.food;
+            }
+            else if (HostPending.Exists(p => p.PlayerUID == playerUID))
+            {
+                refused = "that player already has an order on the way";
+            }
+            else if (HostReadyAt.TryGetValue(playerUID, out readyAt) && Time.time < readyAt - 1f)
+            {
+                refused = "that player ordered too recently";
+            }
+            if (refused != null)
+            {
+                Plugin.Log("DoorDash: order refused, " + refused);
+                Net.SendTo(connection, new CpDelivery { ok = false, ordererUID = playerUID, food = message.food });
                 return;
             }
             HostPending.Add(new Pending
             {
                 PlayerUID = playerUID,
-                ConnectionId = connection.connectionId,
+                Local = Net.IsLocal(connection),
+                ConnectionId = connection != null ? connection.connectionId : 0,
                 Food = message.food,
                 At = Time.time + Mathf.Max(1f, Plugin.Settings.doorDashWaitSeconds)
             });
+            Plugin.Log("DoorDash: order taken, " + MenuNames[message.food] + " for player " + playerUID);
         }
 
         private static void Deliver(Pending order)
@@ -194,12 +217,16 @@ namespace ClassPack
                 HostReadyAt[order.PlayerUID] = Time.time + Mathf.Max(0f, Plugin.Settings.doorDashCooldownSeconds);
                 Net.SendToModded(result);
             }
+            else if (order.Local)
+            {
+                Net.SendTo(null, result);
+            }
             else
             {
                 NetworkConnectionToClient connection;
                 if (NetworkServer.connections.TryGetValue(order.ConnectionId, out connection) && connection != null)
                 {
-                    connection.Send(result);
+                    Net.SendTo(connection, result);
                 }
             }
         }

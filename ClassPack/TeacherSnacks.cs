@@ -18,7 +18,7 @@ namespace ClassPack
 
         private static bool _hinted;
         private static float _readyAt;
-        private static readonly Dictionary<int, float> HostLastEat = new Dictionary<int, float>();
+        private static readonly Dictionary<ulong, float> HostLastEat = new Dictionary<ulong, float>();
 
         public static void Tick()
         {
@@ -59,7 +59,7 @@ namespace ClassPack
                 return;
             }
             _readyAt = Time.time + Cooldown;
-            NetworkClient.Send(new CpSnackRequest { drawerUID = drawer.UID });
+            Net.SendToHost(new CpSnackRequest { drawerUID = drawer.UID });
         }
 
         /// <summary>Runs on the teacher's own game when the host answers.</summary>
@@ -85,7 +85,7 @@ namespace ClassPack
         public static void OnServerRequest(NetworkConnectionToClient connection, CpSnackRequest request)
         {
             bool ok = TryEat(connection, request.drawerUID);
-            connection.Send(new CpSnackResult { ok = ok });
+            Net.SendTo(connection, new CpSnackResult { ok = ok });
         }
 
         private static bool TryEat(NetworkConnectionToClient connection, ulong drawerUID)
@@ -96,12 +96,12 @@ namespace ClassPack
             {
                 return false;
             }
+            Unit teacher = Net.PlayerOf(connection);
             float lastEat;
-            if (HostLastEat.TryGetValue(connection.connectionId, out lastEat) && Time.time - lastEat < Cooldown - 1f)
+            if (teacher == null || (HostLastEat.TryGetValue(teacher.UID, out lastEat) && Time.time - lastEat < Cooldown - 1f))
             {
                 return false;
             }
-            Unit teacher = units.GetUnitByUID(room.GetPlayerUIDByConnection(connection));
             Unit drawerUnit = units.GetUnitByUID(drawerUID);
             DrawerComponent drawer = drawerUnit != null ? drawerUnit.GetComponent<DrawerComponent>() : null;
             if (teacher == null || !teacher.IsTeacher || drawer == null
@@ -114,11 +114,13 @@ namespace ClassPack
             {
                 return false;
             }
-            HostLastEat[connection.connectionId] = Time.time;
+            HostLastEat[teacher.UID] = Time.time;
             // Same two steps the game takes when a student finishes a snack: the drawer forgets
-            // the item (and may restock), then the item is destroyed for every player.
+            // the item (and may restock), then the item is destroyed for every player. The host
+            // calls the game's handler directly, as the game itself does; "no connection" is
+            // how the game marks a request that comes from the host.
             drawer.OnItemDetached(snack.UID, true, 0uL);
-            NetworkClient.Send(new UnitDestroyMessageRequest_C2S { unitUID = snack.UID });
+            room.GetUnitMessageHandler().OnUnitDestroyMessageRequest(null, new UnitDestroyMessageRequest_C2S { unitUID = snack.UID });
             return true;
         }
 

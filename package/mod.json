@@ -2,7 +2,7 @@
   "id": "classpack",
   "name": "Class Pack",
   "author": "Gabriel",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "supportedGameVersion": "1.0.2",
   "description": "Extra mischief: a phone with a DoorDash app that delivers to the teacher's office, a teacher who eats your snacks for stamina, and power cuts in the middle of class.",
   "apiVersion": 1,
