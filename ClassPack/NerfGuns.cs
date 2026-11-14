@@ -6,11 +6,45 @@ using UnityEngine;
 namespace ClassPack
 {
     /// <summary>
+    /// The host hears about every item a player finishes using. When that item is a snack
+    /// eaten by a student, the nerf guns get their chance to turn up.
+    /// </summary>
+    [HarmonyLib.HarmonyPatch(typeof(UnitMessageHandler), nameof(UnitMessageHandler.OnItemUseCompleted))]
+    internal static class SnackEatenPatch
+    {
+        // Looked up before the game handles the message, while the snack still exists.
+        private static void Prefix(ItemUseCompleted_C2S request, out Unit __state)
+        {
+            __state = null;
+            if (!NetworkServer.active || !Game.InClass)
+            {
+                return;
+            }
+            UnitManager units = Game.Peek<UnitManager>();
+            Unit user = units != null ? units.GetUnitByUID(request.userUID) : null;
+            Unit item = units != null ? units.GetUnitByUID(request.itemUID) : null;
+            if (user != null && user.isPlayer && user.IsStudent && item != null && item.UnitSubType == EUnitSubType.Food)
+            {
+                __state = user;
+            }
+        }
+
+        private static void Postfix(Unit __state)
+        {
+            if (__state != null)
+            {
+                NerfGuns.OnStudentAte(__state);
+            }
+        }
+    }
+
+    /// <summary>
     /// Idea 1: nerf guns for teacher and students.
     ///
-    /// Guns are rare finds, not something everyone gets. At the start of class the host rolls
-    /// for each player: a student who wins finds a gun lying in their desk drawer, a teacher
-    /// who wins finds one floating in the teacher's office. Every gun has one shot.
+    /// Guns are rare finds that turn up the way snacks do. Each time a student finishes a
+    /// snack there is a small chance a gun appears in their desk drawer, and the teacher gets
+    /// a warning. A teacher who eats a snack out of a student's drawer has a smaller chance
+    /// of finding one hidden there. Every gun has one shot.
     ///
     /// A student who is hit goes straight up on a pole and can't be rescued; a teacher who is
     /// hit falls over like on a banana peel. The RPG hits everybody in the class, the shooter
@@ -78,7 +112,6 @@ namespace ClassPack
         private static readonly Vector3[] HostCratePosition = new Vector3[CrateCount];
         private static readonly Dictionary<ulong, int> HostDrawerGun = new Dictionary<ulong, int>();
         private static readonly Dictionary<ulong, HostGun> HostGuns = new Dictionary<ulong, HostGun>();
-        private static bool _dealt;
 
         public static void Tick()
         {
@@ -86,14 +119,6 @@ namespace ClassPack
             {
                 Clear();
                 return;
-            }
-            if (NetworkServer.active && !_dealt)
-            {
-                _dealt = true;
-                if (Plugin.Settings.nerfGuns)
-                {
-                    DealGuns();
-                }
             }
             Animate();
             HandleKeys();
@@ -121,7 +146,6 @@ namespace ClassPack
             SetDrawerGun(0);
             HostGuns.Clear();
             HostDrawerGun.Clear();
-            _dealt = false;
         }
 
         // ------------------------------------------------------------------ models
@@ -431,61 +455,58 @@ namespace ClassPack
             return Pistol;
         }
 
-        /// <summary>Host, once per class: decide who finds a gun.</summary>
-        private static void DealGuns()
+        /// <summary>
+        /// Host: a student just finished a snack. Now and then a nerf gun turns up in their
+        /// desk drawer, the same moment the drawer would restock. The teacher is warned.
+        /// </summary>
+        public static void OnStudentAte(Unit student)
         {
-            ClassroomManager classroom = Game.Peek<ClassroomManager>();
+            Settings settings = Plugin.Settings;
             UnitManager units = Game.Peek<UnitManager>();
-            if (classroom == null || units == null)
+            if (!settings.nerfGuns || !Game.InClass || units == null || student == null || !student.isActived
+                || HostDrawerGun.ContainsKey(student.UID) || HostGuns.ContainsKey(student.UID))
             {
                 return;
             }
-            Settings settings = Plugin.Settings;
-            float studentChance = settings.nerfAlwaysForTesting ? 1f : Mathf.Clamp01(settings.nerfStudentChance);
-            float teacherChance = settings.nerfAlwaysForTesting ? 1f : Mathf.Clamp01(settings.nerfTeacherChance);
-            int teacherGuns = 0;
+            float chance = settings.nerfAlwaysForTesting ? 1f : Mathf.Clamp01(settings.nerfChancePerSnack);
+            if (UnityEngine.Random.value >= chance)
+            {
+                return;
+            }
+            int gun = RollKind();
+            HostDrawerGun[student.UID] = gun;
+            Net.TellPlayer(student, new CpTell { kind = CpKind.Crate, i = DrawerSlot, j = gun });
             foreach (Unit player in new List<Unit>(units.playerList))
             {
-                if (player == null || !player.isActived || !player.isPlayer)
+                if (player != null && player.isActived && player.isPlayer && player.IsTeacher)
                 {
-                    continue;
-                }
-                if (player.IsStudent)
-                {
-                    if (UnityEngine.Random.value < studentChance)
-                    {
-                        int gun = RollKind();
-                        HostDrawerGun[player.UID] = gun;
-                        Net.TellPlayer(player, new CpTell { kind = CpKind.Crate, i = DrawerSlot, j = gun });
-                        Plugin.Log("nerf guns: " + Poles.NameOf(player) + " has a " + Names[gun] + " in their drawer");
-                    }
-                }
-                else if (player.IsTeacher && UnityEngine.Random.value < teacherChance)
-                {
-                    teacherGuns++;
+                    Net.Toast(player, "Warning: a nerf gun just turned up in a student's desk!", 5f);
                 }
             }
+            Plugin.Log("nerf guns: " + Poles.NameOf(student) + " has a " + Names[gun] + " in their drawer");
+        }
 
-            ClassroomItem room = TeacherOffice.FindClassroom(classroom.currentFloor);
-            if (teacherGuns > 0 && (room == null || room.teacherPos == null))
+        /// <summary>
+        /// Host: the teacher just ate a snack out of a student's drawer. Rarely there was a
+        /// nerf gun hidden under it, and the teacher walks off with it.
+        /// </summary>
+        public static void OnTeacherAte(Unit teacher)
+        {
+            Settings settings = Plugin.Settings;
+            if (!settings.nerfGuns || !Game.InClass || teacher == null || !teacher.isActived || HostGuns.ContainsKey(teacher.UID))
             {
-                Plugin.Log("nerf guns: no teacher start point on floor " + classroom.currentFloor + ", teacher gun skipped");
-                teacherGuns = 0;
+                return;
             }
-            for (int i = 0; i < Mathf.Min(teacherGuns, CrateCount); i++)
+            float chance = settings.nerfAlwaysForTesting ? 1f : Mathf.Clamp01(settings.nerfTeacherChancePerSnack);
+            if (UnityEngine.Random.value >= chance)
             {
-                int gun = RollKind();
-                // In the teacher's office, where the teacher stands before class.
-                Vector3 spot = room.teacherPos.position + room.teacherPos.right * (i * 0.9f);
-                HostCrateGun[i] = gun;
-                HostCratePosition[i] = spot;
-                Net.SendToModded(new CpTell { kind = CpKind.Crate, i = i, j = gun, v = spot });
-                Plugin.Log("nerf guns: " + Names[gun] + " for the teacher at " + spot.ToString("F2"));
+                return;
             }
-            if (HostDrawerGun.Count == 0 && teacherGuns == 0)
-            {
-                Plugin.Log("nerf guns: nobody found one this class");
-            }
+            int gun = RollKind();
+            HostGuns[teacher.UID] = new HostGun { Gun = gun, Shots = ShotsPerGun };
+            Net.SendToModded(new CpTell { kind = CpKind.GunState, a = teacher.UID, i = gun, j = ShotsPerGun });
+            Net.Toast(teacher, "There was a " + Names[gun] + " hidden under the snacks. It's yours now.", 5f);
+            Plugin.Log("nerf guns: teacher " + Poles.NameOf(teacher) + " found a " + Names[gun]);
         }
 
         public static void OnAsk(Unit player, CpAsk ask)
@@ -642,7 +663,8 @@ namespace ClassPack
                         SetDrawerGun(Mathf.Clamp(tell.j, 0, Rpg));
                         if (tell.j != 0)
                         {
-                            Game.Notify("There is something in your desk drawer...", 4f);
+                            Game.PlaySound(AudioEvents.sfx_GameAddItem_sfx);
+                            Game.Notify("A " + Names[Mathf.Clamp(tell.j, 0, Rpg)] + " turned up in your desk drawer! The teacher has been warned.", 5f);
                         }
                     }
                     else if (tell.i >= 0 && tell.i < CrateCount)

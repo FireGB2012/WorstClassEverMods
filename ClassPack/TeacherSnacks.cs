@@ -121,6 +121,7 @@ namespace ClassPack
             // how the game marks a request that comes from the host.
             drawer.OnItemDetached(snack.UID, true, 0uL);
             room.GetUnitMessageHandler().OnUnitDestroyMessageRequest(null, new UnitDestroyMessageRequest_C2S { unitUID = snack.UID });
+            NerfGuns.OnTeacherAte(teacher);
             return true;
         }
 

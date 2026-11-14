@@ -33,11 +33,12 @@ namespace ClassPack
 
         // Nerf guns, extra poles at the windows, prank calls from the phone, the fire alarm
         public bool nerfGuns = true;
-        // Chance per class that a student finds a gun in their drawer, and that a teacher
-        // finds one in the office. 0.2 means one time in five. Every gun has one shot.
-        public float nerfStudentChance = 0.2f;
-        public float nerfTeacherChance = 0.12f;
-        // For trying things out: everybody finds a gun every class.
+        // Chance that a gun turns up each time a student finishes a snack, and each time the
+        // teacher eats a snack out of a student's drawer. 0.08 means about one snack in
+        // twelve. Every gun has one shot.
+        public float nerfChancePerSnack = 0.08f;
+        public float nerfTeacherChancePerSnack = 0.05f;
+        // For trying things out: every snack eaten gives a gun.
         public bool nerfAlwaysForTesting = false;
         public bool windowPoles = true;
         public bool prankCall = true;

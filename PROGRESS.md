@@ -86,13 +86,15 @@ models, guns that come out of the drawers, one shot each, and low odds.
   `Models.cs` loads them. Preview pictures land in `dist\previews`. To change a gun, edit the
   script and run:
   `& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --python tools\make_nerf_models.py -- package\models dist\previews`
-- **Where guns come from:** at class start the host rolls per player. A student who wins finds a
-  gun in their own desk drawer (open it, press B). A teacher who wins finds one floating at the
-  teacher start point in the office. Nothing floats around the classroom any more.
-- **Odds:** student 20% per class, teacher 12% (`nerfStudentChance`, `nerfTeacherChance` in
-  config.json). Kind: pistol 45, shotgun 25, sniper 22, RPG 8 out of 100.
+- **Where guns come from (changed again in 0.5.1, at Gabriel's request):** no roll at class
+  start. Each time a student finishes a snack, there is a chance a gun turns up in their own desk
+  drawer (open it, press B), and every teacher gets a warning. A teacher who eats a snack out of
+  a student's drawer (G) has a smaller chance of finding one and gets it straight in hand.
+- **Odds:** 8% per snack a student finishes, 5% per snack the teacher eats (`nerfChancePerSnack`,
+  `nerfTeacherChancePerSnack` in config.json). Kind: pistol 45, shotgun 25, sniper 22, RPG 8.
+  0.5.0 rolled 20% once per class; he lost it five classes running and asked where they spawn.
 - **One shot** per gun.
-- **Testing switch:** the F6 owner window has "Everyone finds a nerf gun every class".
+- **Testing switch:** the F6 owner window has "Every snack eaten gives a nerf gun".
 - Only desks with a normal drawer count, so no student guns on the restroom, dormitory or
   schoolyard floors yet.
 
