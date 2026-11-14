@@ -47,6 +47,47 @@ namespace ClassPack
         public float seconds;
     }
 
+    /// <summary>What a CpAsk or CpTell is about. Newer features share these two messages.</summary>
+    public enum CpKind : byte
+    {
+        None = 0,
+        Toast = 1,          // tell: show text s
+        Crate = 10,         // tell: gun crate i holds gun j at v (j = 0 means taken)
+        GunTake = 11,       // ask: take the gun from crate i
+        GunDrop = 12,       // ask: throw my gun away
+        GunState = 13,      // tell: player a now holds gun i with j shots
+        GunFire = 14,       // ask: I fired from v to w and hit t0..t5
+        GunFx = 15,         // tell: player a fired gun i from v to w
+        PrankCall = 20,     // ask: ring the teacher
+        Ring = 21,          // tell: your phone rings for f seconds
+        AlarmPull = 30,     // ask: pull the fire alarm
+        Alarm = 31,         // tell: the fire alarm runs for f seconds, box at v
+        AlarmBox = 32       // tell: the fire alarm box is at v (i = 1 while it can be pulled)
+    }
+
+    /// <summary>Any player to the host: a request for one of the newer features.</summary>
+    public struct CpAsk : NetworkMessage
+    {
+        public CpKind kind;
+        public int i;
+        public Vector3 v;
+        public Vector3 w;
+        public ulong t0, t1, t2, t3, t4, t5;
+    }
+
+    /// <summary>Host to modded players: news about one of the newer features.</summary>
+    public struct CpTell : NetworkMessage
+    {
+        public CpKind kind;
+        public int i;
+        public int j;
+        public ulong a;
+        public float f;
+        public Vector3 v;
+        public Vector3 w;
+        public string s;
+    }
+
     /// <summary>
     /// Sends the mod's messages between players.
     ///
@@ -108,6 +149,58 @@ namespace ClassPack
             };
             Reader<CpPowerCut>.read = reader => new CpPowerCut { on = reader.ReadBool(), seconds = reader.ReadFloat() };
 
+            Writer<CpAsk>.write = (writer, value) =>
+            {
+                writer.WriteByte((byte)value.kind);
+                writer.WriteInt(value.i);
+                writer.WriteVector3(value.v);
+                writer.WriteVector3(value.w);
+                writer.WriteULong(value.t0);
+                writer.WriteULong(value.t1);
+                writer.WriteULong(value.t2);
+                writer.WriteULong(value.t3);
+                writer.WriteULong(value.t4);
+                writer.WriteULong(value.t5);
+            };
+            Reader<CpAsk>.read = reader => new CpAsk
+            {
+                kind = (CpKind)reader.ReadByte(),
+                i = reader.ReadInt(),
+                v = reader.ReadVector3(),
+                w = reader.ReadVector3(),
+                t0 = reader.ReadULong(),
+                t1 = reader.ReadULong(),
+                t2 = reader.ReadULong(),
+                t3 = reader.ReadULong(),
+                t4 = reader.ReadULong(),
+                t5 = reader.ReadULong()
+            };
+
+            Writer<CpTell>.write = (writer, value) =>
+            {
+                writer.WriteByte((byte)value.kind);
+                writer.WriteInt(value.i);
+                writer.WriteInt(value.j);
+                writer.WriteULong(value.a);
+                writer.WriteFloat(value.f);
+                writer.WriteVector3(value.v);
+                writer.WriteVector3(value.w);
+                writer.WriteString(value.s ?? string.Empty);
+            };
+            Reader<CpTell>.read = reader => new CpTell
+            {
+                kind = (CpKind)reader.ReadByte(),
+                i = reader.ReadInt(),
+                j = reader.ReadInt(),
+                a = reader.ReadULong(),
+                f = reader.ReadFloat(),
+                v = reader.ReadVector3(),
+                w = reader.ReadVector3(),
+                s = reader.ReadString()
+            };
+
+            Route<CpAsk>.OnHost = OnAsk;
+            Route<CpTell>.OnClient = OnTell;
             Route<CpHello>.OnHost = OnHello;
             Route<CpSnackRequest>.OnHost = TeacherSnacks.OnServerRequest;
             Route<CpOrder>.OnHost = DoorDash.OnServerOrder;
@@ -143,10 +236,12 @@ namespace ClassPack
                 NetworkServer.ReplaceHandler<CpHello>(Route<CpHello>.OnHost);
                 NetworkServer.ReplaceHandler<CpSnackRequest>(Route<CpSnackRequest>.OnHost);
                 NetworkServer.ReplaceHandler<CpOrder>(Route<CpOrder>.OnHost);
+                NetworkServer.ReplaceHandler<CpAsk>(Route<CpAsk>.OnHost);
                 _serverRegistered = true;
             }
             if (clientActive && !serverActive && (refresh || !_clientRegistered))
             {
+                NetworkClient.ReplaceHandler<CpTell>(Route<CpTell>.OnClient);
                 NetworkClient.ReplaceHandler<CpSnackResult>(Route<CpSnackResult>.OnClient);
                 NetworkClient.ReplaceHandler<CpDelivery>(Route<CpDelivery>.OnClient);
                 NetworkClient.ReplaceHandler<CpPowerCut>(Route<CpPowerCut>.OnClient);
@@ -182,6 +277,80 @@ namespace ClassPack
             if (!IsLocal(connection))
             {
                 ModdedConnections.Add(connection.connectionId);
+            }
+        }
+
+        /// <summary>Host: a request from a player for one of the newer features.</summary>
+        private static void OnAsk(NetworkConnectionToClient connection, CpAsk ask)
+        {
+            Unit player = PlayerOf(connection);
+            if (player == null)
+            {
+                return;
+            }
+            switch (ask.kind)
+            {
+                case CpKind.GunTake:
+                case CpKind.GunDrop:
+                case CpKind.GunFire:
+                    NerfGuns.OnAsk(player, ask);
+                    break;
+                case CpKind.PrankCall:
+                    PrankCall.OnAsk(player);
+                    break;
+                case CpKind.AlarmPull:
+                    FireAlarm.OnAsk(player);
+                    break;
+            }
+        }
+
+        /// <summary>Every modded player: news from the host about one of the newer features.</summary>
+        private static void OnTell(CpTell tell)
+        {
+            switch (tell.kind)
+            {
+                case CpKind.Toast:
+                    Game.Notify(tell.s, tell.f > 0f ? tell.f : 3f);
+                    break;
+                case CpKind.Crate:
+                case CpKind.GunState:
+                case CpKind.GunFx:
+                    NerfGuns.OnTell(tell);
+                    break;
+                case CpKind.Ring:
+                    PrankCall.OnTell(tell);
+                    break;
+                case CpKind.Alarm:
+                case CpKind.AlarmBox:
+                    FireAlarm.OnTell(tell);
+                    break;
+            }
+        }
+
+        /// <summary>Host: show a pop-up notice to one player.</summary>
+        public static void Toast(Unit player, string text, float seconds = 3f)
+        {
+            TellPlayer(player, new CpTell { kind = CpKind.Toast, s = text, f = seconds });
+        }
+
+        /// <summary>Host: the connection of a player, or null for the host's own player.</summary>
+        public static NetworkConnectionToClient ConnectionOf(Unit player)
+        {
+            if (player == null || player == Game.LocalPlayer)
+            {
+                return null;
+            }
+            RoomManager room = Game.Peek<RoomManager>();
+            return room != null ? room.GetConnectByPlayerUID(player.UID) : null;
+        }
+
+        /// <summary>Host: tell one player, but only if their game runs the mod.</summary>
+        public static void TellPlayer(Unit player, CpTell tell)
+        {
+            NetworkConnectionToClient connection = ConnectionOf(player);
+            if (player == Game.LocalPlayer || (connection != null && ModdedConnections.Contains(connection.connectionId)))
+            {
+                SendTo(connection, tell);
             }
         }
 

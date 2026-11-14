@@ -26,9 +26,11 @@ namespace ClassPack
             host.AddComponent<Runner>();
             host.AddComponent<HostPanel>();
             host.AddComponent<Phone>();
+            host.AddComponent<Hud>();
 
             Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut
-                + " SoloClass=" + Settings.soloClass + " PanelKey=" + Settings.PanelKeyCode);
+                + " SoloClass=" + Settings.soloClass + " NerfGuns=" + Settings.nerfGuns + " WindowPoles=" + Settings.windowPoles
+                + " PrankCall=" + Settings.prankCall + " FireAlarm=" + Settings.fireAlarm);
         }
 
         public static void Log(string message)
@@ -40,25 +42,31 @@ namespace ClassPack
     /// <summary>Runs every frame for the whole session and drives each feature.</summary>
     internal sealed class Runner : MonoBehaviour
     {
-        private float _lastErrorLog = -100f;
+        private static readonly Action[] Features =
+        {
+            Game.Tick, Net.Tick, Poles.Tick, DoorDash.Tick, TeacherSnacks.Tick, PowerCut.Tick,
+            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick
+        };
+
+        private readonly float[] _lastErrorLog = new float[Features.Length];
 
         private void Update()
         {
-            try
+            // Each feature gets its own safety net, so a bug in one can't stop the others,
+            // spam the log or break the game's own frame.
+            for (int i = 0; i < Features.Length; i++)
             {
-                Game.Tick();
-                Net.Tick();
-                DoorDash.Tick();
-                TeacherSnacks.Tick();
-                PowerCut.Tick();
-            }
-            catch (Exception ex)
-            {
-                // Never let a mod bug spam the log or break the game loop.
-                if (Time.unscaledTime - _lastErrorLog > 10f)
+                try
                 {
-                    _lastErrorLog = Time.unscaledTime;
-                    Plugin.Log("error: " + ex);
+                    Features[i]();
+                }
+                catch (Exception ex)
+                {
+                    if (_lastErrorLog[i] == 0f || Time.unscaledTime - _lastErrorLog[i] > 10f)
+                    {
+                        _lastErrorLog[i] = Time.unscaledTime;
+                        Plugin.Log("error in " + Features[i].Method.DeclaringType.Name + ": " + ex);
+                    }
                 }
             }
         }

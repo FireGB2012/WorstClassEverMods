@@ -17,6 +17,15 @@ WHAT IT ADDS
 - Phone with DoorDash: as a student, press O during class to pull up your phone.
   Open the DoorDash app and order. The food is dropped in the teacher's office.
   Go and get it, then eat it for 15 mischief.
+- Prank call: the phone also has a Call app. Ring the teacher. If the teacher does not
+  press H to answer in time, the teacher loses stamina.
+- Nerf guns: four toy guns float around the classroom when class starts. Walk up to one
+  and press B to take it. Press X, or click the mouse wheel, to shoot. B throws it away.
+  A student who is hit goes up on a pole and can't be rescued. A teacher who is hit
+  falls over. The RPG has one shot and hits everybody, you too.
+- Fire alarm: a red box hangs above a classroom door. A student presses B under it,
+  once per class. While it rings, a teacher who runs slips over.
+- Window poles: a few extra poles stand by the classroom windows for hanging students.
 - Hungry teacher: the teacher stands next to a desk and presses G to eat a snack
   from its drawer and get stamina back.
 - Power cut: once per class the lights go out for a bit.

@@ -64,11 +64,35 @@ picked it. If the food lands in the wrong place, read that line first. `doorDash
 - Teacher snack: does the snack vanish for the students too, and does the stamina bar go up?
 - Power cut: is the room dark enough, too dark, or not dark at all?
 
-## Later
+## Second pack (version 0.4.0, installed 2026-11-14, not yet tried in the game)
 
-- Nerf guns (idea 1) that send whoever is hit up to a pole, with no rescue.
-- Window as another place to hang caught students (idea 7).
-- Everything that needs new 3D models: new floors, new teachers, new prank items.
+Gabriel asked for "all the rest of the mods in the doc" and agreed to do them in packs, testing
+each pack before the next. He chose nerf guns for both teacher and students.
+
+| Idea | State |
+|------|-------|
+| 1 Nerf guns | Built. Four guns float around the classroom at class start (pistol 15, shotgun 6, sniper 5, RPG 1). B takes or throws away, X or a wheel click shoots. A student who is hit goes on a pole with no rescue; a teacher who is hit falls over; the RPG hits everyone, the shooter too. Guns are block shapes built in code. |
+| 7 Window hang spot | Built as up to three extra poles standing inside at the classroom windows. Not outside the glass: a student let go out there could be stranded outside the building. |
+| 29 Prank call | Built as a second app on the phone. The teacher's phone rings 8 seconds; H answers; ignoring it costs 10 stamina. Caller gets 3 mischief, one call a minute. |
+| 34 Fire alarm | Built. Red box above the nearest classroom door, B under it, once per class. 15 seconds of siren and red flashing, and a teacher who sprints slips. No water and no reaction from the classmates yet. |
+
+Things to check: where the guns and the alarm box show up, whether B, X and H clash with the
+game's own keys, whether block shapes are drawn in colour, and whether window poles appear at all
+(the log says how many windows were usable).
+
+## Packs still to do
+
+- **Pack 3, student tricks:** sleep in class (30), pass notes (31), laser pointer (25), whoopee
+  cushion (23), paper airplane (24), water balloon (27), super glue (26).
+- **Pack 4, teacher and class events:** coffee mug and hot sauce (28), teacher's pet snitch (36),
+  class hamster (33), food fight (35), more random events (38), points shop at the vending
+  machine (37), the principal (21).
+- **Pack 5, looks:** customizable characters (2), bald teacher and wig (3, 22), the toilet idea (10).
+- **Pack 6, new teachers:** gym teacher (6), lunch lady (19), janitor (20). They reuse the current
+  teacher's body with a new look and new powers; a brand new body needs a 3D model.
+- **Pack 7, new floors and modes, the slow part:** pool (4), dance class (9), science lab (12),
+  gym (13), art room (14), music room (15), library (16), school bus (17), teachers lounge (18),
+  prop hunt mode (32). Each floor needs a room built and models made.
 
 ## Not building
 

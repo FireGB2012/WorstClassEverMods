@@ -79,7 +79,8 @@ namespace ClassPack
             return false;
         }
 
-        private static ClassroomItem FindClassroom(int floor)
+        /// <summary>The classroom on a floor: its seats, teacher start point and inside area.</summary>
+        public static ClassroomItem FindClassroom(int floor)
         {
             ClassroomConfig config = Object.FindFirstObjectByType<ClassroomConfig>();
             if (config == null || config.classroomTransList == null)

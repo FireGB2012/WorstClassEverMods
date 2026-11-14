@@ -94,6 +94,16 @@ namespace ClassPack
             }
         }
 
+        /// <summary>Plays one of the game's sounds at a place in the room, for this player only.</summary>
+        public static void PlaySoundAt(AudioEvents sound, Vector3 position)
+        {
+            var audio = Peek<AudioManager>();
+            if (audio != null)
+            {
+                audio.PlayOneShot(sound, position);
+            }
+        }
+
         /// <summary>True while the player is typing into a text box, so hotkeys stay quiet.</summary>
         public static bool IsTyping
         {

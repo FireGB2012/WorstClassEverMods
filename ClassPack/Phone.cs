@@ -17,15 +17,16 @@ namespace ClassPack
         private enum Screen
         {
             Home,
-            DoorDash
+            DoorDash,
+            Call
         }
 
         private readonly CursorGrab _cursor = new CursorGrab();
         private bool _open;
         private Screen _screen;
 
-        private Texture2D _bezel, _wall, _red, _card, _cardHover, _muted;
-        private GUIStyle _bezelStyle, _wallStyle, _header, _text, _small, _clock, _icon, _iconLabel, _dish, _plain, _note;
+        private Texture2D _bezel, _wall, _red, _green, _card, _cardHover, _muted;
+        private GUIStyle _bezelStyle, _wallStyle, _header, _headerGreen, _text, _small, _clock, _icon, _iconGreen, _iconLabel, _dish, _plain, _note;
 
         private static bool InRoom => NetworkClient.active || NetworkServer.active;
 
@@ -103,6 +104,10 @@ namespace ClassPack
                 {
                     DrawDoorDash();
                 }
+                else if (_screen == Screen.Call)
+                {
+                    DrawCall();
+                }
                 else
                 {
                     DrawHome();
@@ -138,6 +143,14 @@ namespace ClassPack
                 _screen = Screen.DoorDash;
             }
             GUILayout.Label("DoorDash", _iconLabel, GUILayout.Width(84f));
+            GUILayout.EndVertical();
+            GUILayout.Space(22f);
+            GUILayout.BeginVertical(GUILayout.Width(84f));
+            if (GUILayout.Button("Call", _iconGreen, GUILayout.Width(84f), GUILayout.Height(84f)))
+            {
+                _screen = Screen.Call;
+            }
+            GUILayout.Label("Prank call", _iconLabel, GUILayout.Width(84f));
             GUILayout.EndVertical();
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
@@ -189,6 +202,42 @@ namespace ClassPack
                 }
                 GUI.enabled = true;
             }
+            GUILayout.EndVertical();
+            GUILayout.Space(12f);
+            GUILayout.EndHorizontal();
+
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(12f);
+            if (GUILayout.Button("< Home", _plain, GUILayout.Height(32f), GUILayout.Width(90f)))
+            {
+                _screen = Screen.Home;
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            DrawPutAway();
+        }
+
+        private void DrawCall()
+        {
+            GUILayout.Label("Prank call", _headerGreen, GUILayout.Height(44f));
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(12f);
+            GUILayout.BeginVertical();
+            GUILayout.Space(8f);
+            GUILayout.Label("Ring the teacher's phone. If they don't pick up in time they lose stamina. You get a little mischief for the call.", _small);
+            GUILayout.Space(8f);
+            string blocked = PrankCall.WhyNot();
+            if (blocked != null)
+            {
+                GUILayout.Label(blocked, _note);
+            }
+            GUI.enabled = blocked == null;
+            if (GUILayout.Button("Call the teacher", _dish, GUILayout.Height(44f)))
+            {
+                PrankCall.Call();
+            }
+            GUI.enabled = true;
             GUILayout.EndVertical();
             GUILayout.Space(12f);
             GUILayout.EndHorizontal();
@@ -277,6 +326,13 @@ namespace ClassPack
             _icon.normal.textColor = white;
             _icon.hover.textColor = white;
             _icon.active.textColor = white;
+            _green = Solid(new Color32(40, 180, 90, 255));
+            _headerGreen = new GUIStyle(_header);
+            _headerGreen.normal.background = _green;
+            _iconGreen = new GUIStyle(_icon) { fontSize = 24 };
+            _iconGreen.normal.background = _green;
+            _iconGreen.hover.background = _green;
+            _iconGreen.active.background = _green;
             _iconLabel = new GUIStyle(_text) { fontSize = 12, alignment = TextAnchor.UpperCenter };
             _iconLabel.margin = new RectOffset(0, 0, 4, 0);
 
@@ -301,7 +357,7 @@ namespace ClassPack
         private void OnDestroy()
         {
             Close();
-            foreach (Texture2D texture in new[] { _bezel, _wall, _red, _card, _cardHover, _muted })
+            foreach (Texture2D texture in new[] { _bezel, _wall, _red, _green, _card, _cardHover, _muted })
             {
                 if (texture != null)
                 {

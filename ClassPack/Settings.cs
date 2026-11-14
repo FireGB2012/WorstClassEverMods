@@ -31,6 +31,17 @@ namespace ClassPack
         public bool powerCut = true;
         public float powerCutSeconds = 25f;
 
+        // Nerf guns, extra poles at the windows, prank calls from the phone, the fire alarm
+        public bool nerfGuns = true;
+        public bool windowPoles = true;
+        public bool prankCall = true;
+        public bool fireAlarm = true;
+        // useKey takes or throws away a nerf gun and pulls the fire alarm. fireKey shoots
+        // (a click on the mouse wheel shoots too). answerKey picks up a ringing phone.
+        public string useKey = "B";
+        public string fireKey = "X";
+        public string answerKey = "H";
+
         // Start a class with only one player in the room (the classmates are bots)
         public bool soloClass = true;
 
@@ -77,6 +88,12 @@ namespace ClassPack
         }
 
         public KeyCode PanelKeyCode => ParseKey(panelKey, KeyCode.F6);
+
+        public KeyCode UseKeyCode => ParseKey(useKey, KeyCode.B);
+
+        public KeyCode FireKeyCode => ParseKey(fireKey, KeyCode.X);
+
+        public KeyCode AnswerKeyCode => ParseKey(answerKey, KeyCode.H);
 
         public KeyCode DoorDashKeyCode => ParseKey(doorDashKey, KeyCode.O);
 
