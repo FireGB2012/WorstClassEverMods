@@ -19,7 +19,7 @@ Ideas list: Google Doc "worst class ever mod ideas" (38 ideas).
 
 | Idea | State |
 |------|-------|
-| 11 DoorDash on the computers | Built and installed. Not yet tried in the game. Student sits at a computer in class and presses O. |
+| 11 DoorDash | Rebuilt on 2026-11-14 the way Gabriel wants it (version 0.3.0): O pulls up a phone, the DoorDash app orders a dish, about 10 seconds later it is dropped on the floor of the teacher's office, and eating it pays 15 mischief. Not yet tried in the game. The drop spot is a best guess (see below). The first version, pressing O at a computer desk, is gone. |
 | 6 (part) Teacher eats snacks from drawers for stamina | Built and installed. Not yet tried in the game. Teacher stands by a desk and presses G. |
 | 38 (part) Power cut in the middle of class | Built and installed. Not yet tried in the game. Once per class, at a random moment, for 25 seconds. The darkening look is a guess until it is seen in the game. |
 | 3 Bald male teacher | Moved to the models pack: his hair is part of his body model, so it can't just be hidden |
@@ -34,6 +34,17 @@ Version 0.1.0 was installed to the game's Mods folder on 2026-11-14 and switched
 | Owner settings window (F6) | Built and installed. Not yet seen in the game. Class length, teachers, points to win. It writes the game's own room rules, so it works for players without the mod too. Owner only, between classes. |
 
 The game must be closed before installing an update, because it holds the mod file open.
+
+### Where DoorDash drops the food
+
+The game has no marker for "the teacher's office", so `TeacherOffice.cs` works it out on the host:
+
+1. If the point where teachers are placed before class is outside the classroom, drop it there.
+2. Otherwise go 2.2 m through the office door, to the side that is not the classroom.
+
+Each delivery writes a log line starting `[Mod:classpack] DoorDash:` with the spot and which rule
+picked it. If the food lands in the wrong place, read that line first. `doorDashOfficeSide`
+(1 or -1) and `doorDashOfficeDepth` in config.json move it without a rebuild.
 
 ### Things to check in the first play test
 

@@ -14,7 +14,9 @@ The extra stuff only works in rooms where the room owner has the mod too.
 
 WHAT IT ADDS
 
-- DoorDash: sit at a computer during class and press O. Food lands in your desk drawer.
+- Phone with DoorDash: as a student, press O during class to pull up your phone.
+  Open the DoorDash app and order. The food is dropped in the teacher's office.
+  Go and get it, then eat it for 15 mischief.
 - Hungry teacher: the teacher stands next to a desk and presses G to eat a snack
   from its drawer and get stamina back.
 - Power cut: once per class the lights go out for a bit.

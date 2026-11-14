@@ -24,6 +24,21 @@ namespace ClassPack
         public bool ok;
     }
 
+    /// <summary>Student's client to host: a DoorDash order for this dish on the menu.</summary>
+    public struct CpOrder : NetworkMessage
+    {
+        public int food;
+    }
+
+    /// <summary>Host to modded clients: a DoorDash order was dropped off, or cancelled.</summary>
+    public struct CpDelivery : NetworkMessage
+    {
+        public bool ok;
+        public ulong itemUID;
+        public ulong ordererUID;
+        public int food;
+    }
+
     /// <summary>Host to every modded client: the power cut starts or ends.</summary>
     public struct CpPowerCut : NetworkMessage
     {
@@ -50,6 +65,24 @@ namespace ClassPack
 
             Writer<CpSnackResult>.write = (writer, value) => writer.WriteBool(value.ok);
             Reader<CpSnackResult>.read = reader => new CpSnackResult { ok = reader.ReadBool() };
+
+            Writer<CpOrder>.write = (writer, value) => writer.WriteInt(value.food);
+            Reader<CpOrder>.read = reader => new CpOrder { food = reader.ReadInt() };
+
+            Writer<CpDelivery>.write = (writer, value) =>
+            {
+                writer.WriteBool(value.ok);
+                writer.WriteULong(value.itemUID);
+                writer.WriteULong(value.ordererUID);
+                writer.WriteInt(value.food);
+            };
+            Reader<CpDelivery>.read = reader => new CpDelivery
+            {
+                ok = reader.ReadBool(),
+                itemUID = reader.ReadULong(),
+                ordererUID = reader.ReadULong(),
+                food = reader.ReadInt()
+            };
 
             Writer<CpPowerCut>.write = (writer, value) =>
             {
@@ -85,11 +118,13 @@ namespace ClassPack
             {
                 NetworkServer.ReplaceHandler<CpHello>(OnHello);
                 NetworkServer.ReplaceHandler<CpSnackRequest>(TeacherSnacks.OnServerRequest);
+                NetworkServer.ReplaceHandler<CpOrder>(DoorDash.OnServerOrder);
                 _serverRegistered = true;
             }
             if (clientActive && (refresh || !_clientRegistered))
             {
                 NetworkClient.ReplaceHandler<CpSnackResult>(TeacherSnacks.OnClientResult);
+                NetworkClient.ReplaceHandler<CpDelivery>(DoorDash.OnClientDelivery);
                 NetworkClient.ReplaceHandler<CpPowerCut>(PowerCut.OnClientState);
                 _clientRegistered = true;
             }

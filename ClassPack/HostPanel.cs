@@ -22,10 +22,7 @@ namespace ClassPack
         private float _targetPercent;
         private string _message = "";
 
-        private CursorLockMode _previousLock;
-        private bool _previousVisible;
-        private bool _previousInputShowing;
-        private bool _capturedInput;
+        private readonly CursorGrab _cursor = new CursorGrab();
 
         private GUIStyle _label;
         private GUIStyle _title;
@@ -61,7 +58,7 @@ namespace ClassPack
         {
             if (_open)
             {
-                ShowCursor();
+                _cursor.Hold();
             }
         }
 
@@ -72,44 +69,20 @@ namespace ClassPack
 
         private void Open()
         {
-            _previousLock = Cursor.lockState;
-            _previousVisible = Cursor.visible;
-            _capturedInput = MonoSingletonT<InputManager>.IsSingletonActive();
-            if (_capturedInput)
+            // Only one of the mod's windows can have the mouse at a time.
+            if (!_cursor.Begin())
             {
-                _previousInputShowing = MonoSingletonT<InputManager>.Instance.isCursorShowing;
+                return;
             }
             LoadCurrentValues();
             _message = "";
             _open = true;
-            ShowCursor();
         }
 
         private void Close()
         {
-            if (!_open)
-            {
-                return;
-            }
             _open = false;
-            Cursor.lockState = _previousLock;
-            Cursor.visible = _previousVisible;
-            if (_capturedInput && MonoSingletonT<InputManager>.IsSingletonActive())
-            {
-                MonoSingletonT<InputManager>.Instance.isCursorShowing = _previousInputShowing;
-            }
-        }
-
-        // The game re-locks the mouse every frame while you walk around, so this runs every
-        // frame the window is open. It is the same thing the game's own debug window does.
-        private static void ShowCursor()
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            if (MonoSingletonT<InputManager>.IsSingletonActive())
-            {
-                MonoSingletonT<InputManager>.Instance.isCursorShowing = true;
-            }
+            _cursor.End();
         }
 
         private void LoadCurrentValues()

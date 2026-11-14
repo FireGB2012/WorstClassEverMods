@@ -11,11 +11,16 @@ namespace ClassPack
     [Serializable]
     public sealed class Settings
     {
-        // DoorDash on the computers
+        // The student's phone and its DoorDash app. doorDashKey pulls the phone up.
         public bool doorDash = true;
         public string doorDashKey = "O";
         public float doorDashWaitSeconds = 10f;
         public float doorDashCooldownSeconds = 45f;
+        public float doorDashPoints = 15f;
+        // Where the food lands when it has to go through the office door: how far past the
+        // door, and which side (0 = work it out, 1 or -1 = force a side).
+        public float doorDashOfficeDepth = 2.2f;
+        public int doorDashOfficeSide = 0;
 
         // Teacher eats snacks out of student drawers for stamina
         public bool teacherSnacks = true;

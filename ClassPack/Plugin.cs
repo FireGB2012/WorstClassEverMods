@@ -25,6 +25,7 @@ namespace ClassPack
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<Runner>();
             host.AddComponent<HostPanel>();
+            host.AddComponent<Phone>();
 
             Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut
                 + " SoloClass=" + Settings.soloClass + " PanelKey=" + Settings.PanelKeyCode);
