@@ -26,9 +26,9 @@ namespace ClassPack
         private bool _open;
         private Screen _screen;
 
-        private Texture2D _bezel, _wall, _red, _green, _purple, _card, _cardHover, _muted;
+        private Texture2D _bezel, _wall, _red, _green, _purple, _blue, _card, _cardHover, _muted;
         private GUIStyle _bezelStyle, _wallStyle, _header, _headerGreen, _text, _small, _clock, _icon, _iconGreen, _iconLabel, _dish, _plain, _note,
-            _headerPurple, _iconPurple, _trick;
+            _headerPurple, _iconPurple, _iconBlue, _trick;
 
         private static bool InRoom => NetworkClient.active || NetworkServer.active;
 
@@ -159,6 +159,19 @@ namespace ClassPack
             }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+
+            GUILayout.Space(14f);
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(13f);
+            bool wardrobe = DrawApp("Looks", "Wardrobe", _iconBlue);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            if (wardrobe)
+            {
+                // The wardrobe is its own big window, so the phone goes away first.
+                Close();
+                Wardrobe.RequestOpen();
+            }
 
             GUILayout.FlexibleSpace();
             DrawPutAway();
@@ -412,6 +425,12 @@ namespace ClassPack
             _dish.hover.textColor = white;
             _dish.active.textColor = white;
 
+            _blue = Solid(new Color32(50, 120, 230, 255));
+            _iconBlue = new GUIStyle(_iconPurple);
+            _iconBlue.normal.background = _blue;
+            _iconBlue.hover.background = _blue;
+            _iconBlue.active.background = _blue;
+
             _trick = new GUIStyle(_dish) { richText = true };
             _trick.margin = new RectOffset(0, 0, 2, 2);
 
@@ -427,7 +446,7 @@ namespace ClassPack
         private void OnDestroy()
         {
             Close();
-            foreach (Texture2D texture in new[] { _bezel, _wall, _red, _green, _purple, _card, _cardHover, _muted })
+            foreach (Texture2D texture in new[] { _bezel, _wall, _red, _green, _purple, _blue, _card, _cardHover, _muted })
             {
                 if (texture != null)
                 {

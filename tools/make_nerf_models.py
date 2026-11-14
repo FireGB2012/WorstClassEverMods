@@ -40,6 +40,24 @@ WATER_LIGHT = (150, 205, 255)
 CREAM = (244, 238, 200)
 CREAM_LIGHT = (253, 250, 228)
 SILVER = (196, 200, 208)
+SKIN = (236, 190, 152)
+BROWN = (120, 78, 44)
+WOOD = (176, 126, 74)
+BLOND = (236, 204, 96)
+GOLD = (240, 196, 60)
+NAVY = (44, 70, 130)
+SHIRT = (200, 54, 50)
+SHIRT_DARK = (170, 40, 40)
+NET = (190, 220, 240)
+OVERALL = (110, 120, 135)
+OVERALL_DARK = (72, 80, 94)
+CHEESE = (250, 204, 70)
+CRUST = (196, 136, 62)
+PEPPERONI = (196, 50, 40)
+POTATO = (245, 238, 210)
+GRAVY = (150, 96, 50)
+STEW = (206, 122, 44)
+POT = (84, 88, 98)
 
 SMOOTH_ANGLE = math.radians(42.0)
 
@@ -98,6 +116,14 @@ class Model:
         bm = bmesh.new()
         bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=1.0,
                                   matrix=Matrix.Translation(center) @ Matrix.Diagonal((*scale, 1.0)))
+        self.add(bm, color)
+
+    def dome(self, center, scale, color, cut=0.0):
+        """The top of a ball: everything above cut, where -1 is the ball's bottom and 1 its top."""
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=16, radius=1.0)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < cut - 1e-6], context='VERTS')
+        bmesh.ops.transform(bm, matrix=Matrix.Translation(center) @ Matrix.Diagonal((*scale, 1.0)), verts=list(bm.verts))
         self.add(bm, color)
 
     def sheet(self, points, color, thickness=0.004):
@@ -381,6 +407,254 @@ def splat():
     return m
 
 
+# ------------------------------------------------------------ outfits
+#
+# Everything worn on the head is built around (0, 0, 0) = the middle of a head 0.11 m in
+# radius, face towards +Y. A hat's rim sits a little above the eyebrows, at about z = 0.04.
+
+
+def hat_cap():
+    m = Model('hat_cap')
+    m.dome((0.0, -0.005, 0.035), (0.122, 0.130, 0.095), BLUE)
+    m.ball((0.0, 0.140, 0.040), (0.090, 0.080, 0.008), NAVY)
+    m.ball((0.0, -0.005, 0.131), (0.014, 0.014, 0.007), WHITE)
+    return m
+
+
+def hat_beanie():
+    m = Model('hat_beanie')
+    m.dome((0.0, 0.0, 0.020), (0.124, 0.128, 0.125), RED)
+    m.tube((0.0, 0.0, 0.020), (0.0, 0.0, 0.060), 0.130, WHITE, segments=32)
+    m.ball((0.0, 0.0, 0.158), (0.032, 0.032, 0.032), WHITE)
+    return m
+
+
+def hat_top():
+    m = Model('hat_top')
+    m.tube((0.0, 0.0, 0.045), (0.0, 0.0, 0.056), 0.178, DARK, segments=36)
+    m.tube((0.0, 0.0, 0.056), (0.0, 0.0, 0.265), 0.108, DARK, segments=32)
+    m.tube((0.0, 0.0, 0.056), (0.0, 0.0, 0.088), 0.1095, RED, segments=32)
+    return m
+
+
+def hat_crown():
+    m = Model('hat_crown')
+    m.tube((0.0, 0.0, 0.050), (0.0, 0.0, 0.100), 0.108, GOLD, segments=32)
+    m.dome((0.0, 0.0, 0.092), (0.100, 0.100, 0.050), RED)
+    for k in range(6):
+        a = math.radians(k * 60.0)
+        x, y = 0.094 * math.sin(a), 0.094 * math.cos(a)
+        m.tube((x, y, 0.098), (x, y, 0.170), 0.024, GOLD, r2=0.003, segments=12)
+        jewel = RED if k % 2 == 0 else BLUE
+        m.ball((1.13 * x, 1.13 * y, 0.075), (0.011, 0.011, 0.011), jewel)
+    return m
+
+
+def hat_cowboy():
+    m = Model('hat_cowboy')
+    m.ball((0.0, 0.0, 0.050), (0.215, 0.200, 0.012), BROWN)
+    m.dome((0.0, 0.0, 0.050), (0.110, 0.125, 0.105), BROWN)
+    m.dome((0.0, 0.0, 0.052), (0.113, 0.128, 0.032), DARK)
+    return m
+
+
+def hat_party():
+    m = Model('hat_party')
+    base, top, wide = 0.050, 0.300, 0.075
+
+    def radius(z):
+        return wide - (z - base) / (top - base) * (wide - 0.004)
+
+    m.tube((0.0, 0.0, base), (0.0, 0.0, top), wide, PINK, r2=0.004, segments=24)
+    for low in (0.100, 0.185):
+        m.tube((0.0, 0.0, low), (0.0, 0.0, low + 0.030), radius(low) + 0.002, YELLOW, r2=radius(low + 0.030) + 0.002, segments=24)
+    m.ball((0.0, 0.0, 0.306), (0.022, 0.022, 0.022), YELLOW)
+    return m
+
+
+def hat_cone():
+    m = Model('hat_cone')
+    base, top = 0.056, 0.360
+
+    def radius(z):
+        return 0.088 - (z - base) / (top - base) * 0.066
+
+    m.box((0.0, 0.0, 0.050), (0.250, 0.250, 0.014), ORANGE, 0.004)
+    m.tube((0.0, 0.0, base), (0.0, 0.0, top), 0.088, ORANGE, r2=0.022, segments=24)
+    m.tube((0.0, 0.0, 0.160), (0.0, 0.0, 0.225), radius(0.160) + 0.002, WHITE, r2=radius(0.225) + 0.002, segments=24)
+    return m
+
+
+def hat_chef():
+    m = Model('hat_chef')
+    m.tube((0.0, 0.0, 0.040), (0.0, 0.0, 0.145), 0.112, WHITE, segments=32)
+    m.ball((0.0, 0.0, 0.200), (0.156, 0.156, 0.086), WHITE)
+    return m
+
+
+def hat_baldcap():
+    """A shiny bald scalp that covers the hair on top of the head."""
+    m = Model('hat_baldcap')
+    m.dome((0.0, -0.012, 0.0), (0.128, 0.138, 0.150), SKIN, cut=0.25)
+    return m
+
+
+def hat_hairnet():
+    m = Model('hat_hairnet')
+    m.dome((0.0, -0.010, 0.010), (0.132, 0.140, 0.135), NET, cut=0.2)
+    m.ball((0.0, 0.132, 0.045), (0.016, 0.012, 0.012), WHITE)
+    return m
+
+
+def hat_janitor():
+    m = Model('hat_janitor')
+    m.dome((0.0, -0.005, 0.035), (0.122, 0.130, 0.090), OVERALL)
+    m.ball((0.0, 0.140, 0.040), (0.090, 0.080, 0.008), OVERALL_DARK)
+    m.box((0.0, 0.122, 0.070), (0.050, 0.008, 0.030), YELLOW, 0.003)
+    return m
+
+
+def hat_wig():
+    """A big blond wig."""
+    m = Model('hat_wig')
+    m.dome((0.0, -0.015, 0.020), (0.150, 0.160, 0.165), BLOND, cut=0.1)
+    for side in (-1.0, 1.0):
+        m.ball((side * 0.136, -0.020, -0.030), (0.045, 0.070, 0.085), BLOND)
+    m.ball((0.0, -0.130, -0.040), (0.110, 0.060, 0.090), BLOND)
+    m.ball((0.0, 0.040, 0.176), (0.070, 0.080, 0.036), BLOND)
+    return m
+
+
+def face_shades():
+    m = Model('face_shades')
+    for side in (-1.0, 1.0):
+        m.box((side * 0.046, 0.112, 0.015), (0.070, 0.010, 0.042), DARK, 0.004)
+        m.box((side * 0.105, 0.045, 0.024), (0.006, 0.140, 0.008), DARK)
+    m.box((0.0, 0.113, 0.024), (0.030, 0.008, 0.008), DARK)
+    return m
+
+
+def face_nose():
+    m = Model('face_nose')
+    m.ball((0.0, 0.128, -0.012), (0.030, 0.030, 0.030), RED)
+    m.ball((0.010, 0.151, 0.000), (0.007, 0.005, 0.007), WHITE)
+    return m
+
+
+def face_moustache():
+    m = Model('face_moustache')
+    for side in (-1.0, 1.0):
+        m.ball((side * 0.032, 0.114, -0.045), (0.036, 0.012, 0.015), DARK)
+        m.ball((side * 0.068, 0.110, -0.037), (0.016, 0.010, 0.014), DARK)
+    return m
+
+
+# Back items: (0, 0, 0) is the spot between the shoulder blades, back towards -Y.
+
+
+def back_pack():
+    m = Model('back_pack')
+    m.box((0.0, -0.070, -0.020), (0.270, 0.130, 0.340), RED, 0.025)
+    m.box((0.0, -0.140, -0.080), (0.190, 0.030, 0.150), SHIRT_DARK, 0.010)
+    for side in (-1.0, 1.0):
+        m.box((side * 0.090, 0.000, 0.000), (0.040, 0.020, 0.300), DARK, 0.004)
+    return m
+
+
+def back_cape():
+    m = Model('back_cape')
+    m.sheet([(-0.170, -0.015, 0.170), (0.170, -0.015, 0.170), (0.260, -0.160, -0.580), (-0.260, -0.160, -0.580)], RED, 0.012)
+    m.box((0.0, 0.000, 0.180), (0.360, 0.050, 0.040), GOLD, 0.010)
+    return m
+
+
+def back_wings():
+    m = Model('back_wings')
+    for side in (-1.0, 1.0):
+        m.sheet([(side * 0.030, -0.030, 0.100), (side * 0.300, -0.090, 0.340), (side * 0.460, -0.110, 0.260),
+                 (side * 0.400, -0.100, 0.020), (side * 0.260, -0.080, -0.140), (side * 0.030, -0.030, -0.060)], WHITE, 0.014)
+    return m
+
+
+# Front items: (0, 0, 0) is the middle of the belly, belly towards +Y.
+
+
+def body_belly():
+    """The gym teacher's belly, poking out from under a shirt that is too small."""
+    m = Model('body_belly')
+    m.ball((0.0, 0.030, 0.000), (0.200, 0.190, 0.200), SHIRT)
+    m.ball((0.0, 0.045, -0.100), (0.165, 0.160, 0.115), SKIN)
+    m.ball((0.0, 0.203, -0.100), (0.010, 0.006, 0.010), BROWN)
+    return m
+
+
+def body_apron():
+    m = Model('body_apron')
+    m.box((0.0, 0.035, -0.050), (0.360, 0.016, 0.560), WHITE, 0.006)
+    m.box((0.0, 0.046, -0.120), (0.180, 0.008, 0.120), (224, 224, 224), 0.003)
+    m.ball((0.080, 0.045, 0.080), (0.040, 0.004, 0.030), STEW)
+    return m
+
+
+# Hand items: (0, 0, 0) is the hand that holds it, held upright.
+
+
+def hand_ladle():
+    m = Model('hand_ladle')
+    m.tube((0.0, 0.0, -0.030), (0.0, 0.020, 0.360), 0.010, SILVER, segments=16)
+    m.ball((0.0, 0.050, 0.385), (0.050, 0.050, 0.032), SILVER)
+    m.ball((0.0, 0.050, 0.398), (0.040, 0.040, 0.020), STEW)
+    return m
+
+
+def hand_mop():
+    m = Model('hand_mop')
+    m.tube((0.0, 0.050, -0.800), (0.0, 0.0, 0.500), 0.014, WOOD, segments=16)
+    m.box((0.0, 0.055, -0.820), (0.220, 0.060, 0.030), BLUE, 0.006)
+    for i in range(7):
+        m.ball((-0.090 + i * 0.030, 0.055, -0.872), (0.020, 0.035, 0.060), WHITE)
+    return m
+
+
+def prop_pot():
+    """The lunch lady's big pot. (0, 0, 0) is the floor under its middle."""
+    m = Model('prop_pot')
+    m.tube((0.0, 0.0, 0.0), (0.0, 0.0, 0.500), 0.300, POT, segments=36)
+    m.tube((0.0, 0.0, 0.500), (0.0, 0.0, 0.530), 0.325, SILVER, segments=36)
+    m.tube((0.0, 0.0, 0.505), (0.0, 0.0, 0.537), 0.285, STEW, segments=36)
+    for x, y, r in ((0.10, 0.08, 0.040), (-0.12, -0.05, 0.050), (0.02, -0.15, 0.032), (-0.06, 0.14, 0.036)):
+        m.ball((x, y, 0.538), (r, r, r * 0.5), (226, 146, 60))
+    for side in (-1.0, 1.0):
+        m.box((side * 0.345, 0.0, 0.400), (0.080, 0.100, 0.030), SILVER, 0.008)
+    m.tube((0.100, 0.050, 0.450), (0.330, 0.200, 0.860), 0.016, WOOD, segments=14)
+    return m
+
+
+def shot_pizza():
+    """A slice of pizza, point towards +Y. (0, 0, 0) is under its middle."""
+    m = Model('shot_pizza')
+    m.slab([(-0.100, -0.110), (0.100, -0.110), (0.0, 0.150)], 0.0, 0.014, CHEESE)
+    m.box((0.0, -0.115, 0.012), (0.220, 0.035, 0.034), CRUST, 0.010)
+    for x, y in ((-0.035, -0.050), (0.040, -0.045), (0.000, 0.030)):
+        m.tube((x, y, 0.013), (x, y, 0.019), 0.022, PEPPERONI, segments=16)
+    return m
+
+
+def shot_potato():
+    """A scoop of mashed potatoes with a bit of gravy."""
+    m = Model('shot_potato')
+    m.ball((0.0, 0.0, 0.0), (0.075, 0.070, 0.060), POTATO)
+    m.ball((0.045, 0.020, 0.020), (0.040, 0.036, 0.032), POTATO)
+    m.ball((-0.040, -0.020, 0.015), (0.038, 0.040, 0.030), POTATO)
+    m.ball((0.0, 0.0, 0.042), (0.046, 0.040, 0.022), GRAVY)
+    return m
+
+
+OUTFITS = (hat_cap, hat_beanie, hat_top, hat_crown, hat_cowboy, hat_party, hat_cone, hat_chef, hat_baldcap,
+           hat_hairnet, hat_janitor, hat_wig, face_shades, face_nose, face_moustache, back_pack, back_cape,
+           back_wings, body_belly, body_apron, hand_ladle, hand_mop, prop_pot, shot_pizza, shot_potato)
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -486,7 +760,7 @@ def main():
     out_dir = os.path.abspath(args[0])
     preview_dir = os.path.abspath(args[1]) if len(args) > 1 else None
     os.makedirs(out_dir, exist_ok=True)
-    for build in (pistol, shotgun, sniper, rpg, airplane, balloon, glue, laser, cushion, note, puddle, splat):
+    for build in (pistol, shotgun, sniper, rpg, airplane, balloon, glue, laser, cushion, note, puddle, splat) + OUTFITS:
         model = build()
         if preview_dir:
             os.makedirs(preview_dir, exist_ok=True)

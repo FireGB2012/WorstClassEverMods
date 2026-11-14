@@ -19,6 +19,19 @@ WHAT IT ADDS
   Go and get it, then eat it for 15 mischief.
 - Prank call: the phone also has a Call app. Ring the teacher. If the teacher does not
   press H to answer in time, the teacher loses stamina.
+- Wardrobe: press F7 in a room (or open Wardrobe on the phone) to dress up. Pick a hat,
+  sunglasses, a backpack, cape or wings. Students can also mix hair, face and clothes,
+  go bald and recolour hair, clothes and skin. A small picture shows how you look.
+  Everybody with the mod sees your outfit. If a hat sits wrong, move the Fit sliders.
+- New teachers: in the wardrobe, pick what you are when you are the teacher.
+    Gym teacher: bald on top with a big belly. X throws a slice of pizza that lands on
+      a student's face and knocks them over.
+    Lunch lady: hairnet, apron and ladle. X throws mashed potatoes that stick a student
+      in place. She can't write on the blackboard: hold B at her big pot for stamina.
+    Janitor: X mops. That clears banana peels, glue and whoopee cushions around him
+      and leaves a wet floor that students slip on.
+    Bald with a wig: a student who sneaks up behind him (or holds the plunger) presses
+      B to yank the wig off. No chalk until he walks over and gets it back.
 - Tricks: the phone has a Tricks app. Tap a trick and it goes in your hand. Press X, or
   click the mouse wheel, to use it. Press B to put it away.
     Paper airplane: hit the back of the teacher's head for mischief. A miss lands

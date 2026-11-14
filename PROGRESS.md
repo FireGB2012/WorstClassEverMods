@@ -136,15 +136,41 @@ balloon-leak sound), whether the held prop shows where the hand is, whether bots
 Alone with bots there is no teacher, so the teacher halves (airplane hit, laser blinding, both
 glue effects, note grab) need a second player.
 
+## Looks and new teachers (version 0.7.0, built 2026-11-14, NOT yet installed or tried)
+
+After pack 3 Gabriel tested only the nerf guns (the log shows the easier pick-up working: two
+shotguns taken with the game's pick-up key and fired) and then asked for "skins, new teachers and
+all that", so idea 2 is back in.
+
+What the game gives us (found in its code): a student's body is four sets of pieces under the
+`RenderRoot` part, named `Hair1..4`, `Body1..4`, `Cloth1..4` and `Hand1..4`; the game shows one
+set (`NetData.BodyMeshIndex`). Named anchor points come from `unit.GetPartRoot(EUnitPartType.X)`:
+`HeadPosition`, `HandPosition`, `RenderRoot`. The player's own body is on the `PlayerSelf` layer
+and only casts a shadow, so nobody sees their own outfit in the world.
+
+| Idea | How it plays |
+|------|--------------|
+| 2 Customizable characters | `Looks.cs` + `Wardrobe.cs`. F7 in a room, or the Wardrobe app on the phone. Hat (8), face extra (3), back item (3), and for students: hair 1-4 or bald, face and body 1-4, clothes 1-4, and a colour each for hair, clothes and skin. A small picture in the window shows the player (its own camera on the `PlayerSelf` layer). The pick is saved in config.json (`lookA`, `lookB`), sent to the host and passed to everybody with the mod. Four Fit sliders move and size the hats (`headUp`, `headForward`, `headSize`, `bodyUp`). |
+| 6 Gym teacher | Teacher type in the wardrobe. Bald cap, belly, wider body. X throws a pizza slice: the student hit gets pizza over their screen and is knocked over. 8 second wait. Eating snacks from drawers (G) was already there for every teacher. |
+| 19 Lunch lady | Hairnet, apron, ladle. X throws mashed potatoes: the student hit is stuck for 4 seconds (the game's taser stun). She can't write on the blackboard; a big pot is put out near it and holding B next to it gives stamina. |
+| 20 Janitor | Cap and mop. X mops: thrown banana peels, glue puddles and whoopee cushions within 3 m are removed and a wet patch stays for 20 seconds that walking students slip on. Not made slower: no clean hook for walking speed was found. |
+| 3 + 22 Bald teacher with a wig | Bald cap plus a blond wig. A student behind him within 2.2 m, or within 3.6 m holding the plunger, presses B to yank it off for 20 mischief. It lands a few steps away; he can't throw chalk or the eraser until he walks over it. |
+
+Guesses to check in the game, in this order:
+1. Does the picture in the wardrobe show the player at all?
+2. Do hats sit on the head? `HeadPosition` is assumed to be at the eyes. The log line
+   `looks: my body root is ...` gives the anchor names and the head height.
+3. Do colours work? Each character shader logs one line `looks: shader '...' is coloured through ...`
+   listing its colour settings; if the wrong one was picked, change `ColorProperty` in `Looks.cs`.
+4. Does mixing hair, body and clothes look right, and does the bald cap hide the teacher's hair?
+5. Where the pot, the belly, the apron and the things in the hand end up.
+
 ## Packs still to do
 
 - **Pack 4, teacher and class events:** coffee mug and hot sauce (28), teacher's pet snitch (36),
   class hamster (33), food fight (35), more random events (38), points shop at the vending
   machine (37), the principal (21).
-- **Pack 5, looks:** bald teacher and wig (3, 22), the toilet idea (10). Idea 2, customizable
-  characters, is left out at Gabriel's request ("not the skin part").
-- **Pack 6, new teachers:** gym teacher (6), lunch lady (19), janitor (20). They reuse the current
-  teacher's body with a new look and new powers; a brand new body needs a 3D model.
+- **The toilet idea (10).**
 - **Pack 7, new floors and modes, the slow part:** pool (4), dance class (9), science lab (12),
   gym (13), art room (14), music room (15), library (16), school bus (17), teachers lounge (18),
   prop hunt mode (32). Each floor needs a room built and models made.
@@ -152,4 +178,3 @@ glue effects, note grab) need a second player.
 ## Not building
 
 - Idea 8 as written, idea 5, and the twerk emote in idea 9 (dance class gets a goofy dance instead).
-- Idea 2, customizable characters: Gabriel said to skip "the skin part" on 2026-11-14.

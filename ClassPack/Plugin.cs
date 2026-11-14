@@ -26,11 +26,12 @@ namespace ClassPack
             host.AddComponent<Runner>();
             host.AddComponent<HostPanel>();
             host.AddComponent<Phone>();
+            host.AddComponent<Wardrobe>();
             host.AddComponent<Hud>();
 
             Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut
                 + " SoloClass=" + Settings.soloClass + " NerfGuns=" + Settings.nerfGuns + " WindowPoles=" + Settings.windowPoles
-                + " PrankCall=" + Settings.prankCall + " FireAlarm=" + Settings.fireAlarm + " Tricks=" + Settings.tricks);
+                + " PrankCall=" + Settings.prankCall + " FireAlarm=" + Settings.fireAlarm + " Tricks=" + Settings.tricks + " Looks=" + Settings.looks + " Teachers=" + Settings.teachers);
         }
 
         public static void Log(string message)
@@ -45,7 +46,7 @@ namespace ClassPack
         private static readonly Action[] Features =
         {
             Game.Tick, Net.Tick, Poles.Tick, DoorDash.Tick, TeacherSnacks.Tick, PowerCut.Tick,
-            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick
+            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick, Looks.Tick, Teachers.Tick
         };
 
         private readonly float[] _lastErrorLog = new float[Features.Length];

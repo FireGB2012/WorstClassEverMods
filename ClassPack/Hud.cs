@@ -35,9 +35,11 @@ namespace ClassPack
                 string hint = FireAlarm.DrawHud(width, height);
                 string gun = NerfGuns.DrawHud(width, height);
                 string trick = Tricks.DrawHud(width, height);
+                string teacher = Teachers.DrawHud(width, height);
                 string call = PrankCall.DrawHud();
-                // One line at a time: a ringing phone first, then the gun, the trick in hand, the alarm box.
-                string line = call ?? gun ?? trick ?? hint;
+                // One line at a time: a ringing phone first, then the gun, the trick in hand,
+                // the teacher's own power or a wig to grab, the alarm box.
+                string line = call ?? gun ?? trick ?? teacher ?? hint;
                 if (!string.IsNullOrEmpty(line) && !CursorGrab.Busy)
                 {
                     if (_hint == null)

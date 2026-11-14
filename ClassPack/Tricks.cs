@@ -17,7 +17,7 @@ namespace ClassPack
             }
             try
             {
-                return !Tricks.BoardIsSoaked(__instance);
+                return !(Tricks.BoardIsSoaked(__instance) || Teachers.NoBoard());
             }
             catch (Exception)
             {
@@ -38,7 +38,8 @@ namespace ClassPack
             }
             try
             {
-                return !Tricks.HandIsGlued(__instance.owner, __1 == eClickType.Down);
+                return !(Tricks.HandIsGlued(__instance.owner, __1 == eClickType.Down)
+                    || Teachers.NoThrowing(__instance.owner, __1 == eClickType.Down));
             }
             catch (Exception)
             {
@@ -301,7 +302,7 @@ namespace ClassPack
 
         // -------------------------------------------------------------------------- models
 
-        private static GameObject Build(string name, Color32 fallback, float fallbackSize)
+        internal static GameObject Build(string name, Color32 fallback, float fallbackSize)
         {
             GameObject model = Models.Build(name);
             if (model != null)
@@ -320,7 +321,7 @@ namespace ClassPack
         }
 
         /// <summary>The floor, seat or desk top right under a point.</summary>
-        private static Vector3 Settle(Vector3 point)
+        internal static Vector3 Settle(Vector3 point)
         {
             RaycastHit hit;
             if (Physics.Raycast(point + Vector3.up * 0.08f, Vector3.down, out hit, 3f, ~0, QueryTriggerInteraction.Ignore))
@@ -330,7 +331,7 @@ namespace ClassPack
             return point;
         }
 
-        private static Vector3 Flat(Vector3 v)
+        internal static Vector3 Flat(Vector3 v)
         {
             v.y = 0f;
             return v;
@@ -652,7 +653,7 @@ namespace ClassPack
             }
         }
 
-        private static void Tip(string text)
+        internal static void Tip(string text)
         {
             if (Time.time - _noticeAt > 1.5f)
             {
@@ -1136,6 +1137,31 @@ namespace ClassPack
             Net.SendToModded(new CpTell { kind = CpKind.Note, i = note.Id, j = 1, v = note.From, w = note.To, f = note.Duration });
             Net.Toast(player, "Your note is on its way to " + (target.isPlayer ? Poles.NameOf(target) : "a classmate") + ". Keep the teacher away from it.", 3.5f);
             Plugin.Log("tricks: " + Poles.NameOf(player) + " passed a note " + furthest.ToString("F1") + " m");
+        }
+
+        /// <summary>Host: the janitor's mop clears glue and whoopee cushions. Returns how many.</summary>
+        public static int HostCleanNear(Vector3 at, float reach)
+        {
+            int cleaned = 0;
+            for (int i = HostPuddles.Count - 1; i >= 0; i--)
+            {
+                if (Near(HostPuddles[i].At, at, reach, 1.5f))
+                {
+                    Net.SendToModded(new CpTell { kind = CpKind.GluePuddle, i = HostPuddles[i].Id, j = 0 });
+                    HostPuddles.RemoveAt(i);
+                    cleaned++;
+                }
+            }
+            for (int i = HostCushions.Count - 1; i >= 0; i--)
+            {
+                if (Near(HostCushions[i].At, at, reach, 1.5f))
+                {
+                    Net.SendToModded(new CpTell { kind = CpKind.Cushion, i = HostCushions[i].Id, j = 0 });
+                    HostCushions.RemoveAt(i);
+                    cleaned++;
+                }
+            }
+            return cleaned;
         }
 
         private static void HostTick()

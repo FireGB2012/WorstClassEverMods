@@ -77,7 +77,16 @@ namespace ClassPack
         NoteAsk = 51,       // ask: pass a note
         Note = 52,          // tell: note i goes from v to w in f seconds (j = 1 start, 2 arrived, 3 grabbed)
         NapAsk = 53,        // ask: i = 1 fall asleep, 0 wake up
-        Snore = 54          // tell: player a snores at v, loudness f (below 0: woke up), i = mischief paid
+        Snore = 54,         // tell: player a snores at v, loudness f (below 0: woke up), i = mischief paid
+        LookSet = 60,       // ask: my outfit is i (parts, colours, teacher type) and t0 (hat, face, back)
+        Look = 61,          // tell: player a wears outfit i, j
+        TeacherThrow = 62,  // ask: as teacher type i, I threw from v to w at t0
+        Thrown = 63,        // tell: teacher food of type i flies from v to w, hitting a for f seconds
+        Pot = 64,           // tell: the lunch lady's pot stands at v (j = 1 there, 0 gone)
+        Mop = 65,           // ask: the janitor mops where he stands
+        Wet = 66,           // tell: wet floor i at v (j = 1 there, 0 dried)
+        WigPull = 67,       // ask: yank the wig off teacher t0
+        Wig = 68            // tell: teacher a's wig lies at v (j = 1), or is back on (j = 0)
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -292,6 +301,7 @@ namespace ClassPack
             if (!IsLocal(connection))
             {
                 ModdedConnections.Add(connection.connectionId);
+                Looks.OnPeerJoined(connection);
             }
         }
 
@@ -322,6 +332,14 @@ namespace ClassPack
                 case CpKind.NoteAsk:
                 case CpKind.NapAsk:
                     Tricks.OnAsk(player, ask);
+                    break;
+                case CpKind.LookSet:
+                    Looks.OnAsk(player, ask);
+                    break;
+                case CpKind.TeacherThrow:
+                case CpKind.Mop:
+                case CpKind.WigPull:
+                    Teachers.OnAsk(player, ask);
                     break;
             }
         }
@@ -357,6 +375,15 @@ namespace ClassPack
                 case CpKind.Note:
                 case CpKind.Snore:
                     Tricks.OnTell(tell);
+                    break;
+                case CpKind.Look:
+                    Looks.OnTell(tell);
+                    break;
+                case CpKind.Thrown:
+                case CpKind.Pot:
+                case CpKind.Wet:
+                case CpKind.Wig:
+                    Teachers.OnTell(tell);
                     break;
             }
         }

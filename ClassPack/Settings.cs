@@ -46,6 +46,19 @@ namespace ClassPack
         // The student tricks on the phone: paper airplane, water balloon, super glue, laser
         // pointer, whoopee cushion, passing notes and napping.
         public bool tricks = true;
+        // The wardrobe (hair, clothes, colours, hats and other extras) and the new teacher
+        // types. lookA and lookB are this player's own outfit, written by the wardrobe.
+        public bool looks = true;
+        public bool teachers = true;
+        public string wardrobeKey = "F7";
+        public int lookA = 0;
+        public int lookB = 0;
+        // Where hats sit compared with the game's own head point, and how big they are.
+        // The wardrobe has sliders for these.
+        public float headUp = 0.03f;
+        public float headForward = -0.06f;
+        public float headSize = 1f;
+        public float bodyUp = 0f;
         // useKey takes or throws away a nerf gun and pulls the fire alarm. fireKey shoots
         // (a click on the mouse wheel shoots too). answerKey picks up a ringing phone.
         public string useKey = "B";
@@ -98,6 +111,8 @@ namespace ClassPack
         }
 
         public KeyCode PanelKeyCode => ParseKey(panelKey, KeyCode.F6);
+
+        public KeyCode WardrobeKeyCode => ParseKey(wardrobeKey, KeyCode.F7);
 
         public KeyCode UseKeyCode => ParseKey(useKey, KeyCode.B);
 
