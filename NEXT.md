@@ -1,8 +1,33 @@
 # What to do next
 
-Written 2026-11-15, updated the same evening on the second PC. The mod is at version 0.14.0:
-built and committed; the faces were self-tested up to 0.13.x, the nerf faint is NOT self-tested
-yet (the game was open). Details are in `PROGRESS.md`, sections "Dance class" and "Looks pack".
+Written 2026-11-15, updated late the same evening on the second PC. The mod is at version
+0.15.0: built and committed, NOT installed and NOT self-tested (Gabriel said "not now" to running
+the game). Details are in `PROGRESS.md`, sections "Looks pack", "Teacher bug hunt" and "Pack 0.15.0".
+
+## 00. Pack 0.15.0 (Gabriel's list of ten, late 2026-11-15)
+
+Built (each part committed on its own):
+- Nerf knockout without the pole: 4 s rag doll (teacher 5 s), the teacher can grab you meanwhile.
+- Phones are items: 7.4% per snack in your drawer, grabbed with the pick-up key or B, held in the
+  hand (Meshy model), O raises it and opens the phone; one DoorDash order, prank call or trick uses
+  it up; the teacher hears the scribbling and gets a note. No phones in the swim and dance halls
+  (no drawers there).
+- The wardrobe opens on O, only out of class; it shuts at the bell.
+- Your face, body, hair and clothes stay from game to game (the "game's pick" is saved once, and two
+  floors no longer swap in their set outfit).
+- Window hanging: a student on a pole by a window hangs outside it by the fingers.
+- Swim class: climb the pool ladders and the diving board's steps with the pick-up key.
+- Elevator panel beside the blackboard (Meshy model): anyone picks the next class in the break.
+- Body slider (thin to fat); teachers get the face sliders too, limited; Meshy teachers too.
+- Hairstyles mohawk and spiky (Meshy). 39 credits left; a third hairstyle (21) waits for his pick.
+
+To check with the self-tests (dance with -Looks, swim, and -Role teacher -Kind 1..3):
+- [ ] 08_elevator_panel: the panel on the wall beside the board, labels readable.
+- [ ] 12_face_fat / thin_mohawk / spiky_blue: the body slider and the new hair.
+- [ ] 21_me_phone_in_hand, report "phone in my hand: True" then "used up": False.
+- [ ] 36/37_window_hang: the bot outside the window, fingers on the sill.
+- [ ] swim report "after climbing the ladder" (deck, y about 0) and "the board's steps" (y about 1).
+- [ ] 31 to 35: the knockout, and "after the faint (up again)".
 
 ## 0. Looks pack and the nerf faint (new in 0.14.0)
 

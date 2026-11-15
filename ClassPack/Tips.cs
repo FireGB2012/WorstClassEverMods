@@ -29,15 +29,15 @@ namespace ClassPack
             lines = null;
             switch (id)
             {
-                case "student":
+                case "student15":
                     title = "Class Pack: what you can do as a student";
                     lines = new[]
                     {
-                        "Phones turn up in desk drawers when you eat snacks. Grab one, then " + Plugin.Settings.DoorDashKeyCode
-                            + " uses it once: DoorDash, a prank call or a trick",
+                        "Eat snacks: a phone or a nerf gun may turn up in your desk. Grab it with the pick-up key or  " + Use,
+                        "With a phone in your hand,  " + Plugin.Settings.DoorDashKeyCode
+                            + "  uses it once: DoorDash, a prank call or a trick. The teacher hears you scribbling",
                         "Tricks go in your hand:  " + Plugin.Settings.FireKeyCode + " or a wheel click  uses one,  " + Use + "  puts it away",
-                        "Eat snacks: now and then a nerf gun turns up in your desk.  " + Use + "  grabs it",
-                        Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe in the break (not in class): hats, hair, face and body"
+                        "In the break,  " + Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe, and the panel by the blackboard picks the next class"
                     };
                     return true;
                 case "teacher0":
@@ -79,14 +79,14 @@ namespace ClassPack
                         "You can mop again after 6 seconds"
                     };
                     return true;
-                case "swimpee":
+                case "swimpee2":
                     title = "SWIM CLASS: what you can do as a student";
                     lines = new[]
                     {
                         "In the water, hold  " + Plugin.Settings.PeeKeyCode + "  to pee in the pool for mischief. It takes 3 seconds and you can hardly move",
                         "Pee right next to the teacher while they are in the water: double mischief. Then you have to wait a while",
                         "In the water,  " + Use + "  splashes the teacher's screen. Crawl in the pool to dive under",
-                        "The water slows you down. The ramp at the shallow end leads in and out",
+                        "The ramp at the shallow end leads in and out; at a ladder or the diving board's steps the pick-up key climbs up",
                         "DoorDash food lands in the teachers' lounge, through the door at the deep end"
                     };
                     return true;
@@ -165,13 +165,13 @@ namespace ClassPack
             }
             if (Swim.Active && (me.IsTeacher || me.IsStudent))
             {
-                return me.IsTeacher ? "swimteacher2" : "swimpee";
+                return me.IsTeacher ? "swimteacher2" : "swimpee2";
             }
             if (me.IsTeacher)
             {
                 return "teacher" + (Plugin.Settings.teachers ? Looks.KindOf(me.UID) : 0);
             }
-            return me.IsStudent ? "student" : null;
+            return me.IsStudent ? "student15" : null;
         }
 
         private static void Show(string id)

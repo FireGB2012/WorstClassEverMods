@@ -788,3 +788,43 @@ Fixed:
 - A fainted teacher gets the game's own slip held for the whole 5 s (drops a carried student).
 - Self-test: as gym teacher, lunch lady or janitor it now notes the stamina at the chair or booth
   and uses the power at the nearest bot (report lines "teacher power ...", pictures 19b and 24).
+
+## Pack 0.15.0 (Gabriel's list of ten, 2026-11-15 late evening; built, NOT installed or tested)
+
+His list: stairs at the pool; fat or thin bodies; elevator buttons for the new levels; new
+hairstyles; weapons ragdoll you for some seconds instead of the pole, the teacher can grab you, and
+the teacher can be shot; make everything better; teachers adjustable too but not so big they can't
+see; the body resets each new game (keep it) and customise only in the lobby; a phone item from the
+drawers (7.4%) held in the hand, raised when used, gone after one use, wardrobe on O in the break,
+the teacher hears a writing sound; hang students out of the windows with only the fingers showing.
+His answers: "Phone, panel, 3 hairstyles" (picked mohawk and spiky, so 84 credits, 39 left), the
+elevator for anyone, and on the reset "it does it we want it removed".
+
+- Meshy (recipe as before; tasks in meshy/tasks.md): hair_mohawk, hair_spiky, phone,
+  elevator_panel. tools/convert_meshy.py got --head (a 0.11 m ball in the preview) and --view.
+- Knockout (Faint.cs): no pole; students and bots 4 s, the teacher 5 s; the doll falls nearly on
+  the spot and ends the moment the student is caught. The game lets a teacher catch a stunned
+  student (it only checks that the teacher is not stunned).
+- Phones.cs (new): host keeps who has a phone; DoorDash (CpOrder), prank calls and tricks
+  (TrickHold, NoteAsk, NapAsk) ask Phones.HostUse before going ahead, which uses the phone up.
+  Sounds: sfx_StudentPhone_sfx when raised, sfx_WriteTest_sfx every 1.1 s while up.
+  New messages PhoneAsk 79 and PhoneTell 80. The F6 test toggle gives a gun and a phone per snack.
+- Wardrobe: key O (rulesVersion 3 moves a saved F7 to O), never in class; the phone's wardrobe
+  app is gone. The phone screen only opens in class with a phone in the hand.
+- Looks.KeepGamePicks saves the game's first face, body, hair and clothes as the player's own;
+  StudentParts no longer lets floors 6 and 8 put on their set outfit.
+- Window hanging (WindowPoles.Watch, SwimPose mode 4): every game finds poles within 1.1 m of a
+  window (WindowComponent.Config.rendererList is the glass); a student bound to one is drawn just
+  outside the wall, facing in, hands over the glass's lower edge; the pole is hidden meanwhile.
+- Swim climbing: ladders at (3.5, 0, +-4.5) from the water, the board's steps from the deck; the
+  pick-up key or B asks the host (ClimbAsk 81), which teleports. The hidden slope up the board is
+  30 degrees now (was 45, probably too steep to walk).
+- Elevator.cs (new): every game puts elevator_panel on the blackboard's wall beside the board,
+  buttons blue pool, pink dance hall, yellow classroom, TextMesh labels; anyone presses one out of
+  class (ElevatorAsk 82); the host sets Settings.nextClass and tells everybody (Elevator 83).
+- Body slider: Look.BodyWidth in lookC bits 18 to 22; the body and clothes meshes are copied with
+  the torso points (weights on gupen, spine1, spine2, pelvis) pushed out from the spine1 axis,
+  together with the pupils in one shared copy per mesh and sizes. Teachers: head at most 1.25,
+  eyes 1.4; the Meshy teachers scale bones 0 to 4 across and 5 to 7 for the head.
+- How-to cards: "student15" and "swimpee2" (new ids so they show once more).
+- Version 0.15.0.
