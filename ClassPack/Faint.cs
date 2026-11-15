@@ -5,28 +5,26 @@ using UnityEngine;
 namespace ClassPack
 {
     /// <summary>
-    /// Nerf darts knock people out. Whoever is hit faints and falls over like a rag doll: a
-    /// real physics doll made on the spot from the character's own skeleton, on every
-    /// player's screen.
-    ///
-    ///   a student player   faints for 3 seconds, then goes on a pole and can't be rescued
-    ///                      (when every pole is taken they just get up again)
-    ///   the teacher        faints for 5 seconds, then gets up
-    ///   a bot              faints for 4 seconds, then gets up
+    /// Nerf darts knock people out. Whoever is hit falls over like a rag doll for a few seconds:
+    /// a real physics doll made on the spot from the character's own skeleton, on every
+    /// player's screen. While a student lies there the teacher can walk up and grab them, the
+    /// game's own way; nothing else happens to them. Students and bots are out for 4 seconds,
+    /// the teacher for 5 (the teacher can be shot too).
     ///
     /// The host decides and tells everybody (CpKind.Faint). Each player's game then stuns a
-    /// fainted student the game's own way so it can't walk, and builds the doll. The teacher
-    /// is knocked over by the host like on a banana peel and held still by their own game.
+    /// knocked-out student the game's own way so it can't walk, gives a teacher the game's own
+    /// slip held for the whole time (a carried student is dropped), and builds the doll.
     ///
     /// The doll is a handful of capsules joined at the neck, shoulders, elbows, hips and
     /// knees, plus a ball for the head. Every frame, after the game's animation, each bone is
-    /// turned the way its capsule lies and the hips are put where the doll's pelvis is. When
-    /// the time is up the body eases back into the game's own pose. A player who fainted sees
-    /// themselves from behind (SelfView) until they are up.
+    /// turned the way its capsule lies and the hips are put where the doll's pelvis is. It
+    /// falls nearly on the spot, so the teacher grabs where the body lies. When the time is up,
+    /// or the moment the teacher grabs the student, the body goes back to the game's own pose.
+    /// A player who is out sees themselves from behind (SelfView) until they are up.
     /// </summary>
     internal static class Faint
     {
-        public const float StudentSeconds = 3f;
+        public const float StudentSeconds = 4f;
         public const float TeacherSeconds = 5f;
         public const float BotSeconds = 4f;
         /// <summary>How long getting up takes, from the doll back to the game's own pose.</summary>
@@ -80,10 +78,6 @@ namespace ClassPack
         /// <summary>Everybody who is out right now, and until when (on every player's game).</summary>
         private static readonly Dictionary<ulong, float> Down = new Dictionary<ulong, float>();
 
-        // Host only: students who go on a pole when they wake up, when, and who shot them.
-        private static readonly Dictionary<ulong, float> HostPoleAt = new Dictionary<ulong, float>();
-        private static readonly Dictionary<ulong, string> HostPoleBy = new Dictionary<ulong, string>();
-
         private static bool _held;
         private static bool _loggedDoll;
         private static bool _loggedMissing;
@@ -107,12 +101,22 @@ namespace ClassPack
             return collider != null && DollShapes.Contains(collider);
         }
 
+        /// <summary>True while a student is caught by the teacher or hangs on a pole.</summary>
+        private static bool Caught(Unit unit)
+        {
+            if (unit == null || !unit.IsStudent)
+            {
+                return false;
+            }
+            int state = unit.CurState();
+            return state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished;
+        }
+
         // ---------------------------------------------------------------------- host side
 
         /// <summary>
-        /// Host: a nerf dart hit someone, fired from where the shooter stands. They faint, and a
-        /// student player goes on a pole afterwards. False when they can't faint right now:
-        /// already out, carried or hung.
+        /// Host: a nerf dart hit someone, fired from where the shooter stands. They are knocked
+        /// out for a few seconds. False when they can't be right now: already out, carried or hung.
         /// </summary>
         public static bool Knock(Unit target, Unit shooter, Vector3 from)
         {
@@ -149,22 +153,17 @@ namespace ClassPack
             }
             push.Normalize();
             // Every player's game (the host's too) knocks the character down from this; a teacher
-            // gets the game's own slip there, held for the whole faint.
+            // gets the game's own slip there, held for the whole time.
             Net.SendToModded(new CpTell { kind = CpKind.Faint, a = target.UID, f = seconds, v = push });
 
-            bool own = shooter == target;
-            string by = own ? "Your own RPG" : Poles.NameOf(shooter);
-            if (target.isPlayer && target.IsStudent)
+            if (target.isPlayer)
             {
-                HostPoleAt[target.UID] = Time.time + seconds;
-                HostPoleBy[target.UID] = by;
-                Net.Toast(target, by + (own ? " got you!" : " got you with a nerf dart!") + " You fainted, and you wake up on a pole with no rescue.", 4f);
+                bool own = shooter == target;
+                string by = own ? "Your own RPG" : Poles.NameOf(shooter);
+                Net.Toast(target, by + (own ? " got you!" : " got you with a nerf dart!") + " You're knocked out for "
+                    + seconds.ToString("F0") + " seconds" + (target.IsStudent ? ", and the teacher can grab you." : "."), 4f);
             }
-            else if (target.isPlayer)
-            {
-                Net.Toast(target, by + (own ? " got you!" : " got you with a nerf dart!") + " You fainted for " + seconds.ToString("F0") + " seconds.", 4f);
-            }
-            Plugin.Log("faint: " + Poles.NameOf(target) + " fainted for " + seconds.ToString("F0") + " s, hit by " + Poles.NameOf(shooter));
+            Plugin.Log("faint: " + Poles.NameOf(target) + " knocked out for " + seconds.ToString("F0") + " s, hit by " + Poles.NameOf(shooter));
             return true;
         }
 
@@ -172,43 +171,13 @@ namespace ClassPack
         {
             if (!Game.InClass)
             {
-                if (Dolls.Count > 0 || Down.Count > 0 || HostPoleAt.Count > 0 || _held)
+                if (Dolls.Count > 0 || Down.Count > 0 || _held)
                 {
                     Clear();
                 }
                 return;
             }
-            if (NetworkServer.active && HostPoleAt.Count > 0)
-            {
-                HostWake();
-            }
             HoldLocal();
-        }
-
-        /// <summary>Host: students whose faint is over wake up on a pole.</summary>
-        private static void HostWake()
-        {
-            UnitManager units = Game.Peek<UnitManager>();
-            Gone.Clear();
-            foreach (KeyValuePair<ulong, float> pair in HostPoleAt)
-            {
-                if (Time.time >= pair.Value)
-                {
-                    Gone.Add(pair.Key);
-                }
-            }
-            foreach (ulong uid in Gone)
-            {
-                HostPoleAt.Remove(uid);
-                HostPoleBy.Remove(uid);
-                Unit student = units != null ? units.GetUnitByUID(uid) : null;
-                if (student != null && Poles.PutOnPole(student, true))
-                {
-                    Net.Toast(student, "You woke up on a pole. Nerf darts stick: nobody can rescue you.", 4f);
-                    Plugin.Log("faint: " + Poles.NameOf(student) + " woke up on a pole");
-                }
-            }
-            Gone.Clear();
         }
 
         /// <summary>A fainted player can't walk off: the game's own stun only holds students.</summary>
@@ -237,8 +206,6 @@ namespace ClassPack
             Dolls.Clear();
             DollShapes.Clear();
             Down.Clear();
-            HostPoleAt.Clear();
-            HostPoleBy.Clear();
             if (_held)
             {
                 Unit me = Game.LocalPlayer;
@@ -328,8 +295,8 @@ namespace ClassPack
                 Unit unit = units != null ? units.GetUnitByUID(pair.Key) : null;
                 bool here = unit != null && unit.isActived && unit.model != null && unit.model.transform == doll.Model
                     && doll.Hips != null && doll.Pelvis != null && doll.Pelvis.Body != null;
-                // Put on a pole or sent somewhere else: the doll is done at once.
-                if (!here || now >= doll.Until + RiseSeconds || (unit.Position - doll.StoodAt).sqrMagnitude > 9f
+                // Grabbed by the teacher, put on a pole or sent somewhere else: the doll is done at once.
+                if (!here || now >= doll.Until + RiseSeconds || Caught(unit) || (unit.Position - doll.StoodAt).sqrMagnitude > 9f
                     || doll.Pelvis.Body.position.y < doll.StoodAt.y - 4f)
                 {
                     Gone.Add(pair.Key);
@@ -552,10 +519,11 @@ namespace ClassPack
             }
 
             // Knocked back away from the shooter: the higher up, the harder, so the body tips over.
+            // Gently, so it lands nearly on the spot, where the teacher can grab it.
             foreach (Part part in doll.Parts)
             {
                 float height = Mathf.Clamp01((part.Body.position.y - hips.position.y) / torso);
-                part.Rb.velocity = push * (0.5f + 1.6f * height) + Vector3.up * 0.3f;
+                part.Rb.velocity = push * (0.15f + 0.9f * height) + Vector3.up * 0.2f;
             }
 
             if (!_loggedDoll)
@@ -712,7 +680,7 @@ namespace ClassPack
             Skin.Outlined(new Rect(0f, height * 0.26f, width, 90f), "You fainted!", _big, new Color32(255, 232, 90, 255), Skin.Outline, 3f);
             int left = Mathf.Max(1, Mathf.CeilToInt(until - Time.time));
             return me.IsStudent
-                ? "Knocked out by a nerf dart. You wake up on a pole in " + left + " s"
+                ? "Knocked out by a nerf dart. The teacher can grab you! Back up in " + left + " s"
                 : "Knocked out by a nerf dart. Back on your feet in " + left + " s";
         }
 

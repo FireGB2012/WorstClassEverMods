@@ -634,7 +634,7 @@ namespace ClassPack
                 }
             }
             // Nerf darts knock people out: a bot first, then this player. Pictures of the rag
-            // dolls on the floor, and whether a student wakes up on a pole.
+            // dolls on the floor, and whether a student is up again.
             Unit fainted = null;
             Add(t += 1f, "faint bot", () =>
             {
@@ -653,7 +653,7 @@ namespace ClassPack
             Add(t += 0.3f, "faint me", () => ShotOfUnit("34_me_fainted_side", Game.LocalPlayer, 2.4f));
             Add(t += 0.3f, "state", () => DescribeMe("fainted"));
             Add(t += (me.IsTeacher ? Faint.TeacherSeconds : Faint.StudentSeconds) + 1.2f, "state",
-                () => DescribeMe("after the faint (a student should be on a pole)"));
+                () => DescribeMe("after the faint (up again)"));
             Add(t += 0.2f, "faint", () => Note("rag dolls left " + Faint.DollCount + ", the bot's state " + (fainted != null ? fainted.CurState().ToString() : "none")));
             Add(t += 0.5f, "faint me", () => ShotOfUnit("35_me_after_faint", Game.LocalPlayer, 2.4f));
 

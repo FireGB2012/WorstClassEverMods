@@ -105,9 +105,9 @@ namespace ClassPack
                     title = "KNOCKED OUT BY A NERF DART";
                     lines = new[]
                     {
-                        "Whoever a nerf dart hits faints and falls over for a few seconds",
-                        "A student wakes up on a pole, and nobody can rescue them from it",
-                        "The teacher gets up after 5 seconds, a classmate (bot) after 4",
+                        "Whoever a nerf dart hits falls over like a rag doll for a few seconds",
+                        "While a student lies there, the teacher can walk up and grab them",
+                        "Students can shoot the teacher too: the teacher is out for 5 seconds",
                         "Nerf guns turn up in desks when students eat snacks. One shot each"
                     };
                     return true;

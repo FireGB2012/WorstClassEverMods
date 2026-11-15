@@ -75,10 +75,10 @@ namespace ClassPack
     /// turning, and is picked up like a snack (look at it, press the pick-up key). The mod's
     /// own key also takes it from anywhere in the seat, drawer open or shut.
     ///
-    /// Whoever is hit faints and falls over like a rag doll (Faint.cs): a student player for 3
-    /// seconds and then onto a pole with no rescue, the teacher for 5 seconds, a bot for 4. The
-    /// RPG hits every player in the class, the shooter included. The shooter's own game works
-    /// out what the dart hit; the host checks it and applies it.
+    /// Whoever is hit falls over like a rag doll (Faint.cs): a student or bot for 4 seconds,
+    /// during which the teacher can grab them, the teacher for 5 seconds. The RPG hits every
+    /// player in the class, the shooter included. The shooter's own game works out what the
+    /// dart hit; the host checks it and applies it.
     /// </summary>
     internal static class NerfGuns
     {
@@ -761,8 +761,7 @@ namespace ClassPack
             {
                 return;
             }
-            // Everybody hit faints like a rag doll (Faint.cs); a student player then wakes up on
-            // a pole with no rescue.
+            // Everybody hit is knocked out like a rag doll for a few seconds (Faint.cs).
             Faint.Knock(target, shooter, shooter != null ? shooter.Position : target.Position);
         }
 
