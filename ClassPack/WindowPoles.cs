@@ -315,7 +315,8 @@ namespace ClassPack
                 hidden = new List<Renderer>();
                 foreach (Renderer renderer in pole.model.GetComponentsInChildren<Renderer>(true))
                 {
-                    if (!renderer.forceRenderingOff)
+                    // Only the pole's own parts: the game hangs the student's body under the pole.
+                    if (!renderer.forceRenderingOff && renderer.GetComponentInParent<ObjectModel>() == pole.model)
                     {
                         renderer.forceRenderingOff = true;
                         hidden.Add(renderer);
