@@ -86,6 +86,12 @@ namespace ClassPack
         // how long a student has to wait before the next. The room owner's numbers count.
         public float peePoints = 4f;
         public float peeWaitSeconds = 30f;
+        // Dance class (nextClass 2): danceKey starts and stops a dance. Two dancers right next
+        // to each other earn dancePoints every danceSeconds while both keep dancing.
+        public bool danceClass = true;
+        public string danceKey = "J";
+        public float dancePoints = 1f;
+        public float danceSeconds = 6f;
 
         // Raised when a number the player may have saved has to change once (see Load).
         public int rulesVersion = 0;
@@ -179,6 +185,8 @@ namespace ClassPack
         public KeyCode TeacherSnackKeyCode => ParseKey(teacherSnackKey, KeyCode.G);
 
         public KeyCode PeeKeyCode => ParseKey(peeKey, KeyCode.P);
+
+        public KeyCode DanceKeyCode => ParseKey(danceKey, KeyCode.J);
 
         private static KeyCode ParseKey(string name, KeyCode fallback)
         {

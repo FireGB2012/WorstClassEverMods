@@ -2038,7 +2038,7 @@ namespace ClassPack
     }
 
     /// <summary>
-    /// The game's roaming bots pick their next spot here. During a swim class a share of those
+    /// The game's roaming bots pick their next spot here. During a swim or dance class a share of those
     /// picks is moved into the pool (Swim.SteerBot), so that about half of the bots go swimming.
     /// </summary>
     [HarmonyLib.HarmonyPatch(typeof(PlaygroundNavigationArea), "TryGetDestination")]
@@ -2055,6 +2055,7 @@ namespace ClassPack
             try
             {
                 Swim.SteerBot(__instance, agent, path, ref destination);
+                Dance.SteerBot(__instance, agent, path, ref destination);
             }
             catch (System.Exception ex)
             {

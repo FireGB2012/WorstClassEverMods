@@ -91,7 +91,10 @@ namespace ClassPack
         SplashAsk = 71,     // ask: I splash from the water at v, looking along w
         Splash = 72,        // tell: water flies from v to w (i = 0 someone got in, 1 a dive, 2 a splash that hit teacher a for f seconds)
         PeeAsk = 73,        // ask: I pee in the pool where I stand (v)
-        Pee = 74            // tell: student a peed in the pool at v: a yellow cloud spreads there
+        Pee = 74,           // tell: student a peed in the pool at v: a yellow cloud spreads there
+        DanceHall = 75,     // tell: dance class: the hall stands at v with song i (j = 1), or is taken away (j = 0)
+        DanceAsk = 76,      // ask: I start (i = 1) or stop (i = 0) dancing
+        Dancing = 77        // tell: character a dances (i = 1) or stops (i = 0)
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -308,6 +311,7 @@ namespace ClassPack
                 ModdedConnections.Add(connection.connectionId);
                 Looks.OnPeerJoined(connection);
                 Swim.OnPeerJoined(connection);
+                Dance.OnPeerJoined(connection);
             }
         }
 
@@ -350,6 +354,9 @@ namespace ClassPack
                 case CpKind.SplashAsk:
                 case CpKind.PeeAsk:
                     Swim.OnAsk(player, ask);
+                    break;
+                case CpKind.DanceAsk:
+                    Dance.OnAsk(player, ask);
                     break;
             }
         }
@@ -394,6 +401,10 @@ namespace ClassPack
                 case CpKind.Wet:
                 case CpKind.Wig:
                     Teachers.OnTell(tell);
+                    break;
+                case CpKind.DanceHall:
+                case CpKind.Dancing:
+                    Dance.OnTell(tell);
                     break;
                 case CpKind.Pool:
                 case CpKind.Splash:
