@@ -72,6 +72,8 @@ namespace ClassPack
             /// <summary>Lengths of the upper and lower part, for keeping the feet on the floor when the knees bend.</summary>
             public float UpperLength;
             public float LowerLength;
+            /// <summary>The upper bone's own size, put back after a hang stretched the arm.</summary>
+            public Vector3 UpperScale;
         }
 
         private sealed class Rig
@@ -97,6 +99,10 @@ namespace ClassPack
             /// <summary>The window it hangs out of (Mode 4).</summary>
             public WindowPoles.Hang Hang;
             public bool LoggedHang;
+            /// <summary>How far the top of the head (with its hair or hat) is over the head bone while standing.</summary>
+            public float HeadTop;
+            /// <summary>True while a hang has the arms stretched.</summary>
+            public bool Stretched;
             public float Weight;
             public float Clock;
             public float Still;
@@ -198,6 +204,12 @@ namespace ClassPack
                 }
                 if (hangs)
                 {
+                    if (rig.Mode != 4)
+                    {
+                        // Just put on the pole and still standing: how tall the head is now,
+                        // with whatever it wears, so the hang can keep it under the sill.
+                        MeasureHead(rig);
+                    }
                     rig.Hang = hang;
                     rig.Mode = 4;
                 }
@@ -284,6 +296,10 @@ namespace ClassPack
                 }
                 rig.Swimming = true;
                 rig.Still = rig.Speed > 0.3f ? 0f : 1f;
+            }
+            if (rig.Mode != 4)
+            {
+                Unstretch(rig);
             }
             if (rig.Mode == 2)
             {
@@ -520,11 +536,19 @@ namespace ClassPack
             }
         }
 
+        /// <summary>How far under the sill the top of the head (or the hair) is kept, so nobody inside sees it.</summary>
+        private const float HangHide = 0.1f;
+
+        private static int _groundMask = -1;
+
         /// <summary>
-        /// Hung at a window: outside it, hanging by the hands from the sill. The body just outside
-        /// the wall below the window and facing in, the arms straight up with the hands over the
-        /// sill, the head tipped back looking up, the legs dangling and kicking a little. From
-        /// inside the room only the fingers show over the sill.
+        /// Hung at a window: outside it, hanging by the hands from the sill. The body hangs
+        /// outside the wall below the window, facing in, so far down that the top of the head is
+        /// under the sill: from inside the room only the fingers show over it. The arms reach up
+        /// to the sill straight, stretched as long as they need to be (these characters have
+        /// big heads and short arms), the head is tipped back looking up and the legs dangle,
+        /// kicking a little. Where the ground outside is too near for that (a classroom on the
+        /// ground floor), the student kneels on it instead.
         /// </summary>
         private static void ApplyHang(Rig rig, float weight)
         {
@@ -535,6 +559,7 @@ namespace ClassPack
             Vector3 u = Vector3.up;
 
             rig.Top.localPosition = rig.TopHome;
+            Unstretch(rig);
             foreach (Bone bone in rig.All)
             {
                 bone.Anim = bone.T.rotation;
@@ -547,45 +572,215 @@ namespace ClassPack
 
             float t = rig.Clock;
             float sway = Mathf.Sin(t * 1.7f);
-            Vector3 torso = (u + f * 0.06f + r * (0.05f * sway)).normalized;
-            Pose(rig.Hips, torso, yaw, weight);
-            Pose(rig.Spine1, torso, yaw, weight);
-            Pose(rig.Spine2, torso, yaw, weight);
-            Pose(rig.Neck, (u + f * 0.04f).normalized, yaw, weight);
-            Pose(rig.Head, (u - f * 0.3f).normalized, yaw, weight);
+            PoseHangBody(rig, yaw, f, r, u, sway, 0f, weight);
 
-            // The whole body down and out, so the shoulders are an arm's length below the hands
-            // on the sill, the chest a little outside the wall.
+            // Where the hips go: so low that the top of the head is under the sill, and the
+            // shoulders at least an arm's length under the hands on it; a little outside the wall,
+            // so the big head is clear of it.
+            Vector3 hips = rig.HipBone.position;
             Vector3 shoulders = (rig.Arms[0].Upper.T.position + rig.Arms[1].Upper.T.position) * 0.5f;
             float reach = (rig.Arms[0].UpperLength + rig.Arms[0].LowerLength) * 0.96f;
-            Vector3 want = hang.Sill + hang.Out * 0.3f - u * reach;
-            Vector3 hipsBefore = rig.HipBone.position;
-            rig.Top.position += (want - shoulders) * weight;
-            if (!rig.LoggedHang && weight >= 1f)
+            float hipsY = Mathf.Min(hang.Sill.y - HangHide - (HeadTopY(rig) - hips.y), hang.Sill.y + 0.03f - reach - (shoulders.y - hips.y));
+            Vector3 spot = hang.Sill + hang.Out * 0.38f;
+            float ground;
+            bool grounded = GroundUnder(spot, hang.Sill.y, out ground);
+            float lean = 0f;
+            if (grounded)
             {
-                rig.LoggedHang = true;
-                Plugin.Log("swim move: hanging at a window: body from " + hipsBefore.ToString("F2") + " to " + rig.HipBone.position.ToString("F2")
-                    + ", sill " + hang.Sill.ToString("F2") + ", skeleton top " + rig.Top.name);
+                float lowest = ground + Mathf.Max(0.07f, rig.Legs[0].UpperLength * 0.4f);
+                if (hipsY < lowest)
+                {
+                    // Too near the ground to hang that low (a classroom on the ground floor): kneel
+                    // on it, leaning back from the wall until the head is under the sill.
+                    hipsY = lowest;
+                    float tallest = hang.Sill.y - HangHide - hipsY;
+                    float low = 0f, high = 55f;
+                    for (int i = 0; i < 7; i++)
+                    {
+                        float mid = (low + high) * 0.5f;
+                        PoseHangBody(rig, yaw, f, r, u, sway, mid, weight);
+                        if (HeadTopY(rig) - rig.HipBone.position.y > tallest)
+                        {
+                            low = mid;
+                        }
+                        else
+                        {
+                            high = mid;
+                        }
+                    }
+                    lean = high;
+                    PoseHangBody(rig, yaw, f, r, u, sway, lean, weight);
+                }
             }
+            Vector3 hipsBefore = rig.HipBone.position;
+            rig.Top.position += (new Vector3(spot.x, hipsY, spot.z) - rig.HipBone.position) * weight;
 
+            float most = 1f;
             foreach (Limb arm in rig.Arms)
             {
                 // The hands over the sill's edge, a shoulder's width apart.
                 Vector3 hand = hang.Sill - hang.Out * 0.03f + u * 0.03f + r * (arm.Side * 0.13f);
-                Vector3 direction = (hand - arm.Upper.T.position).normalized;
+                Vector3 shoulder = arm.Upper.T.position;
+                Vector3 direction = (hand - shoulder).normalized;
                 Pose(arm.Upper, direction, yaw, weight);
                 Pose(arm.Lower, direction, yaw, weight);
-                PlaceEnd(arm, weight, 0f, Vector3.zero);
+                // An arm too short to reach the sill from down there is stretched along its length
+                // (the forearm, pointing the same way, stretches with the upper arm).
+                float stretch = Mathf.Clamp((hand - shoulder).magnitude / Mathf.Max(0.01f, arm.UpperLength + arm.LowerLength), 1f, 3f);
+                stretch = Mathf.Lerp(1f, stretch, weight);
+                if (stretch > 1.001f)
+                {
+                    arm.Upper.T.localScale = Vector3.Scale(arm.UpperScale, new Vector3(1f, stretch, 1f));
+                    rig.Stretched = true;
+                }
+                most = Mathf.Max(most, stretch);
+                PlaceEnd(arm, weight, 0f, Vector3.zero, stretch);
             }
+
+            hipsY = rig.HipBone.position.y;
             foreach (Limb leg in rig.Legs)
             {
                 float kick = Mathf.Sin(t * 2.4f + (leg.Side > 0f ? Mathf.PI : 0f));
-                Vector3 thigh = (-u + f * (0.06f + 0.1f * kick) + r * (leg.Side * 0.05f)).normalized;
-                Vector3 shin = (-u - f * (0.04f + 0.12f * kick)).normalized;
-                Pose(leg.Upper, thigh, yaw, weight);
+                float thighLength = Mathf.Max(0.01f, leg.UpperLength);
+                float shinLength = Mathf.Max(0.01f, leg.LowerLength);
+                // How far down the ankle may go before the foot is on the ground.
+                float room = grounded ? hipsY - ground - 0.07f : 99f;
+                Vector3 thigh, shin;
+                if (room >= thighLength + shinLength)
+                {
+                    // Dangling, kicking a little.
+                    thigh = -u + f * (0.06f + 0.1f * kick) + r * (leg.Side * 0.05f);
+                    shin = -u - f * (0.04f + 0.12f * kick);
+                }
+                else if (room >= thighLength)
+                {
+                    // The thigh down, the shin bent back so the foot stays on the ground.
+                    float down = Mathf.Clamp01((room - thighLength) / shinLength);
+                    thigh = -u + f * 0.08f + r * (leg.Side * 0.06f);
+                    shin = -u * down - f * Mathf.Sqrt(1f - down * down);
+                }
+                else
+                {
+                    // Kneeling: the knees forward against the wall, the shins flat on the ground behind.
+                    float down = Mathf.Clamp(room / thighLength, 0.15f, 1f);
+                    thigh = -u * down + f * Mathf.Sqrt(1f - down * down) + r * (leg.Side * 0.08f);
+                    shin = -f - u * 0.08f;
+                }
+                shin = shin.normalized;
+                Pose(leg.Upper, thigh.normalized, yaw, weight);
                 Pose(leg.Lower, shin, yaw, weight);
                 PlaceEnd(leg, weight, 0.6f, shin);
             }
+
+            if (!rig.LoggedHang && weight >= 1f)
+            {
+                rig.LoggedHang = true;
+                float topOver = HeadTopY(rig) - hang.Sill.y;
+                Plugin.Log("swim move: hanging at a window: body from " + hipsBefore.ToString("F2") + " to " + rig.HipBone.position.ToString("F2")
+                    + ", sill " + hang.Sill.ToString("F2") + ", top of the head " + topOver.ToString("F2") + " m over the sill (under 0 is hidden)"
+                    + ", head " + rig.HeadTop.ToString("F2") + " m over its bone, arms stretched x" + most.ToString("F1")
+                    + (grounded ? ", ground outside at " + ground.ToString("F2") + ", leaning back " + lean.ToString("F0") + " degrees" : ", no ground under it"));
+            }
+        }
+
+        /// <summary>
+        /// The hang's body: the torso up, leaning back from the wall by lean degrees, the head
+        /// tipped back looking up at the hands.
+        /// </summary>
+        private static void PoseHangBody(Rig rig, Quaternion yaw, Vector3 f, Vector3 r, Vector3 u, float sway, float lean, float weight)
+        {
+            // A turn about the right-hand side by minus the angle tips "up" away from the wall.
+            Quaternion back = Quaternion.AngleAxis(-lean, r);
+            Vector3 torso = back * (u + f * 0.06f + r * (0.05f * sway)).normalized;
+            Pose(rig.Hips, torso, yaw, weight);
+            Pose(rig.Spine1, torso, yaw, weight);
+            Pose(rig.Spine2, torso, yaw, weight);
+            Pose(rig.Neck, back * (u + f * 0.04f).normalized, yaw, weight);
+            Pose(rig.Head, back * (u - f * 0.3f).normalized, yaw, weight);
+        }
+
+        /// <summary>
+        /// The height of the top of the head as it is posed now: the head taken as a ball HeadTop
+        /// across sitting on its bone, so tipping it back brings its top down.
+        /// </summary>
+        private static float HeadTopY(Rig rig)
+        {
+            Transform head = rig.Head.T;
+            float half = rig.HeadTop * 0.5f;
+            return head.position.y + (head.rotation * Vector3.up).y * half + half;
+        }
+
+        /// <summary>Puts the arms back to their own length after a hang stretched them.</summary>
+        private static void Unstretch(Rig rig)
+        {
+            if (!rig.Stretched)
+            {
+                return;
+            }
+            rig.Stretched = false;
+            foreach (Limb arm in rig.Arms)
+            {
+                if (arm.Upper.T != null)
+                {
+                    arm.Upper.T.localScale = arm.UpperScale;
+                }
+            }
+        }
+
+        /// <summary>The height of the ground (or a floor) under a spot outside a window, if there is one within 3 m.</summary>
+        private static bool GroundUnder(Vector3 at, float sillY, out float ground)
+        {
+            ground = 0f;
+            if (_groundMask < 0)
+            {
+                _groundMask = LayerMask.GetMask("Ground", "Obstacle", "Wall", "Default");
+            }
+            // Straight down from just under the sill, so a ledge outside the window doesn't count.
+            Vector3 start = new Vector3(at.x, sillY - 0.1f, at.z);
+            RaycastHit hit;
+            if (Physics.Raycast(start, Vector3.down, out hit, 3f, _groundMask, QueryTriggerInteraction.Ignore))
+            {
+                ground = hit.point.y;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Notes how far the top of the head, with the hair, hat or anything else on it, is over
+        /// the head bone, while the character stands upright (otherwise it keeps what it had).
+        /// </summary>
+        private static void MeasureHead(Rig rig)
+        {
+            Transform head = rig.Head != null ? rig.Head.T : null;
+            Transform neck = rig.Neck != null ? rig.Neck.T : null;
+            if (head == null || neck == null || rig.HipBone == null || rig.Model == null)
+            {
+                return;
+            }
+            Vector3 spine = neck.position - rig.HipBone.position;
+            if (spine.sqrMagnitude < 0.0004f || Vector3.Dot(spine.normalized, Vector3.up) < 0.85f)
+            {
+                return;
+            }
+            float bone = head.position.y;
+            float top = bone;
+            foreach (Renderer part in rig.Model.GetComponentsInChildren<Renderer>())
+            {
+                if (part == null || !part.enabled || part.forceRenderingOff || !(part is SkinnedMeshRenderer || part is MeshRenderer)
+                    || part.GetComponent<TextMesh>() != null || part.GetComponent("TextMeshPro") != null)
+                {
+                    continue;
+                }
+                Bounds box = part.bounds;
+                // Anything floating over the head (a name, a sign) is not part of it.
+                if (box.min.y > bone + rig.Torso)
+                {
+                    continue;
+                }
+                top = Mathf.Max(top, box.max.y);
+            }
+            rig.HeadTop = Mathf.Clamp(top - bone, rig.Torso * 0.5f, rig.Torso * 2.5f);
         }
 
         /// <summary>Puts a foot at the ankle, kept flat the way it was while the character stood.</summary>
@@ -629,14 +824,14 @@ namespace ClassPack
         }
 
         /// <summary>Puts a hand at the wrist or a foot at the ankle, and points a foot along the shin.</summary>
-        private static void PlaceEnd(Limb limb, float weight, float point, Vector3 along)
+        private static void PlaceEnd(Limb limb, float weight, float point, Vector3 along, float stretch = 1f)
         {
             if (limb.End == null)
             {
                 return;
             }
             Transform lower = limb.Lower.T;
-            Vector3 place = lower.position + lower.rotation * limb.EndOffset;
+            Vector3 place = lower.position + lower.rotation * (limb.EndOffset * stretch);
             Quaternion turn = lower.rotation * limb.EndTurn;
             if (point > 0f)
             {
@@ -673,6 +868,7 @@ namespace ClassPack
             }
             rig.Swimming = false;
             rig.Weight = 0f;
+            Unstretch(rig);
             foreach (Bone bone in rig.All)
             {
                 if (bone.T != null)
@@ -776,6 +972,8 @@ namespace ClassPack
             rig.Top = top;
             rig.TopHome = top.localPosition;
             rig.Ready = true;
+            rig.HeadTop = torso * 1.3f;
+            MeasureHead(rig);
 
             if (!_loggedRig)
             {
@@ -829,7 +1027,8 @@ namespace ClassPack
                 Upper = MakeBone(rig, upper, Axis(upper), restInFrame, yaw),
                 Lower = MakeBone(rig, lower, Axis(lower), restInFrame, yaw),
                 Side = side,
-                UpperLength = (lower.position - upper.position).magnitude
+                UpperLength = (lower.position - upper.position).magnitude,
+                UpperScale = upper.localScale
             };
             // A hand or foot that hangs under the limb follows it anyway; only one that hangs
             // elsewhere has to be put in place.
