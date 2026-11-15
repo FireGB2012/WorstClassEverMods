@@ -475,8 +475,10 @@ namespace ClassPack
             }
             float now = Time.time;
 
-            // The lunch lady's pot is put out the first time a lunch lady is in the class.
-            if (!_hostPot)
+            // The lunch lady's pot is put out the first time a lunch lady is in the class. Not in
+            // the swim or dance class: the pot would stand in the empty classroom, and the
+            // halls have their own stamina spot.
+            if (!_hostPot && !Swim.Active && !Dance.Active)
             {
                 foreach (Unit player in units.playerList)
                 {
@@ -780,7 +782,7 @@ namespace ClassPack
                     return "Gym teacher     " + key + "throw pizza" + wait;
                 case Looks.Lunch:
                     return "Lunch lady     " + key + "throw mashed potatoes" + wait + "     "
-                        + (Swim.Active ? "stand at the lifeguard chair for stamina" : Dance.Active ? "stand at the DJ booth for stamina"
+                        + (Swim.Active ? "stamina fills fast at the lifeguard chair" : Dance.Active ? "stamina fills fast at the DJ booth"
                             : AtPot(me) ? "stirring the pot: stamina is filling up" : "stand at your pot for stamina");
                 case Looks.Janitor:
                     return "Janitor     " + key + "mop the floor" + wait;

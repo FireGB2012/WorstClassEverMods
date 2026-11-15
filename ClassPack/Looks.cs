@@ -252,9 +252,10 @@ namespace ClassPack
         }
 
         /// <summary>
-        /// Late in the frame, after the game has moved and animated everybody: the whole-body
-        /// teachers follow their game teacher (placed any earlier they trail a frame behind), and
-        /// what the swimmers and dancers wear goes back on their heads, which are somewhere else now.
+        /// Late in the frame, after the game has moved and animated everybody (and the swim,
+        /// dance and faint moves are on): the whole-body teachers follow their game teacher, and
+        /// hats and the rest go onto the heads and hands where they are now. Placed any earlier,
+        /// they trail a frame behind and shake while the character walks.
         /// </summary>
         public static void LateTick()
         {
@@ -263,11 +264,10 @@ namespace ClassPack
             {
                 return;
             }
-            bool posed = Swim.Active || Dance.Active;
             foreach (KeyValuePair<ulong, Worn> pair in Worns)
             {
                 Worn worn = pair.Value;
-                if (worn.Body == null && (worn.Pieces.Count == 0 || !posed))
+                if (worn.Body == null && worn.Pieces.Count == 0)
                 {
                     continue;
                 }
@@ -291,9 +291,9 @@ namespace ClassPack
                         }
                     }
                 }
-                else if ((!unit.isLocalPlayer || SelfView.Showing) && (Swim.Swimming(unit) || Dance.IsDancing(unit)))
+                if (worn.Pieces.Count > 0)
                 {
-                    Place(unit, worn, true);
+                    Place(unit, worn);
                 }
             }
         }
@@ -420,7 +420,7 @@ namespace ClassPack
                     worn.WasTeacher = unit.IsTeacher;
                     Apply(unit, worn, local, preview);
                 }
-                Place(unit, worn);
+                // Hats, held things and whole bodies are put in place late in the frame (LateTick).
             }
         }
 

@@ -355,16 +355,18 @@ namespace ClassPack
             return direction.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(direction.normalized, Vector3.up) : fallback;
         }
 
-        private static void Animate()
+        /// <summary>
+        /// Late in the frame, after the game has moved and animated everybody: whatever a player
+        /// holds floats in front of their chest, like the nerf guns do. (Placed any earlier, it
+        /// trails a frame behind and shakes while they walk.)
+        /// </summary>
+        public static void LateTick()
         {
-            UnitManager units = Game.Peek<UnitManager>();
+            UnitManager units = Hands.Count > 0 && Game.InClass ? Game.Peek<UnitManager>() : null;
             if (units == null)
             {
                 return;
             }
-            float now = Time.time;
-
-            // Whatever a player holds floats in front of their chest, like the nerf guns do.
             foreach (KeyValuePair<ulong, Hand> pair in Hands)
             {
                 Hand hand = pair.Value;
@@ -388,6 +390,16 @@ namespace ClassPack
                 hand.Model.transform.position = neckAt + body.right * 0.19f - Vector3.up * 0.04f + body.forward * 0.34f;
                 hand.Model.transform.rotation = body.rotation;
             }
+        }
+
+        private static void Animate()
+        {
+            UnitManager units = Game.Peek<UnitManager>();
+            if (units == null)
+            {
+                return;
+            }
+            float now = Time.time;
 
             for (int i = Flights.Count - 1; i >= 0; i--)
             {

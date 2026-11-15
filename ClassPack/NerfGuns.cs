@@ -256,45 +256,6 @@ namespace ClassPack
                 crate.Model.transform.rotation = Quaternion.Euler(-12f, spin, 0f);
             }
 
-            UnitManager units = Game.Peek<UnitManager>();
-            if (units == null)
-            {
-                return;
-            }
-            foreach (KeyValuePair<ulong, Held> pair in Guns)
-            {
-                Held held = pair.Value;
-                Unit holder = units.GetUnitByUID(pair.Key);
-                Transform body = holder != null && holder.isActived ? holder.transform : null;
-                if (body == null)
-                {
-                    if (held.Model != null)
-                    {
-                        held.Model.SetActive(false);
-                    }
-                    continue;
-                }
-                if (held.Model == null)
-                {
-                    held.Model = BuildGun(held.Gun);
-                    held.Model.transform.localScale = Vector3.one * HeldScale[held.Gun];
-                }
-                held.Model.SetActive(true);
-                Transform neck = holder.GetPartRoot(EUnitPartType.HeadPosition);
-                Vector3 neckAt = neck != null ? neck.position : body.position + Vector3.up * 0.76f;
-                if (held.Gun == Rpg)
-                {
-                    // Carried on the right shoulder.
-                    held.Model.transform.position = neckAt + body.right * 0.17f + Vector3.up * 0.05f + body.forward * 0.08f;
-                }
-                else
-                {
-                    // Held out in front just under the neck, pointing where the body faces.
-                    held.Model.transform.position = neckAt + body.right * 0.19f - Vector3.up * 0.04f + body.forward * 0.34f;
-                }
-                held.Model.transform.rotation = body.rotation;
-            }
-
             // The gun this player found waits in their own desk. It can be taken from the seat
             // at any time, and it shows, hovering and turning, while the drawer is open.
             _drawerGunWaiting = false;
@@ -362,6 +323,52 @@ namespace ClassPack
                 float along = Vector3.Dot(to, camera.transform.forward);
                 float off = (to - camera.transform.forward * along).magnitude;
                 _drawerGunAimed = _drawerGunWaiting && along > 0.05f && along < 4f && off < AimSlack;
+            }
+        }
+
+        /// <summary>
+        /// Late in the frame, after the game has moved and animated everybody: the guns go into
+        /// their holders' hands. (Placed any earlier, a gun trails a frame behind and shakes.)
+        /// </summary>
+        public static void LateTick()
+        {
+            UnitManager units = Guns.Count > 0 && Game.InClass ? Game.Peek<UnitManager>() : null;
+            if (units == null)
+            {
+                return;
+            }
+            foreach (KeyValuePair<ulong, Held> pair in Guns)
+            {
+                Held held = pair.Value;
+                Unit holder = units.GetUnitByUID(pair.Key);
+                Transform body = holder != null && holder.isActived ? holder.transform : null;
+                if (body == null)
+                {
+                    if (held.Model != null)
+                    {
+                        held.Model.SetActive(false);
+                    }
+                    continue;
+                }
+                if (held.Model == null)
+                {
+                    held.Model = BuildGun(held.Gun);
+                    held.Model.transform.localScale = Vector3.one * HeldScale[held.Gun];
+                }
+                held.Model.SetActive(true);
+                Transform neck = holder.GetPartRoot(EUnitPartType.HeadPosition);
+                Vector3 neckAt = neck != null ? neck.position : body.position + Vector3.up * 0.76f;
+                if (held.Gun == Rpg)
+                {
+                    // Carried on the right shoulder.
+                    held.Model.transform.position = neckAt + body.right * 0.17f + Vector3.up * 0.05f + body.forward * 0.08f;
+                }
+                else
+                {
+                    // Held out in front just under the neck, pointing where the body faces.
+                    held.Model.transform.position = neckAt + body.right * 0.19f - Vector3.up * 0.04f + body.forward * 0.34f;
+                }
+                held.Model.transform.rotation = body.rotation;
             }
         }
 

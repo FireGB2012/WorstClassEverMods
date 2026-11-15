@@ -83,23 +83,31 @@ namespace ClassPack
     [DefaultExecutionOrder(30000)]
     internal sealed class LateRunner : MonoBehaviour
     {
-        private float _lastErrorLog;
+        // In this order: the swim and dance moves pose the bodies, a rag doll goes over that,
+        // then the faces, then what everybody wears and holds follows the posed bodies.
+        private static readonly Action[] Steps =
+        {
+            SwimPose.LateTick, Faint.LateTick, Looks.FaceTick, Looks.LateTick, NerfGuns.LateTick, Tricks.LateTick
+        };
+
+        private readonly float[] _lastErrorLog = new float[Steps.Length];
 
         private void LateUpdate()
         {
-            try
+            // Each step gets its own safety net, like the features in Update.
+            for (int i = 0; i < Steps.Length; i++)
             {
-                SwimPose.LateTick();
-                Faint.LateTick();
-                Looks.FaceTick();
-                Looks.LateTick();
-            }
-            catch (Exception ex)
-            {
-                if (_lastErrorLog == 0f || Time.unscaledTime - _lastErrorLog > 10f)
+                try
                 {
-                    _lastErrorLog = Time.unscaledTime;
-                    Plugin.Log("error in the swimming move: " + ex);
+                    Steps[i]();
+                }
+                catch (Exception ex)
+                {
+                    if (_lastErrorLog[i] == 0f || Time.unscaledTime - _lastErrorLog[i] > 10f)
+                    {
+                        _lastErrorLog[i] = Time.unscaledTime;
+                        Plugin.Log("error late in the frame in " + Steps[i].Method.DeclaringType.Name + "." + Steps[i].Method.Name + ": " + ex);
+                    }
                 }
             }
         }
