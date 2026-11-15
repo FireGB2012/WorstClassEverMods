@@ -639,6 +639,20 @@ namespace ClassPack
                     Add(t += 1f, "power", () => Note("teacher power afterwards: " + Teachers.LastPowerNote));
                 }
             }
+            // A bot hung on a window pole is shown outside the window by its fingers: pictures
+            // from inside the classroom and from outside.
+            Unit hangBot = null;
+            Vector3 hangInside = Vector3.zero, hangOutside = Vector3.zero, hangSill = Vector3.zero;
+            Add(t += 1f, "window", () =>
+            {
+                hangBot = Dance.DancingBot(6) ?? Dance.DancingBot(1);
+                bool done = hangBot != null && WindowPoles.TestHang(hangBot, out hangInside, out hangOutside, out hangSill);
+                Note("hung a bot at a window: " + done + (done ? ", sill at " + hangSill.ToString("F2") : ""));
+            });
+            Add(t += 1.5f, "window", () => ShotWorld("36_window_hang_inside", hangInside, hangSill));
+            Add(t += 0.5f, "window", () => ShotWorld("37_window_hang_outside", hangOutside, hangSill - Vector3.up * 0.5f));
+            Add(t += 0.3f, "window", () => Note("hanging out of a window now: " + WindowPoles.AnyHanging));
+
             // Nerf darts knock people out: a bot first, then this player. Pictures of the rag
             // dolls on the floor, and whether a student is up again.
             Unit fainted = null;

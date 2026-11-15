@@ -44,6 +44,8 @@ namespace ClassPack
         // For trying things out: every snack eaten gives a gun, and a phone.
         public bool nerfAlwaysForTesting = false;
         public bool windowPoles = true;
+        // A student hung on a pole by a window is shown hanging outside it by the fingers.
+        public bool windowHanging = true;
         public bool prankCall = true;
         public bool fireAlarm = true;
         // The student tricks on the phone: paper airplane, water balloon, super glue, laser

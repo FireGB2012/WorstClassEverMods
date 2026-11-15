@@ -76,14 +76,19 @@ namespace ClassPack
         /// </summary>
         public static bool PutOnPole(Unit student, bool locked)
         {
+            return PutOnPole(student, locked, FindFreePole(student != null ? student.Position : Vector3.zero));
+        }
+
+        /// <summary>Host: hang a student on this one pole, when it is free.</summary>
+        public static bool PutOnPole(Unit student, bool locked, Unit poleUnit)
+        {
             RoomManager room = Game.Peek<RoomManager>();
             if (!NetworkServer.active || room == null || !CanBeHung(student))
             {
                 return false;
             }
-            Unit poleUnit = FindFreePole(student.Position);
             PunishPillarComponent pole = poleUnit != null ? poleUnit.GetComponent<PunishPillarComponent>() : null;
-            if (pole == null)
+            if (pole == null || pole.bindStudent != null)
             {
                 return false;
             }

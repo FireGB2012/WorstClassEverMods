@@ -92,8 +92,10 @@ namespace ClassPack
             public bool Ready;
             /// <summary>True while this code poses the character (swimming or dancing).</summary>
             public bool Swimming;
-            /// <summary>What it does: 1 swims, 2 dances. Kept while easing back out of it.</summary>
+            /// <summary>What it does: 1 swims, 2 dances, 3 the worm, 4 hangs out of a window. Kept while easing back out of it.</summary>
             public int Mode;
+            /// <summary>The window it hangs out of (Mode 4).</summary>
+            public WindowPoles.Hang Hang;
             public float Weight;
             public float Clock;
             public float Still;
@@ -118,7 +120,7 @@ namespace ClassPack
         /// <summary>Called late in every frame, after the game has posed its characters.</summary>
         public static void LateTick()
         {
-            if (!Swim.Active && !Dance.Active)
+            if (!Swim.Active && !Dance.Active && !WindowPoles.AnyHanging)
             {
                 if (Rigs.Count > 0)
                 {
@@ -157,7 +159,15 @@ namespace ClassPack
                     swims = false;
                     dances = Dance.None;
                 }
-                bool posed = swims || dances != Dance.None;
+                // Hung on a pole at a window: shown hanging outside it by the fingers.
+                WindowPoles.Hang hang = default(WindowPoles.Hang);
+                bool hangs = unit.IsStudent && !Looks.HasOwnBody(unit.UID) && WindowPoles.HangOf(unit.UID, out hang);
+                if (hangs)
+                {
+                    swims = false;
+                    dances = Dance.None;
+                }
+                bool posed = swims || dances != Dance.None || hangs;
                 Rig rig;
                 if (!Rigs.TryGetValue(unit.UID, out rig) || rig.Model != unit.model.transform)
                 {
@@ -184,6 +194,11 @@ namespace ClassPack
                 if (!rig.Ready)
                 {
                     continue;
+                }
+                if (hangs)
+                {
+                    rig.Hang = hang;
+                    rig.Mode = 4;
                 }
                 try
                 {
@@ -234,11 +249,18 @@ namespace ClassPack
                 rig.Speed = Mathf.Lerp(rig.Speed, Mathf.Min(moved, 8f), 1f - Mathf.Exp(-dt * 6f));
             }
             rig.LastAt = at;
+            // Still hanging? Let go, the body eases back from the last place it hung.
+            WindowPoles.Hang now = default(WindowPoles.Hang);
+            bool hangs = rig.Mode == 4 && WindowPoles.HangOf(unit.UID, out now);
+            if (hangs)
+            {
+                rig.Hang = now;
+            }
             if (swims || dances != Dance.None)
             {
                 rig.Mode = swims ? 1 : dances == Dance.Worm ? 3 : 2;
             }
-            rig.Weight = Mathf.MoveTowards(rig.Weight, swims || dances != Dance.None ? 1f : 0f, dt / 0.3f);
+            rig.Weight = Mathf.MoveTowards(rig.Weight, swims || dances != Dance.None || hangs ? 1f : 0f, dt / 0.3f);
             if (rig.Weight <= 0f)
             {
                 if (rig.Swimming)
@@ -273,6 +295,12 @@ namespace ClassPack
                 // The worm waves a little faster while it creeps along.
                 rig.Clock += dt * (rig.Speed > 0.15f ? 1.4f : 1f);
                 ApplyWorm(unit, rig, rig.Weight);
+                return;
+            }
+            if (rig.Mode == 4)
+            {
+                rig.Clock += dt;
+                ApplyHang(rig, rig.Weight);
                 return;
             }
             // Two moves, eased into each other: the crawl while moving, treading water while still.
@@ -488,6 +516,67 @@ namespace ClassPack
                 Pose(leg.Lower, shin, yaw, weight);
                 // Toes pointed back.
                 PlaceEnd(leg, weight, 0.8f, shin);
+            }
+        }
+
+        /// <summary>
+        /// Hung at a window: outside it, hanging by the hands from the sill. The body just outside
+        /// the wall below the window and facing in, the arms straight up with the hands over the
+        /// sill, the head tipped back looking up, the legs dangling and kicking a little. From
+        /// inside the room only the fingers show over the sill.
+        /// </summary>
+        private static void ApplyHang(Rig rig, float weight)
+        {
+            WindowPoles.Hang hang = rig.Hang;
+            Vector3 f = -hang.Out;
+            Quaternion yaw = Quaternion.LookRotation(f, Vector3.up);
+            Vector3 r = yaw * Vector3.right;
+            Vector3 u = Vector3.up;
+
+            rig.Top.localPosition = rig.TopHome;
+            foreach (Bone bone in rig.All)
+            {
+                bone.Anim = bone.T.rotation;
+            }
+            foreach (Limb limb in Ends(rig))
+            {
+                limb.AnimEndAt = limb.End.position;
+                limb.AnimEndTurn = limb.End.rotation;
+            }
+
+            float t = rig.Clock;
+            float sway = Mathf.Sin(t * 1.7f);
+            Vector3 torso = (u + f * 0.06f + r * (0.05f * sway)).normalized;
+            Pose(rig.Hips, torso, yaw, weight);
+            Pose(rig.Spine1, torso, yaw, weight);
+            Pose(rig.Spine2, torso, yaw, weight);
+            Pose(rig.Neck, (u + f * 0.04f).normalized, yaw, weight);
+            Pose(rig.Head, (u - f * 0.3f).normalized, yaw, weight);
+
+            // The whole body down and out, so the shoulders are an arm's length below the hands
+            // on the sill, the chest a little outside the wall.
+            Vector3 shoulders = (rig.Arms[0].Upper.T.position + rig.Arms[1].Upper.T.position) * 0.5f;
+            float reach = (rig.Arms[0].UpperLength + rig.Arms[0].LowerLength) * 0.96f;
+            Vector3 want = hang.Sill + hang.Out * 0.3f - u * reach;
+            rig.Top.position += (want - shoulders) * weight;
+
+            foreach (Limb arm in rig.Arms)
+            {
+                // The hands over the sill's edge, a shoulder's width apart.
+                Vector3 hand = hang.Sill - hang.Out * 0.03f + u * 0.03f + r * (arm.Side * 0.13f);
+                Vector3 direction = (hand - arm.Upper.T.position).normalized;
+                Pose(arm.Upper, direction, yaw, weight);
+                Pose(arm.Lower, direction, yaw, weight);
+                PlaceEnd(arm, weight, 0f, Vector3.zero);
+            }
+            foreach (Limb leg in rig.Legs)
+            {
+                float kick = Mathf.Sin(t * 2.4f + (leg.Side > 0f ? Mathf.PI : 0f));
+                Vector3 thigh = (-u + f * (0.06f + 0.1f * kick) + r * (leg.Side * 0.05f)).normalized;
+                Vector3 shin = (-u - f * (0.04f + 0.12f * kick)).normalized;
+                Pose(leg.Upper, thigh, yaw, weight);
+                Pose(leg.Lower, shin, yaw, weight);
+                PlaceEnd(leg, weight, 0.6f, shin);
             }
         }
 
