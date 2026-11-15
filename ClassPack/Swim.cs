@@ -37,12 +37,14 @@ namespace ClassPack
         private const float WaterY = -0.15f;
         private const float RampRun = 3f;
 
-        // ---- the diving board: the plank's top, and where it starts and ends along the pool
+        // ---- the diving board, measured on its model: the plank's top, where the plank starts
+        // and ends along the pool, where its block stands, and the ladder on its pole side
         private const float BoardTop = 1.0f;
-        private const float BoardTip = 6.2f;
-        private const float BoardBack = 10.2f;
-        private const float BoardHalfWidth = 0.42f;
-        private const float BoardRampRun = 1.9f;
+        private const float BoardTip = 6.0f;
+        private const float BoardBack = BoardTip + 3.21f;
+        private const float BoardBlock = BoardTip + 2.08f;
+        private const float BoardHalfWidth = 0.43f;
+        private const float BoardLadderX = BoardTip + 2.7f;
 
         private static readonly Vector3 ChairAt = new Vector3(0f, 0f, 6.7f);
         private static readonly float[] PoleX = { -6f, -2f, 2f, 6f };
@@ -862,47 +864,53 @@ namespace ClassPack
         {
             int missing = 0;
 
-            // Diving board: the plank reaches out over the deep end, with a ramp up at its back.
-            if (Rooms.Prop(room, "pool_board", new Vector3(BoardBack, 0f, 0f), 270f) == null)
+            // Diving board: its block stands on the deck and the plank reaches out over the deep
+            // end. The ladder is on the side of the poles; an unseen slope over it lets players
+            // walk up (the game has no climbing or jumping).
+            if (Rooms.Prop(room, "pool_board", new Vector3(BoardTip, 0f, 0f), 0f) == null)
             {
                 missing++;
             }
             float plank = BoardBack - BoardTip;
-            Rooms.Block(room, "board plank", new Vector3(BoardTip + plank * 0.5f, BoardTop - 0.06f, 0f), new Vector3(plank, 0.12f, BoardHalfWidth * 2f));
-            float climb = Mathf.Sqrt(BoardRampRun * BoardRampRun + BoardTop * BoardTop);
-            float climbAngle = Mathf.Atan2(BoardTop, BoardRampRun) * Mathf.Rad2Deg;
-            Vector3 climbUp = Quaternion.Euler(0f, 0f, climbAngle) * Vector3.up;
-            Rooms.Block(room, "board steps", new Vector3(BoardBack + BoardRampRun * 0.5f, BoardTop * 0.5f, 0f) - climbUp * 0.05f,
-                new Vector3(climb, 0.1f, BoardHalfWidth * 2f), new Vector3(0f, 0f, climbAngle));
+            Rooms.Block(room, "board plank", new Vector3(BoardTip + plank * 0.5f, BoardTop - 0.08f, 0f), new Vector3(plank, 0.16f, BoardHalfWidth * 2f));
+            float block = BoardBack - BoardBlock;
+            Rooms.Block(room, "board block", new Vector3(BoardBlock + block * 0.5f, 0.42f, 0f), new Vector3(block, 0.84f, BoardHalfWidth * 2f));
+            const float climbRun = 1f;
+            float climb = Mathf.Sqrt(climbRun * climbRun + BoardTop * BoardTop);
+            float climbAngle = Mathf.Atan2(BoardTop, climbRun) * Mathf.Rad2Deg;
+            Quaternion climbTurn = Quaternion.Euler(-climbAngle, 0f, 0f);
+            Rooms.Block(room, "board ladder", new Vector3(BoardLadderX, BoardTop * 0.5f, -BoardHalfWidth - climbRun * 0.5f) - climbTurn * Vector3.up * 0.05f,
+                new Vector3(0.95f, 0.1f, climb), new Vector3(-climbAngle, 0f, 0f));
 
             // Lifeguard chair, facing the pool.
-            if (Rooms.Prop(room, "pool_chair", ChairAt, 180f) == null)
+            if (Rooms.Prop(room, "pool_chair", ChairAt, 0f) == null)
             {
                 missing++;
             }
-            Rooms.Block(room, "chair", ChairAt + Vector3.up * 0.9f, new Vector3(0.9f, 1.8f, 0.9f));
+            Rooms.Block(room, "chair", ChairAt + Vector3.up * 0.95f, new Vector3(0.9f, 1.9f, 1f));
 
             // Benches along the window wall and the shallow end.
             foreach (float x in new[] { -10.5f, -6.5f, 6.5f, 10.5f })
             {
-                if (Rooms.Prop(room, "pool_bench", new Vector3(x, 0f, HalfWidth - 0.55f), 180f) == null)
+                if (Rooms.Prop(room, "pool_bench", new Vector3(x, 0f, HalfWidth - 0.55f), 0f) == null)
                 {
                     missing++;
                 }
-                Rooms.Block(room, "bench", new Vector3(x, 0.24f, HalfWidth - 0.55f), new Vector3(1.9f, 0.48f, 0.55f));
+                Rooms.Block(room, "bench", new Vector3(x, 0.25f, HalfWidth - 0.55f), new Vector3(1.9f, 0.5f, 0.52f));
             }
             foreach (float z in new[] { -5.5f, 5.5f })
             {
                 Rooms.Prop(room, "pool_bench", new Vector3(-HalfLength + 0.55f, 0f, z), 90f);
-                Rooms.Block(room, "bench", new Vector3(-HalfLength + 0.55f, 0.24f, z), new Vector3(0.55f, 0.48f, 1.9f));
+                Rooms.Block(room, "bench", new Vector3(-HalfLength + 0.55f, 0.25f, z), new Vector3(0.52f, 0.5f, 1.9f));
             }
 
-            // Ladders at the deep end, one on each side.
-            if (Rooms.Prop(room, "pool_ladder", new Vector3(4.5f, 0f, -PoolZ), 0f) == null)
+            // Ladders near the deep end, one on each side. A ladder's long legs are on its -Z side,
+            // so the one on the pole side is turned round to stand in the water.
+            if (Rooms.Prop(room, "pool_ladder", new Vector3(3.5f, 0f, -PoolZ), 180f) == null)
             {
                 missing++;
             }
-            Rooms.Prop(room, "pool_ladder", new Vector3(4.5f, 0f, PoolZ), 180f);
+            Rooms.Prop(room, "pool_ladder", new Vector3(3.5f, 0f, PoolZ), 0f);
 
             // Life rings on the walls.
             if (Rooms.Prop(room, "pool_ring", new Vector3(-7f, 2.1f, -HalfWidth + 0.09f), 0f) == null)
@@ -910,8 +918,8 @@ namespace ClassPack
                 missing++;
             }
             Rooms.Prop(room, "pool_ring", new Vector3(7f, 2.1f, -HalfWidth + 0.09f), 0f);
-            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, 5f), 270f);
-            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, -5f), 270f);
+            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, 5f), 90f);
+            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, -5f), 90f);
 
             // Rubber ducks that float around.
             Floats.Clear();

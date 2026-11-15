@@ -780,7 +780,8 @@ namespace ClassPack
                     return "Gym teacher     " + key + "throw pizza" + wait;
                 case Looks.Lunch:
                     return "Lunch lady     " + key + "throw mashed potatoes" + wait + "     "
-                        + (AtPot(me) ? "stirring the pot: stamina is filling up" : "stand at your pot for stamina");
+                        + (Swim.Active ? "stand at the lifeguard chair for stamina"
+                            : AtPot(me) ? "stirring the pot: stamina is filling up" : "stand at your pot for stamina");
                 case Looks.Janitor:
                     return "Janitor     " + key + "mop the floor" + wait;
                 case Looks.Wig:

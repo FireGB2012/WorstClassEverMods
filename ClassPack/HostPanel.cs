@@ -14,13 +14,14 @@ namespace ClassPack
     internal sealed class HostPanel : MonoBehaviour
     {
         private const float Width = 520f;
-        private const float Height = 420f;
+        private const float Height = 540f;
 
         private bool _open;
         private float _length;
         private float _teachers;
         private float _targetPercent;
         private string _message = "";
+        private bool _lightChanged;
 
         private readonly CursorGrab _cursor = new CursorGrab();
 
@@ -28,6 +29,8 @@ namespace ClassPack
         private GUIStyle _title;
         private GUIStyle _button;
         private GUIStyle _toggle;
+        private GUIStyle _pick;
+        private GUIStyle _note;
         private GUIStyle _box;
         private Texture2D _background;
 
@@ -81,6 +84,11 @@ namespace ClassPack
 
         private void Close()
         {
+            if (_lightChanged)
+            {
+                _lightChanged = false;
+                Plugin.Settings.Save();
+            }
             _open = false;
             _cursor.End();
         }
@@ -178,6 +186,8 @@ namespace ClassPack
                 }
                 GUI.enabled = true;
 
+                DrawClassPicker(isHost);
+
                 GUILayout.Space(8f);
                 GUILayout.BeginHorizontal();
                 GUI.enabled = canEdit;
@@ -195,6 +205,56 @@ namespace ClassPack
 
             GUILayout.Space(4f);
             GUILayout.Label(_message.Length > 0 ? _message : "Press " + Plugin.Settings.PanelKeyCode + " to open or close this window.", _label);
+        }
+
+        /// <summary>
+        /// Which kind of class the next bell starts, for the room owner. The lamp slider under
+        /// it is each player's own, so it also shows for a guest while a swim class runs.
+        /// </summary>
+        private void DrawClassPicker(bool isHost)
+        {
+            Settings settings = Plugin.Settings;
+            if (!settings.swimClass)
+            {
+                return;
+            }
+            GUILayout.Space(6f);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Next class", _label, GUILayout.Width(120f));
+            GUI.enabled = isHost;
+            for (int i = 0; i < Swim.ClassNames.Length; i++)
+            {
+                bool picked = settings.nextClass == i;
+                if (GUILayout.Toggle(picked, Swim.ClassNames[i], _pick, GUILayout.Width(150f)) && !picked)
+                {
+                    settings.nextClass = i;
+                    settings.Save();
+                    _message = i == Swim.SwimClass ? "The next bell starts a swim class in the pool hall." : "The next bell starts a normal class.";
+                    Plugin.Log("next class picked in the panel: " + Swim.ClassNames[i]);
+                }
+            }
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+            bool swim = isHost && settings.nextClass == Swim.SwimClass;
+            if (swim)
+            {
+                GUILayout.Label("At the bell everyone who runs Class Pack goes to the pool hall. The bots stay in the classroom.", _note);
+            }
+            if (swim || Swim.Active)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Pool lamps", _label, GUILayout.Width(120f));
+                float light = GUILayout.HorizontalSlider(Mathf.Clamp(settings.poolLight, 0.2f, 3f), 0.2f, 3f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
+                light = Mathf.Round(light * 10f) / 10f;
+                GUILayout.Space(12f);
+                GUILayout.Label(light < 0.95f ? "dimmer" : light > 1.05f ? "brighter" : "normal", _label);
+                GUILayout.EndHorizontal();
+                if (!Mathf.Approximately(light, settings.poolLight))
+                {
+                    settings.poolLight = light;
+                    _lightChanged = true;
+                }
+            }
         }
 
         private float Slider(string name, float value, RoomRuleData rule, float step, string shown)
@@ -287,6 +347,8 @@ namespace ClassPack
             _button = Skin.GreenButton;
             _toggle = new GUIStyle(Skin.Cell) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
             _toggle.padding = new RectOffset(12, 12, 2, 2);
+            _pick = new GUIStyle(Skin.Cell) { fontSize = 15 };
+            _note = new GUIStyle(Skin.Small) { fontSize = 14, wordWrap = true };
         }
 
         private void OnDestroy()

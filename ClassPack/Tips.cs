@@ -78,6 +78,26 @@ namespace ClassPack
                         "You can mop again after 6 seconds"
                     };
                     return true;
+                case "swim":
+                    title = "SWIM CLASS: what you can do as a student";
+                    lines = new[]
+                    {
+                        "Climb the diving board and walk off its end into the pool for mischief",
+                        "In the water,  " + Use + "  splashes. Soak the teacher when they are close for big mischief",
+                        "Crawl in the pool to dive under: mischief every second while your air lasts",
+                        "You wade slowly in the water. The ramp at the shallow end leads out"
+                    };
+                    return true;
+                case "swimteacher":
+                    title = "SWIM CLASS: what you can do as the teacher";
+                    lines = new[]
+                    {
+                        "Catch students as usual. The poles stand along the pool",
+                        "There is no blackboard here: stand next to the lifeguard chair and your stamina fills up",
+                        "You wade slowly in the water too. Stay back from the edge, or you get splashed",
+                        "A splash covers your screen with water for a few seconds"
+                    };
+                    return true;
                 case "teacher4":
                     title = "You are the BALD TEACHER WITH A WIG";
                     lines = new[]
@@ -98,6 +118,10 @@ namespace ClassPack
             if (me == null)
             {
                 return null;
+            }
+            if (Swim.Active && (me.IsTeacher || me.IsStudent))
+            {
+                return me.IsTeacher ? "swimteacher" : "swim";
             }
             if (me.IsTeacher)
             {

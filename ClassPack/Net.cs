@@ -86,7 +86,10 @@ namespace ClassPack
         Mop = 65,           // ask: the janitor mops where he stands
         Wet = 66,           // tell: wet floor i at v (j = 1 there, 0 dried)
         WigPull = 67,       // ask: yank the wig off teacher t0
-        Wig = 68            // tell: teacher a's wig lies at v (j = 1), or is back on (j = 0)
+        Wig = 68,           // tell: teacher a's wig lies at v (j = 1), or is back on (j = 0)
+        Pool = 70,          // tell: swim class: the pool hall stands at v (j = 1), or is taken away (j = 0)
+        SplashAsk = 71,     // ask: I splash from the water at v, looking along w
+        Splash = 72         // tell: water flies from v to w (i = 0 someone got in, 1 a dive, 2 a splash that hit teacher a for f seconds)
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -302,6 +305,7 @@ namespace ClassPack
             {
                 ModdedConnections.Add(connection.connectionId);
                 Looks.OnPeerJoined(connection);
+                Swim.OnPeerJoined(connection);
             }
         }
 
@@ -340,6 +344,9 @@ namespace ClassPack
                 case CpKind.Mop:
                 case CpKind.WigPull:
                     Teachers.OnAsk(player, ask);
+                    break;
+                case CpKind.SplashAsk:
+                    Swim.OnAsk(player, ask);
                     break;
             }
         }
@@ -385,6 +392,10 @@ namespace ClassPack
                 case CpKind.Wig:
                     Teachers.OnTell(tell);
                     break;
+                case CpKind.Pool:
+                case CpKind.Splash:
+                    Swim.OnTell(tell);
+                    break;
             }
         }
 
@@ -403,6 +414,21 @@ namespace ClassPack
             }
             RoomManager room = Game.Peek<RoomManager>();
             return room != null ? room.GetConnectByPlayerUID(player.UID) : null;
+        }
+
+        /// <summary>Host: whether a player's game runs the mod (the host's own always does).</summary>
+        public static bool IsModded(Unit player)
+        {
+            if (player == null)
+            {
+                return false;
+            }
+            if (player == Game.LocalPlayer)
+            {
+                return true;
+            }
+            NetworkConnectionToClient connection = ConnectionOf(player);
+            return connection != null && ModdedConnections.Contains(connection.connectionId);
         }
 
         /// <summary>Host: tell one player, but only if their game runs the mod.</summary>

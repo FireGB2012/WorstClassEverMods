@@ -53,3 +53,8 @@ meshy-n1 texture). Saved as `meshy\toy\pool_<name>.glb`.
 | pool_ring (life ring) | 01a1dc3c-6bfc-726c-a6a7-fc3faf43cdcb | 01a1dc3c-b248-768b-a69b-298115a61a30 |
 | pool_bench | 01a1dc3c-6e18-7041-b145-e7a6e2465304 | 01a1dc3c-b551-7343-bb28-8f8da6d3d82d |
 | pool_duck (duck float) | 01a1dc3c-7051-7628-8a80-9c277cd734a2 | 01a1dc3e-b446-703e-9610-cf4c1c587e6f |
+
+All six were made (126 credits, 351 left), converted by `tools/convert_all_meshy.py` into
+`package/models/pool_*.cpm` and are in version 0.9.0. Pictures: `meshy/pictures/pool/` and the
+sheet `meshy/pictures/pool_models.png`. Their textures are bright and flat; the renders only
+look dull because of the render's light. Meshy's download links expire on 2026-11-17.

@@ -64,6 +64,16 @@ MODELS = {
     'shotgun': (0.89, '0.5,0.45,0.4', '0,0,0', TIP),
     'sniper': (1.10, '0.5,0.42,0.35', '0,0,0', TIP),
     'rpg': (1.10, '0.5,0.4,0.65', '0,0,0', TIP),
+    # Pool hall props: real sizes in metres, standing on (0, 0, 0), not turned, so Meshy's
+    # front stays the front (the game sees it as -Z). The board's (0, 0, 0) is the floor under
+    # the tip of its plank; its ladder is on the -Z side. The ladder's is the pool's edge at
+    # deck height, the duck's its waterline.
+    'pool_board': (3.21, '0,0.643,0', '0,0,0', BACK),
+    'pool_chair': (1.9, '0.5,0.5,0', '0,0,0', BACK),
+    'pool_ladder': (1.7, '0.5,0.3,0.55', '0,0,0', BACK),
+    'pool_ring': (0.8, '0.5,0.5,0.5', '0,0,0', BACK),
+    'pool_bench': (1.9, '0.5,0.5,0', '0,0,0', BACK),
+    'pool_duck': (1.3, '0.5,0.5,0.14', '0,0,0', BACK),
 }
 
 

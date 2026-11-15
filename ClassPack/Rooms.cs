@@ -14,7 +14,24 @@ namespace ClassPack
         /// <summary>How many tiles one copy of a tile picture holds, each way.</summary>
         private const int TilesPerPicture = 4;
 
-        private static Mesh _quad;
+        private static int _solidLayer = -1;
+
+        /// <summary>
+        /// The layer for things players stand on and bump into: the one the game's own floors
+        /// use, so walking, falling and the camera treat the mod's floors the same way.
+        /// </summary>
+        public static int SolidLayer
+        {
+            get
+            {
+                if (_solidLayer < 0)
+                {
+                    int ground = LayerMask.NameToLayer("Ground");
+                    _solidLayer = ground >= 0 ? ground : 0;
+                }
+                return _solidLayer;
+            }
+        }
 
         /// <summary>
         /// A picture of four by four tiles with grout lines between them. Each tile gets a
@@ -215,7 +232,7 @@ namespace ClassPack
         public static GameObject Box(Transform room, string name, Vector3 centre, Vector3 size, Material paint, float tile, bool solid, Vector3 euler = default(Vector3))
         {
             var box = new GameObject(name);
-            box.layer = 0;
+            box.layer = solid ? SolidLayer : 0;
             box.transform.SetParent(room, false);
             box.transform.localPosition = centre;
             box.transform.localEulerAngles = euler;
@@ -355,7 +372,7 @@ namespace ClassPack
         public static void Block(Transform room, string name, Vector3 centre, Vector3 size, Vector3 euler = default(Vector3))
         {
             var block = new GameObject(name);
-            block.layer = 0;
+            block.layer = SolidLayer;
             block.transform.SetParent(room, false);
             block.transform.localPosition = centre;
             block.transform.localEulerAngles = euler;

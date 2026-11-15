@@ -69,6 +69,12 @@ namespace ClassPack
 
         // The how-to cards: shown the first time, and again with helpKey. seenTips lists
         // the cards this player has already been shown.
+        // Swim class: picked by the room owner in the owner window. nextClass 0 is a normal
+        // class, 1 a swim class. poolLight makes the pool hall's lamps brighter or dimmer.
+        public bool swimClass = true;
+        public int nextClass = 0;
+        public float poolLight = 1f;
+
         public bool tips = true;
         public string helpKey = "F1";
         public string seenTips = "";

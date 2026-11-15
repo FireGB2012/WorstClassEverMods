@@ -399,32 +399,56 @@ Dance: hall with a dance floor; two students close together who both dance (the 
 earn mischief every second; a goofy dance, no twerk emote. About six Meshy props per class,
 roughly 130 credits each (477 left).
 
-## Swim class: build in progress (2026-11-14, stopped at the usage limit, NOT finished)
+## Swim class (version 0.9.0, installed 2026-11-15, NOT yet seen in the game)
 
-Gabriel said "Yes, build it" and approved 126 Meshy credits for six pool props (all made, 351 left).
+Gabriel said "Yes, build it", approved 126 Meshy credits for six pool props (351 left) and then
+"Yes, finish it". Everything is written, compiles and is installed. Nobody has stood in the hall
+yet: how it is lit, whether the floor holds and whether the props sit right are all unchecked.
 
-Done:
-- `meshy\toy\pool_board|chair|ladder|ring|bench|duck.glb`, pictures in `meshy\pictures\pool\` and
-  one sheet `meshy\pictures\pool_models.png` (he has NOT seen it yet). Task ids in `meshy\tasks.md`.
-- `ClassPack\Rooms.cs`: tiled boxes, water sheet, lamps, props, unseen blocks.
-- `ClassPack\Swim.cs`: the whole swim class (hall, teleport at the bell, poles, diving board,
-  splash, under water by crawling, wading, lifeguard chair, HUD). Written, never compiled.
+How it plays:
+- The room owner picks "Swim class" under "Next class" in the F6 window (saved as `nextClass`).
+  One second into the next bell's Prepare phase the host picks an empty spot (300 m to the side
+  and 100 m above the classroom, checked with a box query), tells every modded player
+  (`CpKind.Pool`), stands four of the game's own poles along the pool and 0.6 s later teleports
+  every modded player in with the game's own teleport message (floor 0, so floor visibility is
+  left alone). Players without the mod stay in the classroom; the host gets a notice.
+- Students: walk off the diving board into the water (+12, pays every 15 s), press B in the
+  water to splash (+15 when a teacher is within 3.8 m, 6 s wait; the teacher's screen is covered
+  in water for 3 s), crawl in the pool to dive under (+2 a second, 8 s of air, 3 s to catch
+  breath). Wading is at 60 % speed for everyone (`InputComponent.speedFac`).
+- Teacher: catches as usual. Standing within 2.4 m of the lifeguard chair fills stamina.
+- When the class is over (BeforeClass) the game sends everyone back itself, the host removes
+  the poles and the hall is destroyed 1.5 s later. Every client also removes it by itself after
+  4 s of BeforeClass, and puts the walking speed back.
+- First-time cards "swim" and "swimteacher"; a hint line; an air bar and a blue screen under water.
+- The F6 window also has a "Pool lamps" slider (`poolLight`, 0.2 to 3, each player's own).
 
-The project does NOT build right now. Still to do, in order:
-1. `Net.cs`: add `Pool = 70` (tell), `SplashAsk = 71` (ask), `Splash = 72` (tell) to CpKind, route
-   them to `Swim.OnAsk` / `Swim.OnTell`, call `Swim.OnPeerJoined(connection)` in OnHello, add
-   `public static bool IsModded(Unit player)` (local player, or a connection in ModdedConnections).
-2. `Settings.cs`: `swimClass = true`, `nextClass = 0`, `poolLight = 1f`.
-3. `Plugin.cs`: add `Swim.Tick` to Features. `Hud.cs`: `Swim.DrawHud` in the line order after trick.
-4. `HostPanel.cs`: "Next class" picker (Swim.ClassNames, Skin.Cell toggles) and a pool light slider.
-5. `Tips.cs`: cards "swim" and "swimteacher" when `Swim.Active`.
-6. `tools\convert_all_meshy.py`: add the six pool models in real metres, origin at the bottom
-   middle, +Y forward. Then check the board against Swim.cs (plank top 1.0 m, tip x 6.2, back
-   x 10.2, model placed at the plank's back end with yaw 270) and the chair, bench, ladder, ring.
-7. Bump mod.json to 0.9.0 (Edit tool), build, install with the game closed, ask before starting it.
+Code: `ClassPack\Rooms.cs` (tiled boxes with a picture made in code, water sheet, lamps, props,
+unseen blocks; solid things go on the game's "Ground" layer) and `ClassPack\Swim.cs` (all of
+the above; the hall's measurements are constants at the top, in the hall's own frame: x along
+the pool, z across, y = 0 at the deck). Net.cs has `Pool = 70`, `SplashAsk = 71`, `Splash = 72`
+and `Net.IsModded`.
 
-Facts found for this: unit vertical positions travel as centimetres in a short (keep within
-about 300 m), `InputComponent.speedFac` is a free walking-speed factor, max walkable slope 65
-degrees, max step 0.325 m, there is no jump (walk off the board), crawl is `eCmdType.Crawl` and
-`StudentCrawlComponent.IsCrawling` is synced, teleport with floor 0 leaves floor visibility alone.
-The installed mod is still 0.8.1 and untouched.
+Props (`package\models\pool_*.cpm`, real metres, converted with no turn so Meshy's front is
+the game's -Z): board (origin under the plank's tip, plank top 1.00 m, block from 2.08 m,
+ladder on the -Z side), chair (1.9 m, faces -Z), ladder (long legs on -Z, origin at the pool's
+edge), ring (0.8 m), bench (1.9 m), duck (origin at its waterline). Sizes were checked
+by reading the .cpm files; the preview pictures in `dist\previews` are useless for big props.
+
+Things I could not check without the game, in the order I'd suspect them:
+1. Light. The hall has six point lamps and a faint glow of its own on every surface (the glow
+   only works if the game's build kept that kind of material). The log line "swim: hall built."
+   prints the game's ambient light and whether extra lights are on.
+2. The floor. Solid boxes are on the "Ground" layer, which the game's ground probe names first.
+3. Getting onto the diving board: an unseen 45 degree slope over the ladder (max walkable is 65).
+4. Water: see-through is set by material numbers; if the game's build lacks that, it is solid blue.
+5. Whether crawling under water really hides the head (water is 0.70 m deep, students 1.1 m tall).
+6. The game checks line of sight on "Ground" for a catch, so a teacher standing back from the
+   edge can't grab a student down in the pool through the deck's corner. That suits the idea.
+
+Facts found for this: unit heights travel as centimetres in a short (keep within about 300 m),
+max walkable slope 65 degrees, max step 0.325 m, there is no jump, crawl is `eCmdType.Crawl`
+and `StudentCrawlComponent.IsCrawling` is synced, the bots only count as scenery
+(`AreAllStudentsPunished` looks at players), so the teacher can still win by catching everyone.
+
+Dance class: not started. He tests the swim class first.
