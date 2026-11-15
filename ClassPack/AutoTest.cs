@@ -459,6 +459,14 @@ namespace ClassPack
                         crawl.SetCrawlingFromInput(false);
                     }
                 });
+                // Climbing: from the water up a pool ladder, then up the diving board's steps.
+                Add(t += 1f, "to the ladder", () => Put(Game.LocalPlayer, Swim.TestClimbSpot(0), 90f));
+                Add(t += 1.2f, "climb", () => Note("climbing at spot " + Swim.TestClimb() + " (0 is a ladder)"));
+                Add(t += 1f, "state", () => DescribeMe("after climbing the ladder (should be on the deck, y about 0)"));
+                Add(t += 0.5f, "to the steps", () => Put(Game.LocalPlayer, Swim.TestClimbSpot(2), 0f));
+                Add(t += 1.2f, "climb", () => Note("climbing at spot " + Swim.TestClimb() + " (2 is the board)"));
+                Add(t += 1f, "state", () => DescribeMe("after climbing the board's steps (should be on the board, y about 1)"));
+
                 // The diving board: stand on it, then step off its tip.
                 Add(t += 1.5f, "onto the board", () => Put(Game.LocalPlayer, new Vector3(7.2f, 1.08f, 0f), 270f));
                 Add(t += 1.2f, "eyes", () => Screen("21_eyes_on_board"));

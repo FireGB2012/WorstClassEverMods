@@ -47,6 +47,12 @@ namespace ClassPack
         private const float BoardBlock = BoardTip + 2.08f;
         private const float BoardHalfWidth = 0.43f;
         private const float BoardLadderX = BoardTip + 2.7f;
+        /// <summary>How far the hidden slope up the board's steps reaches out: about 30 degrees, gentle enough to walk up.</summary>
+        private const float ClimbRun = 1.75f;
+        /// <summary>The pool's two ladders, one on each long side near the deep end (hall frame).</summary>
+        private static readonly Vector3[] LadderAt = { new Vector3(3.5f, 0f, -PoolZ), new Vector3(3.5f, 0f, PoolZ) };
+        /// <summary>Where a player stands to climb the diving board: at the foot of its steps.</summary>
+        private static readonly Vector3 BoardStepsAt = new Vector3(BoardLadderX, 0f, -BoardHalfWidth - ClimbRun - 0.2f);
 
         private static readonly Vector3 ChairAt = new Vector3(0f, 0f, 6.7f);
 
@@ -869,6 +875,11 @@ namespace ClassPack
                 OnPeeAsk(player, classroom, units);
                 return;
             }
+            if (ask.kind == CpKind.ClimbAsk)
+            {
+                OnClimbAsk(player, ask.i);
+                return;
+            }
             if (ask.kind != CpKind.SplashAsk || !_hostOn || !Game.InClass || classroom == null || units == null
                 || player == null || !player.IsStudent || !player.isActived)
             {
@@ -1197,6 +1208,11 @@ namespace ClassPack
             _wasUnder = _under;
 
             bool inClass = Game.InClass;
+            _climbSpot = inClass && free && !me.IsStun ? ClimbSpot(feet, _inWater, 1.3f) : -1;
+            if (_climbSpot >= 0 && Input.GetKeyDown(Plugin.Settings.UseKeyCode) && !Game.IsTyping && !CursorGrab.Busy)
+            {
+                AskClimb();
+            }
             if (inClass && me.IsStudent && _inWater && free && !_under && !Game.IsTyping && !CursorGrab.Busy
                 && Input.GetKeyDown(Plugin.Settings.UseKeyCode) && Tricks.HeldLocal == 0 && !NerfGuns.HoldingLocal)
             {
@@ -1256,6 +1272,109 @@ namespace ClassPack
 
         /// <summary>True while this player is the teacher standing at the lifeguard chair.</summary>
         public static bool TeacherAtChair => Active && _atChair;
+
+        // ------------------------------------------------------------------------- climbing
+
+        private static int _climbSpot = -1;
+
+        /// <summary>
+        /// The climbing spot a player is at: a pool ladder (0 or 1) from the water, or the foot of
+        /// the diving board's steps (2) on the deck; -1 for none. reach is how near counts.
+        /// </summary>
+        private static int ClimbSpot(Vector3 feet, bool inWater, float reach)
+        {
+            if (inWater)
+            {
+                for (int i = 0; i < LadderAt.Length; i++)
+                {
+                    if (Tricks.Flat(feet - LadderAt[i]).magnitude < reach)
+                    {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+            return feet.y > -0.3f && feet.y < 0.6f && Tricks.Flat(feet - BoardStepsAt).magnitude < reach + 0.2f ? 2 : -1;
+        }
+
+        private static void AskClimb()
+        {
+            if (_climbSpot >= 0 && Net.CanSendToHost)
+            {
+                Net.SendToHost(new CpAsk { kind = CpKind.ClimbAsk, i = _climbSpot });
+            }
+        }
+
+        /// <summary>The game's pick-up key went down: true when it climbed a ladder or the board's steps.</summary>
+        public static bool TryClimbWithPickUpKey()
+        {
+            if (!_on || _climbSpot < 0 || CursorGrab.Busy || Game.IsTyping)
+            {
+                return false;
+            }
+            AskClimb();
+            return true;
+        }
+
+        /// <summary>Host: up the ladder onto the deck, or up the steps onto the diving board.</summary>
+        private static void OnClimbAsk(Unit player, int spot)
+        {
+            RoomManager room = Game.Peek<RoomManager>();
+            if (!_hostOn || room == null || player == null || !player.isActived || spot < 0 || spot > 2)
+            {
+                return;
+            }
+            int state = player.CurState();
+            if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished || player.IsStun)
+            {
+                return;
+            }
+            // A little more room than the player's own game gives, for the network's delay.
+            Vector3 feet = Feet(player) - _hostOrigin;
+            if (ClimbSpot(feet, InWater(feet), 2f) != spot)
+            {
+                return;
+            }
+            Vector3 to;
+            float yaw;
+            if (spot == 2)
+            {
+                // On the back of the board, facing the tip over the deep end.
+                to = new Vector3(BoardLadderX - 0.5f, BoardTop + 0.05f, 0f);
+                yaw = 270f;
+            }
+            else
+            {
+                // On the deck beside the ladder, facing away from the water.
+                Vector3 ladder = LadderAt[spot];
+                to = ladder + new Vector3(0f, 0.05f, Mathf.Sign(ladder.z) * 0.9f);
+                yaw = ladder.z < 0f ? 180f : 0f;
+            }
+            var message = new UnitTeleportPositionMessageResponse_S2C
+            {
+                unitUID = player.UID,
+                position = _hostOrigin + to,
+                rotation = new Vector3(0f, yaw, 0f),
+                floor = 0
+            };
+            room.GetUnitMessageHandler().OnUnitTeleportPositionMessageResponse(message);
+            room.BroadcastToAllExceptHost(message);
+            Plugin.Log("swim: " + Poles.NameOf(player) + (spot == 2 ? " climbed onto the diving board" : " climbed out up a ladder"));
+        }
+
+        /// <summary>Self-test: where to stand to climb ladder 0 (in the water) or the board (2), in the hall frame.</summary>
+        public static Vector3 TestClimbSpot(int spot)
+        {
+            return spot == 2 ? BoardStepsAt : LadderAt[0] + new Vector3(0f, -Depth + 0.05f, 0.7f);
+        }
+
+        /// <summary>Self-test: climbs from wherever this player stands, as if the key was pressed.</summary>
+        public static int TestClimb()
+        {
+            int spot = _climbSpot;
+            AskClimb();
+            return spot;
+        }
 
         /// <summary>Wading: the game has a walking-speed factor of its own that nothing else uses.</summary>
         private static void Slow(Unit me, float factor)
@@ -1453,7 +1572,7 @@ namespace ClassPack
             NoBots(Rooms.Block(room, "board plank", new Vector3(BoardTip + plank * 0.5f, BoardTop - 0.08f, 0f), new Vector3(plank, 0.16f, BoardHalfWidth * 2f)));
             float block = BoardBack - BoardBlock;
             Rooms.Block(room, "board block", new Vector3(BoardBlock + block * 0.5f, 0.42f, 0f), new Vector3(block, 0.84f, BoardHalfWidth * 2f));
-            const float climbRun = 1f;
+            const float climbRun = ClimbRun;
             float climb = Mathf.Sqrt(climbRun * climbRun + BoardTop * BoardTop);
             float climbAngle = Mathf.Atan2(BoardTop, climbRun) * Mathf.Rad2Deg;
             Quaternion climbTurn = Quaternion.Euler(-climbAngle, 0f, 0f);
@@ -1953,6 +2072,11 @@ namespace ClassPack
             }
             GUI.color = old;
 
+            if (_climbSpot >= 0)
+            {
+                return "[" + NerfGuns.PickUpKeyName() + " or " + Plugin.Settings.UseKeyCode + "] "
+                    + (_climbSpot == 2 ? "climb up the diving board" : "climb up the ladder, out of the pool");
+            }
             if (me.IsStudent)
             {
                 if (_under)
