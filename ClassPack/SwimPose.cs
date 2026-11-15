@@ -86,6 +86,9 @@ namespace ClassPack
         private static bool _loggedRig;
         private static bool _loggedMissing;
 
+        /// <summary>Self-test only: show this player's own body doing strokes although it stands still.</summary>
+        public static bool ForceMoving;
+
         /// <summary>Called late in every frame, after the game has posed its characters.</summary>
         public static void LateTick()
         {
@@ -110,8 +113,14 @@ namespace ClassPack
             int frame = Time.frameCount;
             foreach (Unit unit in units.unitsDict.Values)
             {
-                if (unit == null || unit == me || !unit.isActived || unit.transform == null || unit.model == null
+                if (unit == null || !unit.isActived || unit.transform == null || unit.model == null
                     || !(unit.IsStudent || unit.IsTeacher))
+                {
+                    continue;
+                }
+                // A player's own body only swims while they watch themselves from behind;
+                // seen through its own eyes it stays as the game has it.
+                if (unit == me && !SelfView.Showing)
                 {
                     continue;
                 }
@@ -144,7 +153,14 @@ namespace ClassPack
                 {
                     continue;
                 }
-                Apply(unit, rig, swims);
+                if (unit == me && ForceMoving)
+                {
+                    rig.Speed = 1.3f;
+                    rig.LastAt = unit.Position;
+                    Apply(unit, rig, swims, true);
+                    continue;
+                }
+                Apply(unit, rig, swims, false);
             }
             // Forget characters that left.
             Gone.Clear();
@@ -162,11 +178,11 @@ namespace ClassPack
             }
         }
 
-        private static void Apply(Unit unit, Rig rig, bool swims)
+        private static void Apply(Unit unit, Rig rig, bool swims, bool keepSpeed)
         {
             float dt = Time.deltaTime;
             Vector3 at = unit.Position;
-            if (dt > 0f)
+            if (dt > 0f && !keepSpeed)
             {
                 float moved = Tricks.Flat(at - rig.LastAt).magnitude / dt;
                 rig.Speed = Mathf.Lerp(rig.Speed, Mathf.Min(moved, 8f), 1f - Mathf.Exp(-dt * 6f));

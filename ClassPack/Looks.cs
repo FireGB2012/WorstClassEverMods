@@ -213,7 +213,8 @@ namespace ClassPack
                     continue;
                 }
                 Unit unit = units.GetUnitByUID(pair.Key);
-                if (unit != null && unit.isActived && unit.model != null && unit.transform != null && !unit.isLocalPlayer && Swim.Swimming(unit))
+                if (unit != null && unit.isActived && unit.model != null && unit.transform != null
+                    && (!unit.isLocalPlayer || SelfView.Showing) && Swim.Swimming(unit))
                 {
                     Place(unit, worn, true);
                 }
@@ -302,6 +303,13 @@ namespace ClassPack
             {
                 return;
             }
+            // While a player watches themselves swim, their own body has to be drawn like in the
+            // wardrobe's picture, also when they wear nothing from the mod.
+            Unit me = units.localPlayer;
+            if (SelfView.Showing && me != null && !Worns.ContainsKey(me.UID))
+            {
+                Worns[me.UID] = new Worn();
+            }
             foreach (KeyValuePair<ulong, Worn> pair in Worns)
             {
                 Worn worn = pair.Value;
@@ -316,7 +324,7 @@ namespace ClassPack
                     continue;
                 }
                 bool local = unit.isLocalPlayer;
-                bool preview = local && Wardrobe.IsOpen;
+                bool preview = local && (Wardrobe.IsOpen || SelfView.Showing);
                 int modelId = unit.model.GetInstanceID();
                 if (worn.Dirty || modelId != worn.ModelId || local != worn.WasLocal || preview != worn.WasPreview
                     || unit.IsTeacher != worn.WasTeacher)

@@ -29,6 +29,7 @@ namespace ClassPack
             host.AddComponent<Phone>();
             host.AddComponent<Wardrobe>();
             host.AddComponent<Hud>();
+            AutoTest.Arm(context.ConfigDirectory);
 
             Log("loaded. DoorDash=" + Settings.doorDash + " TeacherSnacks=" + Settings.teacherSnacks + " PowerCut=" + Settings.powerCut
                 + " SoloClass=" + Settings.soloClass + " NerfGuns=" + Settings.nerfGuns + " WindowPoles=" + Settings.windowPoles
@@ -47,7 +48,8 @@ namespace ClassPack
         private static readonly Action[] Features =
         {
             Game.Tick, Net.Tick, Poles.Tick, DoorDash.Tick, TeacherSnacks.Tick, PowerCut.Tick,
-            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick, Looks.Tick, Teachers.Tick, Swim.Tick, Tips.Tick
+            NerfGuns.Tick, WindowPoles.Tick, PrankCall.Tick, FireAlarm.Tick, Tricks.Tick, Swim.Tick, SelfView.Tick, Looks.Tick, Teachers.Tick,
+            Tips.Tick, AutoTest.Tick
         };
 
         private readonly float[] _lastErrorLog = new float[Features.Length];

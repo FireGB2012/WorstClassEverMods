@@ -150,6 +150,16 @@ namespace ClassPack
         /// <summary>How high the pool's water stands, in the world.</summary>
         public static float WaterWorldY => _origin.y + WaterY;
 
+        /// <summary>Where the hall stands in the world: the middle of the pool at deck height.</summary>
+        public static Vector3 Origin => _origin;
+
+        /// <summary>A line about the host's side of things, for the self-test's report.</summary>
+        public static string TestState()
+        {
+            return "host class on " + _hostOn + ", bots brought " + HostBots.Count + ", walkable area "
+                + (_navArea != null ? "ready" : _navTried ? "FAILED" : "not asked for yet") + ", poles " + HostPoles.Count;
+        }
+
         /// <summary>In water deep enough to swim, and free to: not carried, hung, seated or diving under.</summary>
         public static bool Swimming(Unit unit)
         {

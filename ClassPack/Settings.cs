@@ -75,6 +75,8 @@ namespace ClassPack
         public int nextClass = 0;
         public float poolLight = 1f;
         public bool poolBots = true;
+        // While you swim, show the picture from behind you so you see your own body swim.
+        public bool swimSelfView = true;
 
         // Raised when a number the player may have saved has to change once (see Load).
         public int rulesVersion = 0;

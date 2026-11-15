@@ -254,6 +254,12 @@ namespace ClassPack
                     settings.poolLight = light;
                     _lightChanged = true;
                 }
+                bool behind = GUILayout.Toggle(settings.swimSelfView, "Show me from behind while I swim, so I see myself", _toggle);
+                if (behind != settings.swimSelfView)
+                {
+                    settings.swimSelfView = behind;
+                    _lightChanged = true;
+                }
             }
         }
 
