@@ -98,7 +98,9 @@ namespace ClassPack
         Faint = 78,         // tell: character a was hit by a nerf dart and faints for f seconds, knocked along v
         PhoneAsk = 79,      // ask: my phone: i 0 take it from my drawer, 1 up (in use), 2 back down
         PhoneTell = 80,     // tell: i 0: a phone is in your drawer (j 1) or not (j 0); i 1: player a's phone is gone (j 0), in hand (1) or up (2)
-        ClimbAsk = 81       // ask: swim class: climb pool ladder i (0, 1) or the diving board's steps (2)
+        ClimbAsk = 81,      // ask: swim class: climb pool ladder i (0, 1) or the diving board's steps (2)
+        ElevatorAsk = 82,   // ask: the elevator panel: make the next class i (0 normal, 1 swim, 2 dance)
+        Elevator = 83       // tell: the next class is i (the elevator panel lights its label)
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -316,6 +318,7 @@ namespace ClassPack
                 Looks.OnPeerJoined(connection);
                 Swim.OnPeerJoined(connection);
                 Dance.OnPeerJoined(connection);
+                Elevator.OnPeerJoined(connection);
             }
         }
 
@@ -365,6 +368,9 @@ namespace ClassPack
                     break;
                 case CpKind.PhoneAsk:
                     Phones.OnAsk(player, ask);
+                    break;
+                case CpKind.ElevatorAsk:
+                    Elevator.OnAsk(player, ask);
                     break;
             }
         }
@@ -419,6 +425,9 @@ namespace ClassPack
                     break;
                 case CpKind.PhoneTell:
                     Phones.OnTell(tell);
+                    break;
+                case CpKind.Elevator:
+                    Elevator.OnTell(tell);
                     break;
                 case CpKind.Pool:
                 case CpKind.Splash:

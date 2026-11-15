@@ -507,6 +507,19 @@ namespace ClassPack
             Add(t += 1f, "stage", () => Shot("04_stage_dj_booth", new Vector3(-5.5f, 2.2f, 2.5f), new Vector3(-10.8f, 1f, 0f)));
             Add(t += 1f, "snacks", () => Shot("05_snack_table", new Vector3(7.5f, 1.8f, 5.3f), new Vector3(7.2f, 0.5f, 8.1f)));
             Add(t += 1f, "ball", () => Shot("06_disco_ball_floor", new Vector3(-2f, 2.4f, -4f), new Vector3(2f, 3.6f, 0f)));
+            // The elevator panel on the classroom wall (the classroom stands empty meanwhile).
+            Add(t += 1f, "elevator", () =>
+            {
+                Vector3 from, at;
+                if (Elevator.TestSpot(out from, out at))
+                {
+                    ShotWorld("08_elevator_panel", from, at);
+                }
+                else
+                {
+                    Note("elevator panel: not put up");
+                }
+            });
 
             if (_looks)
             {

@@ -46,6 +46,8 @@ namespace ClassPack
         public bool windowPoles = true;
         // A student hung on a pole by a window is shown hanging outside it by the fingers.
         public bool windowHanging = true;
+        // The elevator panel beside the blackboard: anyone picks the next class there in the break.
+        public bool elevator = true;
         public bool prankCall = true;
         public bool fireAlarm = true;
         // The student tricks on the phone: paper airplane, water balloon, super glue, laser

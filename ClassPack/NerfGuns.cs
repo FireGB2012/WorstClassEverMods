@@ -55,7 +55,8 @@ namespace ClassPack
             }
             try
             {
-                return !(NerfGuns.TryTakeWithPickUpKey() || Phones.TryTakeWithPickUpKey() || Swim.TryClimbWithPickUpKey());
+                return !(NerfGuns.TryTakeWithPickUpKey() || Phones.TryTakeWithPickUpKey() || Swim.TryClimbWithPickUpKey()
+                    || Elevator.TryPressWithPickUpKey());
             }
             catch (Exception)
             {

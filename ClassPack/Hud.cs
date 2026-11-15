@@ -14,7 +14,7 @@ namespace ClassPack
 
         private void OnGUI()
         {
-            if (Event.current.type != EventType.Repaint || !Game.InClass)
+            if (Event.current.type != EventType.Repaint)
             {
                 return;
             }
@@ -31,6 +31,13 @@ namespace ClassPack
                 GUI.depth = -8000;
                 float width = Screen.width / scale;
                 float height = Screen.height / scale;
+
+                // The elevator panel's prompt also shows in the break, when nothing else does.
+                Elevator.DrawPrompt(width, height);
+                if (!Game.InClass)
+                {
+                    return;
+                }
 
                 string faint = Faint.DrawHud(width, height);
                 string phone = Phones.DrawHud(width, height);
