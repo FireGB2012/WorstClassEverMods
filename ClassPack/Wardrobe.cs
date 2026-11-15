@@ -40,6 +40,13 @@ namespace ClassPack
         }
 
         private static bool _openRequested;
+        private static bool _closeRequested;
+
+        /// <summary>Asks for the window to close (the self-test).</summary>
+        public static void RequestClose()
+        {
+            _closeRequested = true;
+        }
 
         private readonly CursorGrab _cursor = new CursorGrab();
         private Camera _camera;
@@ -66,7 +73,7 @@ namespace ClassPack
                 Close();
             }
             bool key = Input.GetKeyDown(Plugin.Settings.WardrobeKeyCode) && !Game.IsTyping;
-            if (IsOpen && (key || Input.GetKeyDown(KeyCode.Escape)))
+            if (IsOpen && (key || _closeRequested || Input.GetKeyDown(KeyCode.Escape)))
             {
                 Close();
             }
@@ -75,6 +82,7 @@ namespace ClassPack
                 Open();
             }
             _openRequested = false;
+            _closeRequested = false;
         }
 
         private void Open()

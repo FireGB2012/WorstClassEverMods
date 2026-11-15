@@ -32,6 +32,10 @@ namespace ClassPack
         private static int _kind;
         /// <summary>True when the test runs a dance class instead of a swim class ("class=dance").</summary>
         private static bool _dance;
+        /// <summary>True when the test also tries the looks: wardrobe tabs, face sliders, hairstyles ("looks=1").</summary>
+        private static bool _looks;
+        /// <summary>This player's own look while the test tries others on them; put back at the end.</summary>
+        private static Look? _lookBefore;
 
         /// <summary>Where the hall of the class under test stands: picture spots are given in its own frame.</summary>
         private static Vector3 Hall => _dance ? Dance.Origin : Swim.Origin;
@@ -81,6 +85,10 @@ namespace ClassPack
                     {
                         int.TryParse(parts[1], out _kind);
                     }
+                    else if (parts[0] == "looks")
+                    {
+                        _looks = parts[1] == "1";
+                    }
                     else if (parts[0] == "class")
                     {
                         _dance = parts[1] == "dance";
@@ -115,6 +123,12 @@ namespace ClassPack
         private static void Finish(string why)
         {
             Note("finished: " + why);
+            if (_lookBefore.HasValue)
+            {
+                // The test dressed this player up: put their own look back.
+                Looks.Mine = _lookBefore.Value;
+                _lookBefore = null;
+            }
             try
             {
                 File.WriteAllLines(Path.Combine(_folder, "report.txt"), Report.ToArray());
@@ -479,13 +493,66 @@ namespace ClassPack
             Add(t += 1f, "snacks", () => Shot("05_snack_table", new Vector3(7.5f, 1.8f, 5.3f), new Vector3(7.2f, 0.5f, 8.1f)));
             Add(t += 1f, "ball", () => Shot("06_disco_ball_floor", new Vector3(-2f, 2.4f, -4f), new Vector3(2f, 3.6f, 0f)));
 
+            if (_looks)
+            {
+                // The wardrobe's tabs, with this player in an afro, big eyes, small pupils and a
+                // bigger head (the bots copy that).
+                Add(t += 0.5f, "my look", () =>
+                {
+                    Look look = Looks.Mine;
+                    _lookBefore = look;
+                    look.Hairstyle = 1;
+                    look.Eyes = Look.Step(1.5f);
+                    look.Pupils = Look.Step(0.6f);
+                    look.HeadSize = Look.Step(1.2f);
+                    Looks.Mine = look;
+                    Note("my look now: hairstyle " + look.Hairstyle + ", eyes " + look.EyeScale.ToString("F1")
+                        + ", pupils " + look.PupilScale.ToString("F1") + ", head " + look.HeadScale.ToString("F1"));
+                });
+                for (int i = 0; i < 5; i++)
+                {
+                    int tab = i;
+                    Add(t += 1f, "wardrobe", () =>
+                    {
+                        Wardrobe.Tab = tab;
+                        if (!Wardrobe.IsOpen)
+                        {
+                            Wardrobe.RequestOpen();
+                        }
+                    });
+                    Add(t += 0.8f, "wardrobe", () => Screen("07_wardrobe_tab_" + tab));
+                }
+                Add(t += 0.5f, "wardrobe", Wardrobe.RequestClose);
+            }
+
             // Bots: time to arrive, stop on the dance floor and dance.
             Add(t += 16f, "bots", () => Shot("10_bots_overview", new Vector3(11f, 4.6f, -7.5f), new Vector3(1f, 0.3f, 0.5f)));
-            Add(t += 0.3f, "state", () => Note(Dance.TestState()));
+            Add(t += 0.3f, "state", () => Note(Dance.TestState() + ", bots dressed like players " + Looks.BotsDressed));
             for (int i = 0; i < 3; i++)
             {
                 int index = i;
                 Add(t += 1.2f, "bot dancing", () => ShotOfDancingBot("11_bot_dance_" + index, index));
+            }
+            if (_looks)
+            {
+                // Faces: one bot each with only big eyes, only big pupils, only a big head, an
+                // afro in red and dreads, seen close up from the front.
+                Add(t += 0.5f, "dress bots", DressTestBots);
+                for (int i = 0; i < TestFaces.Length; i++)
+                {
+                    // Each dressed bot is stood alone by the far wall, facing into the hall,
+                    // so no other bot gets between it and the camera.
+                    int index = i;
+                    Add(t += 0.6f, "stand", () =>
+                    {
+                        if (index < _faceBots.Count)
+                        {
+                            Put(_faceBots[index], new Vector3(10.6f, 0.05f, -6f + index * 2.4f), 270f);
+                        }
+                    });
+                    Add(t += 0.45f, "face", () => FaceShot("12_face_" + TestFaces[index], index));
+                }
+                Add(t += 0.3f, "face dump", () => DumpFace(_faceBots.Count > 0 ? _faceBots[0] : null, "face_bot.txt"));
             }
 
             // This player on the floor: a student is made to dance by itself (the class dance);
@@ -549,6 +616,132 @@ namespace ClassPack
             Add(t += 1.5f, "overview", () => Shot("30_overview_end", new Vector3(11f, 5f, 7.5f), new Vector3(-2f, 0f, -1f)));
             Add(t += 0.3f, "state", () => Note(Dance.TestState()));
             Add(t += 1.5f, "end", () => { });
+        }
+
+        private static readonly string[] TestFaces = { "big_eyes", "big_pupils", "big_head", "afro_red", "dreads", "normal" };
+        private static readonly List<Unit> _faceBots = new List<Unit>();
+
+        /// <summary>Dresses a few bots each in one face setting or hairstyle, for close pictures.</summary>
+        private static void DressTestBots()
+        {
+            _faceBots.Clear();
+            UnitManager units = Game.Peek<UnitManager>();
+            if (units == null)
+            {
+                return;
+            }
+            foreach (Unit unit in units.unitsDict.Values)
+            {
+                if (_faceBots.Count >= TestFaces.Length)
+                {
+                    break;
+                }
+                if (unit != null && unit.isActived && !unit.isPlayer && unit.GetComponent<StudentNPCComponent>() != null
+                    && (unit.Position - Hall).magnitude < 30f)
+                {
+                    _faceBots.Add(unit);
+                }
+            }
+            for (int i = 0; i < _faceBots.Count; i++)
+            {
+                var look = new Look { Hair = 1, Body = 1, Cloth = 1 };
+                switch (i)
+                {
+                    case 0:
+                        look.Eyes = Look.Step(1.8f);
+                        break;
+                    case 1:
+                        look.Pupils = Look.Step(2f);
+                        break;
+                    case 2:
+                        look.HeadSize = Look.Step(1.5f);
+                        break;
+                    case 3:
+                        look.Hairstyle = 1;
+                        look.HairTint = 1;
+                        break;
+                    case 4:
+                        look.Hairstyle = 2;
+                        break;
+                }
+                Looks.TestDress(_faceBots[i].UID, look);
+            }
+            Note("dressed " + _faceBots.Count + " bots for the face pictures");
+        }
+
+        /// <summary>A close picture of a dressed bot's face, from the front.</summary>
+        private static void FaceShot(string name, int index)
+        {
+            Unit unit = index < _faceBots.Count ? _faceBots[index] : null;
+            if (unit == null || !unit.isActived || unit.transform == null)
+            {
+                Note("picture " + name + " skipped: no bot");
+                return;
+            }
+            Transform neck = unit.GetPartRoot(EUnitPartType.HeadPosition);
+            Vector3 head = (neck != null ? neck.position : unit.Position + Vector3.up * 0.76f) + Vector3.up * 0.22f;
+            Vector3 forward = Quaternion.Euler(0f, unit.transform.eulerAngles.y, 0f) * Vector3.forward;
+            ShotWorld(name, head + forward * 1.1f + Vector3.up * 0.08f, head);
+        }
+
+        /// <summary>
+        /// Writes down how a body's faces are made: each skinned mesh with its materials and,
+        /// for the face bones, how many points mostly follow each. Tells whether the eye bones
+        /// carry the whole eye or only the pupil.
+        /// </summary>
+        private static void DumpFace(Unit unit, string file)
+        {
+            if (unit == null || unit.model == null)
+            {
+                Note("face: nobody to write down");
+                return;
+            }
+            var lines = new List<string>();
+            string[] wanted = { "head", "eye.L", "eye.R", "yanpi1.L", "yanpi1.R", "yanpi2.L", "yanpi2.R", "neck" };
+            foreach (SkinnedMeshRenderer skin in unit.model.GetComponentsInChildren<SkinnedMeshRenderer>(false))
+            {
+                Mesh mesh = skin.sharedMesh;
+                var materials = new List<string>();
+                foreach (Material material in skin.sharedMaterials)
+                {
+                    if (material != null)
+                    {
+                        Texture main = material.HasProperty("_BaseMap") ? material.GetTexture("_BaseMap") : material.mainTexture;
+                        materials.Add(material.name + " (" + material.shader.name + ", " + (main != null ? main.name : "no picture") + ")");
+                    }
+                }
+                lines.Add("skin " + skin.name + ": " + (mesh != null ? mesh.vertexCount + " points, " + mesh.subMeshCount + " parts" : "no mesh")
+                    + ", materials " + string.Join("; ", materials.ToArray()));
+                if (mesh == null)
+                {
+                    continue;
+                }
+                try
+                {
+                    BoneWeight[] weights = mesh.boneWeights;
+                    var counts = new Dictionary<string, int>();
+                    foreach (BoneWeight weight in weights)
+                    {
+                        Transform bone = weight.boneIndex0 < skin.bones.Length ? skin.bones[weight.boneIndex0] : null;
+                        if (bone != null && System.Array.IndexOf(wanted, bone.name) >= 0)
+                        {
+                            int count;
+                            counts.TryGetValue(bone.name, out count);
+                            counts[bone.name] = count + 1;
+                        }
+                    }
+                    foreach (KeyValuePair<string, int> pair in counts)
+                    {
+                        lines.Add("    " + pair.Key + ": " + pair.Value + " points follow it most");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lines.Add("    weights not readable: " + ex.Message);
+                }
+            }
+            File.WriteAllLines(Path.Combine(_folder, file), lines.ToArray());
+            Note("face written: " + file + ", " + lines.Count + " lines");
         }
 
         private static void ShotOfDancingBot(string name, int skip)

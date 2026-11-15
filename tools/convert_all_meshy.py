@@ -88,7 +88,7 @@ MODELS = {
     'dance_snacks': (1.2, '0.5,0.5,0', '0,0,0', BACK),
     # Hairstyles: head items like the hats, built around the middle of a 0.11 m head. They are
     # very light grey, and the wardrobe's hair colour tints them.
-    'hair_afro': (0.46, '0.5,0.5,0.45', '0,0,0', FRONT),
+    'hair_afro': (0.40, '0.5,0.5,0.32', '0,0,0', FRONT),
     'hair_dreads': (0.42, '0.5,0.5,0.69', '0,0,0', FRONT),
 }
 

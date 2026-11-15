@@ -6,8 +6,8 @@
 #
 #   .\tools\selftest.ps1                      as a student, swim class
 #   .\tools\selftest.ps1 -Role teacher -Kind 2    as a teacher (0 normal, 1 gym, 2 lunch lady, 3 janitor, 4 wig)
-#   .\tools\selftest.ps1 -Class dance         the dance class
-param([string]$Role = 'student', [int]$Kind = 0, [string]$Class = 'swim', [switch]$NoBuild)
+#   .\tools\selftest.ps1 -Class dance         the dance class (add -Looks to try the wardrobe and faces too)
+param([string]$Role = 'student', [int]$Kind = 0, [string]$Class = 'swim', [switch]$Looks, [switch]$NoBuild)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -25,7 +25,7 @@ if (-not $NoBuild) {
 }
 New-Item -ItemType Directory -Force $settings | Out-Null
 if (Test-Path $made) { Get-ChildItem $made -File | Remove-Item -Force }
-Set-Content -Path (Join-Path $settings 'autotest.txt') -Value @("role=$Role", "kind=$Kind", "class=$Class") -Encoding ascii
+Set-Content -Path (Join-Path $settings 'autotest.txt') -Value @("role=$Role", "kind=$Kind", "class=$Class", "looks=$(if ($Looks) { 1 } else { 0 })") -Encoding ascii
 
 Start-Process 'steam://rungameid/5175310'
 $deadline = (Get-Date).AddMinutes(9)
