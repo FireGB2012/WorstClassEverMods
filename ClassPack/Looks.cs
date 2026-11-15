@@ -846,7 +846,8 @@ namespace ClassPack
             if (Swim.Swimming(unit) && worn.Body.Has("swim") && worn.Body.Has("swimidle"))
             {
                 // In the pool: strokes while moving, treading water while still, floating at the surface.
-                bool still = worn.Speed < 0.3f;
+                // (The self-test makes its own player stroke while standing still.)
+                bool still = worn.Speed < 0.3f && !(SwimPose.ForceMoving && unit == Game.LocalPlayer);
                 move = still ? "swimidle" : "swim";
                 lift = Swim.WaterWorldY - SwimPose.SurfaceFor(still) * tall - body.position.y;
             }
