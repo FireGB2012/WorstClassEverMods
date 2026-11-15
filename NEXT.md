@@ -1,8 +1,9 @@
 # What to do next
 
-Written 2026-11-15, updated late the same evening on the second PC. The mod is at version
-0.15.0: built and committed, NOT installed and NOT self-tested (Gabriel said "not now" to running
-the game). Details are in `PROGRESS.md`, sections "Looks pack", "Teacher bug hunt" and "Pack 0.15.0".
+Written 2026-11-15, updated late that night on the second PC. The mod is at version 0.15.0:
+committed, self-tested (dance and swim, student and teacher) and installed in Gabriel's game by
+the self-tests, NOT pushed yet. Details are in `PROGRESS.md`, sections "Teacher bug hunt",
+"Pack 0.15.0" and "Self-tests of 0.15.0".
 
 ## 00. Pack 0.15.0 (Gabriel's list of ten, late 2026-11-15)
 
@@ -10,8 +11,9 @@ Built (each part committed on its own):
 - Nerf knockout without the pole: 4 s rag doll (teacher 5 s), the teacher can grab you meanwhile.
 - Phones are items: 7.4% per snack in your drawer, grabbed with the pick-up key or B, held in the
   hand (Meshy model), O raises it and opens the phone; one DoorDash order, prank call or trick uses
-  it up; the teacher hears the scribbling and gets a note. No phones in the swim and dance halls
-  (no drawers there).
+  it up; the teacher hears the scribbling and gets a note. In the swim and dance halls (no desks)
+  one turns up every ~2 minutes on the lounge's coffee table or the snack table: first come, first
+  served.
 - The wardrobe opens on O, only out of class; it shuts at the bell.
 - Your face, body, hair and clothes stay from game to game (the "game's pick" is saved once, and two
   floors no longer swap in their set outfit).
@@ -21,13 +23,21 @@ Built (each part committed on its own):
 - Body slider (thin to fat); teachers get the face sliders too, limited; Meshy teachers too.
 - Hairstyles mohawk and spiky (Meshy). 39 credits left; a third hairstyle (21) waits for his pick.
 
-To check with the self-tests (dance with -Looks, swim, and -Role teacher -Kind 1..3):
-- [ ] 08_elevator_panel: the panel on the wall beside the board, labels readable.
-- [ ] 12_face_fat / thin_mohawk / spiky_blue: the body slider and the new hair.
-- [ ] 21_me_phone_in_hand, report "phone in my hand: True" then "used up": False.
-- [ ] 36/37_window_hang: the bot outside the window, fingers on the sill.
-- [ ] swim report "after climbing the ladder" (deck, y about 0) and "the board's steps" (y about 1).
-- [ ] 31 to 35: the knockout, and "after the faint (up again)".
+Checked in the self-tests (2026-11-15, late night):
+- [x] 08_elevator_panel: the panel on the wall beside the board, labels readable.
+- [x] 12_face_fat / thin_mohawk / spiky_blue: the body slider and the new hair.
+- [x] 21_me_phone_in_hand, "phone in my hand: True", then used up by the order.
+- [x] 36/37/38_window_hang: from inside only the hands show on the sill (the student kneels
+      outside, leaning back, on this ground-floor classroom).
+- [x] Swim: the ladder to the deck (y 0), the board's steps to the board (y 1).
+- [x] 31 to 35: the knockout, and up again after it; the gym teacher lies flat.
+- [x] Teachers: mashed potatoes and pizza hit; chair and DJ booth pause the drain.
+- [x] Swim: the table phone in the lounge, grabbed and used for DoorDash (23b_lounge_phone).
+
+Waiting for Gabriel:
+- [ ] Push (many commits since 3d80e9e); his friends need the same version.
+- [ ] Play it with friends: the knockout, phones (drawer and table), elevator, window hanging.
+- [ ] Pick a third hairstyle if he wants one (21 of 39 Meshy credits).
 
 ## 0. Looks pack and the nerf faint (new in 0.14.0)
 
@@ -43,15 +53,15 @@ Built:
 
 To check (self-test with `.\tools\selftest.ps1 -Class dance -Looks`, pictures 12_face_*,
 31_* to 35_*):
-- [ ] The rag doll falls over and lies on the floor (not through it, not flying off).
-- [ ] The student ends on a pole after 3 s; the bot gets up after 4 s.
+- [x] The rag doll falls over and lies on the floor (not through it, not flying off).
+- [x] Since 0.15.0 there is no pole after a knockout: the bot and the player get up after 4 s.
 - [ ] The pupil slider: the log line "looks: eyes in Body1 ..." or "... picture places ..."
       says whether the eye picture could be read. If not, the eyeballs grow inside the lids instead.
 
-- [ ] Teachers (self-test with `-Role teacher -Kind 1`, `-Kind 2`, `-Kind 3`, swim and dance):
-      report lines "teacher power ..." and the stamina in "at the chair" / "at the DJ booth".
-- [ ] If the mashed potatoes still don't fly: the log lines "teachers: my power key did
-      nothing: ..." or "... refused: ..." say why.
+- [x] Teachers (self-test as the lunch lady in the swim class, the gym teacher in the dance
+      class): "teacher power ... hit Someone", and "drain paused" at the chair and the booth.
+- [ ] The mashed potatoes flew and hit in the self-test. If they still don't fly for Gabriel,
+      the log lines "teachers: my power key did nothing: ..." or "... refused: ..." say why.
 
 Waiting for Gabriel:
 - [ ] Try the faces in the wardrobe and shoot someone with a nerf gun (F6 has a setting to

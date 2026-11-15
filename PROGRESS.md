@@ -828,3 +828,40 @@ elevator for anyone, and on the reset "it does it we want it removed".
   eyes 1.4; the Meshy teachers scale bones 0 to 4 across and 5 to 7 for the head.
 - How-to cards: "student15" and "swimpee2" (new ids so they show once more).
 - Version 0.15.0.
+
+### Self-tests of 0.15.0 (2026-11-15, late night, on Gabriel's PC; every run installs the mod)
+
+Runs: the dance class as a student with -Looks (eight runs in all), the swim class as a student
+(three), the swim class as the lunch lady, the dance class as the gym teacher.
+- Seen working: the elevator panel beside the board with readable labels; mohawk and spiky hair;
+  fat and thin bodies (on the spine bones: the game's meshes can't be read); the phone taken,
+  held and used up by one DoorDash order; the knockout rag doll for a bot and the player, up again
+  after 4 s; the gym teacher's own body lying flat for 5 s.
+- Window hanging took four fixes. The test bot has to be moved onto the walkable area before it is
+  bound; "out" is straight from the pole to its window (long windows have the glass middle metres
+  along the wall); only the pole's own parts are hidden (the game hangs the student under the
+  pole's model). Then the head still showed over the sill. Now the body goes so low that the top of
+  the head (measured with its hair or hat while standing, SwimPose.MeasureHead) is 0.1 m under the
+  sill, and the arms stretch along their length to reach it (upper arm scaled along its bone, the
+  forearm follows; x2 to x3). Where the ground outside is too near for that (this classroom is on
+  the ground floor with the yard at floor height), the student kneels on it and leans back from the
+  wall until the head is hidden (43 degrees there). Log line "swim move: hanging at a window: ...
+  top of the head -0.10 m over the sill ... leaning back 43 degrees". From inside only the two
+  hands show on the sill; up close at the window you can look down and see the student.
+- Swim climbing works: the ladder puts you on the deck (y 0), the board's steps on the board (y 1).
+  At a ladder the key no longer splashes as well.
+- Teachers: the lunch lady's mashed potatoes and the gym teacher's pizza fly and hit; the
+  lifeguard chair and the DJ booth pause the drain (report "drain paused").
+- Found and fixed: in the swim and dance halls nobody could get a phone (no desks), so DoorDash,
+  prank calls and tricks were dead there. Now a phone turns up on the lounge's coffee table or at
+  the free end of the snack table (hallPhoneSeconds 120: the first after 50 to 100 s, the next 85
+  to 155 s after one is grabbed; every 10 s with the testing toggle). The first student to grab it
+  (aim and the pick-up key or B, within 2.5 m; the host allows 3.5 m) gets it, one use as anywhere.
+  Messages: PhoneAsk i 3, PhoneTell i 2 (j 1 with the spot in v, told again every 4 s for late
+  joiners). Self-test: grabbed in the lounge and used for a DoorDash order that landed there.
+- How-to cards grow as wide as their longest line (two teacher lines ran past the edge). New ids
+  swimpee3, swimteacher3, dance3, danceteacher3, so they show once more with the table phone and
+  the right stamina rule (half the drain anywhere in the halls, a quick refill at the chair/booth).
+- Not checked: the dark sliver between the hands in the inside picture may be the very top of the
+  ponytail; raise SwimPose.HangHide (0.1 m) if Gabriel sees hair. A whole-body teacher's own
+  body is not drawn in the self-test's side pictures of the player (the figure there is a bot).
