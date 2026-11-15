@@ -1,21 +1,31 @@
 # What to do next
 
-Written 2026-11-15. The mod is at version 0.11.0 (a test build). Details and causes are in
-`PROGRESS.md`, section "What the first two self-test runs showed".
+Written 2026-11-15, updated the same evening on the second PC. The mod is at version 0.12.0:
+built, installed and self-tested there; committed but NOT pushed yet. Details are in
+`PROGRESS.md`, section "Bots in the pool and a new swimming move".
 
-## 1. Swim class: fix these first
+## 1. Swim class
 
-- [ ] **Bots don't go into the water.** They can't walk any slope, so the ramp is a dead end
-      for them. Give them their own way down at the ramp and send about half of them into
-      the pool. (`Swim.cs`, `BringBots`)
-- [ ] **The swimming move looks bad.** Replace it with a clear front crawl (big arm circles,
-      kicking legs, head up) and treading water, on the game's real bones. The real hips bone
-      is `gupen`. (`SwimPose.cs`)
-- [ ] **Check the new lighting.** The hall was washed out by the sun; the colours are toned
-      down in the code but nobody has looked at a picture of it yet.
-- [ ] **Check DoorDash in the lounge.** The food should land on the coffee table. The test
-      class ended before a picture was taken.
-- [ ] **Run the swim class as a teacher**, once for each teacher type, and look at the pictures.
+Done and seen in the self-test pictures:
+
+- [x] **Bots go into the water** over a link at the ramp; about half of them swim.
+- [x] **A real front crawl and treading water** on the game's own characters (students, bots,
+      the game's teacher). The three new teachers keep their own Meshy stroke.
+- [x] **The lighting** is no longer washed out.
+- [x] **DoorDash in the lounge**: the food lands on the coffee table.
+- [x] **The swim class as each of the five teacher types**: every run went through.
+- [x] **Peeing in the pool** is the swim class's mischief (hold P in the water, +4, double next
+      to the teacher, 30 s wait). Diving, splashing and diving under no longer pay unless the
+      owner switches them on in F6.
+
+Waiting for Gabriel:
+
+- [ ] Play a real swim class and say how it feels: the swimming (bots, yourself from behind,
+      the teacher) and whether peeing is balanced now. The numbers are sliders in the F6
+      window ("Pee mischief", "Pee wait").
+- [ ] A bot that stops in the pool treads water upright; with the very clear water that reads
+      like standing in the pool. If it bothers him: less clear water, or bots that stop less
+      in the pool.
 
 ## 2. How to check any of it
 
@@ -48,3 +58,4 @@ Then look at the sheets in `dist\autotest\student\` or `dist\autotest\teacher1\`
 ## On another PC
 
 `README.md` has the setup. Then `git pull`, and `.\build.ps1 -Install` with the game closed.
+The second PC has the game in `D:\SteamLibrary`; the build finds it there by itself.

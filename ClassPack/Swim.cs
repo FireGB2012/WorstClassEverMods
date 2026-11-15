@@ -76,6 +76,18 @@ namespace ClassPack
         private const float SplashReach = 3.8f;
         private const float SplashBlind = 3f;
         private const float ChairReach = 2.4f;
+        // Peeing in the pool, the swim class's way to make mischief: hold the key this long in
+        // the water, hardly able to move meanwhile, so a teacher close by can catch you at it.
+        // What it pays and the wait before the next go are the room owner's settings.
+        private const float PeeHold = 3f;
+        private const float PeeSlow = 0.25f;
+        /// <summary>How far the yellow cloud spreads, and so how close a teacher in the water has to be.</summary>
+        private const float PeeReach = 2.5f;
+        private const float CloudLife = 16f;
+
+        private static float PeeWait => Mathf.Clamp(Plugin.Settings.peeWaitSeconds, 5f, 120f);
+
+        private static float PeePoints => Mathf.Clamp(Plugin.Settings.peePoints, 0f, 50f);
 
         // ---- what every player with the mod keeps
         private static bool _on;
@@ -105,6 +117,23 @@ namespace ClassPack
         private static bool _under;
         private static string _crawlKey;
         private static Texture2D _blob;
+        private static float _peeHeld;
+        private static float _nextPeeAt;
+        private static bool _peeWaitForRelease;
+
+        /// <summary>A yellow cloud spreading in the water where someone peed: a sheet at the surface and a fainter one below.</summary>
+        private sealed class Cloud
+        {
+            public Transform Top;
+            public Transform Low;
+            public Material TopPaint;
+            public Material LowPaint;
+            public float Born;
+            public float Turn;
+        }
+
+        private static readonly List<Cloud> Clouds = new List<Cloud>();
+        private static Texture2D _cloudPicture;
 
         private sealed class Drop
         {
@@ -126,8 +155,16 @@ namespace ClassPack
             public float UnderPaid;
             public float SplashReadyAt;
             public float SplashFxAt;
+            public float PeeReadyAt;
             public bool Wet;
         }
+
+        /// <summary>
+        /// Peeing in the pool is the swim class's mischief. Diving off the board, splashing the
+        /// teacher and staying under water still work, but only pay mischief when the room owner
+        /// switches this on in the owner window.
+        /// </summary>
+        private static bool OldMischief => Plugin.Settings.poolOldMischief;
 
         private static bool _hostOn;
         private static bool _hostDecided;
@@ -551,13 +588,20 @@ namespace ClassPack
                     if (dive && Time.time >= swimmer.DiveReadyAt)
                     {
                         swimmer.DiveReadyAt = Time.time + DiveWait;
-                        classroom.AddTrickCount(player.UID, DivePoints);
                         Net.SendToModded(new CpTell { kind = CpKind.Splash, i = 1, a = player.UID, v = where, w = where, f = 1.5f });
-                        Net.Toast(player, "Cannonball! +" + DivePoints + " mischief", 2.5f);
+                        if (OldMischief)
+                        {
+                            classroom.AddTrickCount(player.UID, DivePoints);
+                            Net.Toast(player, "Cannonball! +" + DivePoints + " mischief", 2.5f);
+                        }
+                        else
+                        {
+                            Net.Toast(player, "Cannonball!", 2f);
+                        }
                     }
                     else if (Time.time >= swimmer.SplashFxAt)
                     {
-                        if (dive)
+                        if (dive && OldMischief)
                         {
                             Net.Toast(player, "The board pays again in " + Mathf.CeilToInt(swimmer.DiveReadyAt - Time.time) + " seconds.", 2.5f);
                         }
@@ -579,7 +623,10 @@ namespace ClassPack
                     if (swimmer.UnderPaid >= 1f)
                     {
                         swimmer.UnderPaid -= 1f;
-                        classroom.AddTrickCount(player.UID, UnderPoints);
+                        if (OldMischief)
+                        {
+                            classroom.AddTrickCount(player.UID, UnderPoints);
+                        }
                     }
                 }
                 else if (!under)
@@ -818,6 +865,11 @@ namespace ClassPack
         {
             ClassroomManager classroom = Game.Peek<ClassroomManager>();
             UnitManager units = Game.Peek<UnitManager>();
+            if (ask.kind == CpKind.PeeAsk)
+            {
+                OnPeeAsk(player, classroom, units);
+                return;
+            }
             if (ask.kind != CpKind.SplashAsk || !_hostOn || !Game.InClass || classroom == null || units == null
                 || player == null || !player.IsStudent || !player.isActived)
             {
@@ -862,8 +914,15 @@ namespace ClassPack
             if (hit != null)
             {
                 to = hit.Position + Vector3.up * 1.2f;
-                classroom.AddTrickCount(player.UID, SplashPoints);
-                Net.Toast(player, "You soaked the teacher! +" + SplashPoints + " mischief", 2.5f);
+                if (OldMischief)
+                {
+                    classroom.AddTrickCount(player.UID, SplashPoints);
+                    Net.Toast(player, "You soaked the teacher! +" + SplashPoints + " mischief", 2.5f);
+                }
+                else
+                {
+                    Net.Toast(player, "You soaked the teacher!", 2.5f);
+                }
                 Net.Toast(hit, Poles.NameOf(player) + " splashed you!", 2.5f);
             }
             else
@@ -872,6 +931,75 @@ namespace ClassPack
                 to = from + (aim.sqrMagnitude > 0.01f ? aim.normalized : player.transform.forward) * 2.5f + Vector3.up * 0.6f;
             }
             Net.SendToModded(new CpTell { kind = CpKind.Splash, i = 2, a = hit != null ? hit.UID : 0uL, v = from, w = to, f = SplashBlind });
+        }
+
+        /// <summary>
+        /// Host: a student peed in the pool. Mischief for it, more when a teacher is in the water
+        /// inside the yellow cloud (who is told who did it), and everyone sees the cloud spread.
+        /// </summary>
+        private static void OnPeeAsk(Unit player, ClassroomManager classroom, UnitManager units)
+        {
+            if (!_hostOn || !Game.InClass || classroom == null || units == null || player == null || !player.IsStudent || !player.isActived)
+            {
+                return;
+            }
+            int state = player.CurState();
+            Vector3 feet = Feet(player) - _hostOrigin;
+            if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished || !InWater(feet))
+            {
+                return;
+            }
+            Swimmer swimmer;
+            if (!Swimmers.TryGetValue(player.UID, out swimmer))
+            {
+                swimmer = new Swimmer();
+                Swimmers[player.UID] = swimmer;
+            }
+            if (Time.time < swimmer.PeeReadyAt)
+            {
+                return;
+            }
+            float wait = PeeWait;
+            float points = PeePoints;
+            swimmer.PeeReadyAt = Time.time + wait - 0.5f;
+            classroom.AddTrickCount(player.UID, points);
+            int teachers = 0;
+            foreach (Unit other in units.playerList)
+            {
+                if (other == null || !other.isActived || !other.IsTeacher || other.transform == null)
+                {
+                    continue;
+                }
+                Vector3 theirs = Feet(other) - _hostOrigin;
+                if (InWater(theirs) && Tricks.Flat(theirs - feet).magnitude < PeeReach)
+                {
+                    teachers++;
+                    Net.Toast(other, Poles.NameOf(player) + " peed in the pool right next to you!", 3f);
+                }
+            }
+            if (teachers > 0)
+            {
+                // Double for peeing right next to a teacher in the water.
+                classroom.AddTrickCount(player.UID, points);
+                Net.Toast(player, "You peed in the pool and the teacher is swimming in it! +" + Mathf.RoundToInt(points * 2f) + " mischief", 3f);
+            }
+            else
+            {
+                Net.Toast(player, "You peed in the pool! +" + Mathf.RoundToInt(points) + " mischief", 2.5f);
+            }
+            // f tells the student's game how long the wait is, so its countdown matches the host's.
+            Net.SendToModded(new CpTell { kind = CpKind.Pee, a = player.UID, v = _hostOrigin + new Vector3(feet.x, WaterY, feet.z), f = wait });
+        }
+
+        /// <summary>Self-test: pee in the pool right away, without holding the key.</summary>
+        public static void TestPee()
+        {
+            Unit me = Game.LocalPlayer;
+            if (me != null)
+            {
+                _nextPeeAt = Time.time + PeeWait;
+                Net.SendToHost(new CpAsk { kind = CpKind.PeeAsk, v = me.Position });
+            }
         }
 
         /// <summary>A player's game joined the room while a swim class runs: show them the hall too.</summary>
@@ -983,6 +1111,18 @@ namespace ClassPack
                     }
                     break;
                 }
+                case CpKind.Pee:
+                    if (_on)
+                    {
+                        AddCloud(tell.v);
+                        Game.PlaySoundAt(AudioEvents.sfx_balloonLeak_sfx, tell.v);
+                        Unit peer = Game.LocalPlayer;
+                        if (peer != null && peer.UID == tell.a && tell.f > 0f)
+                        {
+                            _nextPeeAt = Time.time + tell.f;
+                        }
+                    }
+                    break;
             }
         }
 
@@ -1027,7 +1167,8 @@ namespace ClassPack
             _inWater = InWater(feet);
             _under = _inWater && free && me.IsStudent && feet.y < -Depth + 0.35f && Crawling(me);
             // Crawling is slow by itself, so only wading is slowed.
-            Slow(me, _inWater && free && !_under ? WadeFactor : 1f);
+            // Peeing roots you in place: the teacher can catch you at it.
+            Slow(me, _peeHeld > 0f ? PeeSlow : _inWater && free && !_under ? WadeFactor : 1f);
 
             if (_under)
             {
@@ -1074,6 +1215,39 @@ namespace ClassPack
                         v = me.Position,
                         w = camera != null ? camera.transform.forward : me.transform.forward
                     });
+                }
+            }
+
+            // Peeing in the pool: hold the key for a moment while in the water.
+            KeyCode peeKey = Plugin.Settings.PeeKeyCode;
+            bool peeHeld = Input.GetKey(peeKey);
+            bool canPee = inClass && me.IsStudent && _inWater && free && !Game.IsTyping && !CursorGrab.Busy;
+            if (!peeHeld)
+            {
+                _peeHeld = 0f;
+                _peeWaitForRelease = false;
+            }
+            else if (!canPee || _peeWaitForRelease)
+            {
+                _peeHeld = 0f;
+            }
+            else if (Time.time < _nextPeeAt)
+            {
+                _peeHeld = 0f;
+                if (Input.GetKeyDown(peeKey))
+                {
+                    Tricks.Tip("You can pee again in " + Mathf.CeilToInt(_nextPeeAt - Time.time) + " seconds.");
+                }
+            }
+            else
+            {
+                _peeHeld += Time.deltaTime;
+                if (_peeHeld >= PeeHold)
+                {
+                    _peeHeld = 0f;
+                    _peeWaitForRelease = true;
+                    _nextPeeAt = Time.time + PeeWait;
+                    Net.SendToHost(new CpAsk { kind = CpKind.PeeAsk, v = me.Position });
                 }
             }
 
@@ -1414,6 +1588,12 @@ namespace ClassPack
                 }
             }
             Drops.Clear();
+            foreach (Cloud cloud in Clouds)
+            {
+                DropCloud(cloud);
+            }
+            Clouds.Clear();
+            _peeHeld = 0f;
             Lamps.Clear();
             LampShare.Clear();
             FootDrop.Clear();
@@ -1507,6 +1687,179 @@ namespace ClassPack
                 drop.Model.position += drop.Speed * Time.deltaTime;
                 drop.Model.localScale = Vector3.one * drop.Size * Mathf.Clamp01(1.4f - age / drop.Life);
             }
+
+            for (int i = Clouds.Count - 1; i >= 0; i--)
+            {
+                if (!TickCloud(Clouds[i], now - Clouds[i].Born))
+                {
+                    DropCloud(Clouds[i]);
+                    Clouds.RemoveAt(i);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------------- yellow water
+
+        private static Mesh _cloudMesh;
+
+        /// <summary>A yellow cloud spreading in the water where someone peed.</summary>
+        private static void AddCloud(Vector3 at)
+        {
+            if (_hall == null)
+            {
+                return;
+            }
+            if (_cloudPicture == null)
+            {
+                _cloudPicture = MakeCloudPicture();
+            }
+            while (Clouds.Count >= 12)
+            {
+                DropCloud(Clouds[0]);
+                Clouds.RemoveAt(0);
+            }
+            Material top = Rooms.Water(new Color(1f, 0.85f, 0.12f, 0f), _cloudPicture);
+            Material low = Rooms.Water(new Color(1f, 0.78f, 0.08f, 0f), _cloudPicture);
+            if (top == null || low == null)
+            {
+                if (top != null)
+                {
+                    Object.Destroy(top);
+                }
+                if (low != null)
+                {
+                    Object.Destroy(low);
+                }
+                return;
+            }
+            // Drawn after the water itself, the one at the surface last.
+            low.renderQueue = (int)RenderQueue.Transparent + 1;
+            top.renderQueue = (int)RenderQueue.Transparent + 2;
+            Vector3 local = at - _origin;
+            var cloud = new Cloud
+            {
+                TopPaint = top,
+                LowPaint = low,
+                Top = MakeCloudSheet("pee cloud", new Vector3(local.x, WaterY + 0.012f, local.z), top),
+                Low = MakeCloudSheet("pee cloud below", new Vector3(local.x, WaterY - 0.3f, local.z), low),
+                Born = Time.time,
+                Turn = Random.Range(0f, 360f)
+            };
+            Clouds.Add(cloud);
+            TickCloud(cloud, 0f);
+        }
+
+        /// <summary>Spreads and fades a cloud. Returns false once it is gone.</summary>
+        private static bool TickCloud(Cloud cloud, float age)
+        {
+            if (cloud.Top == null || cloud.Low == null || age >= CloudLife)
+            {
+                return false;
+            }
+            float grow = 1f - Mathf.Pow(1f - Mathf.Clamp01(age / 3f), 3f);
+            float size = Mathf.Lerp(0.4f, PeeReach * 2f, grow);
+            float fade = Mathf.Clamp01((CloudLife - age) / 6f);
+            float turn = cloud.Turn + age * 6f;
+            cloud.Top.localScale = new Vector3(size, 1f, size);
+            cloud.Top.localRotation = Quaternion.Euler(0f, turn, 0f);
+            cloud.Low.localScale = new Vector3(size * 0.85f, 1f, size * 0.85f);
+            cloud.Low.localRotation = Quaternion.Euler(0f, -turn * 0.7f, 0f);
+            Tint(cloud.TopPaint, new Color(1f, 0.85f, 0.12f, 0.62f * fade));
+            Tint(cloud.LowPaint, new Color(1f, 0.78f, 0.08f, 0.4f * fade));
+            return true;
+        }
+
+        private static void Tint(Material material, Color color)
+        {
+            if (material == null)
+            {
+                return;
+            }
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", color);
+            }
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", color);
+            }
+        }
+
+        private static void DropCloud(Cloud cloud)
+        {
+            if (cloud.Top != null)
+            {
+                Object.Destroy(cloud.Top.gameObject);
+            }
+            if (cloud.Low != null)
+            {
+                Object.Destroy(cloud.Low.gameObject);
+            }
+            if (cloud.TopPaint != null)
+            {
+                Object.Destroy(cloud.TopPaint);
+            }
+            if (cloud.LowPaint != null)
+            {
+                Object.Destroy(cloud.LowPaint);
+            }
+        }
+
+        /// <summary>A flat square, 1 m across, lying in the water; all clouds share its mesh.</summary>
+        private static Transform MakeCloudSheet(string name, Vector3 local, Material paint)
+        {
+            if (_cloudMesh == null)
+            {
+                _cloudMesh = new Mesh { name = "pee cloud", hideFlags = HideFlags.HideAndDontSave };
+                _cloudMesh.SetVertices(new List<Vector3>
+                {
+                    new Vector3(-0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f)
+                });
+                _cloudMesh.SetNormals(new List<Vector3> { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
+                _cloudMesh.SetUVs(0, new List<Vector2> { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) });
+                _cloudMesh.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0);
+                _cloudMesh.RecalculateBounds();
+            }
+            var sheet = new GameObject(name);
+            sheet.transform.SetParent(_hall.transform, false);
+            sheet.transform.localPosition = local;
+            sheet.AddComponent<MeshFilter>().sharedMesh = _cloudMesh;
+            MeshRenderer renderer = sheet.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = paint;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = LightProbeUsage.Off;
+            return sheet.transform;
+        }
+
+        /// <summary>A soft yellow blot with a wobbly edge, so it reads as something spreading in the water.</summary>
+        private static Texture2D MakeCloudPicture()
+        {
+            const int size = 128;
+            var picture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - size * 0.5f + 0.5f) / (size * 0.5f);
+                    float dy = (y - size * 0.5f + 0.5f) / (size * 0.5f);
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float angle = Mathf.Atan2(dy, dx);
+                    float edge = 0.8f + 0.1f * Mathf.Sin(angle * 5f + 0.7f) + 0.06f * Mathf.Sin(angle * 9f + 2.1f);
+                    float alpha = Mathf.Clamp01((edge - d) / 0.4f);
+                    alpha *= alpha;
+                    float patches = 0.75f + 0.25f * Mathf.PerlinNoise(x * 0.06f + 3.1f, y * 0.06f + 7.7f);
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)(255f * alpha * patches));
+                }
+            }
+            picture.SetPixels32(pixels);
+            picture.Apply(false, false);
+            return picture;
         }
 
         private static void AddDrop(Vector3 at, Vector3 speed, float size, float life)
@@ -1573,6 +1926,17 @@ namespace ClassPack
                 Skin.Ensure();
                 Skin.Outlined(new Rect(bar.x, bar.y - 24f, bar.width, 22f), "AIR", Skin.Hint, Skin.White, Skin.Outline, 1.5f);
             }
+            if (_peeHeld > 0f)
+            {
+                var bar = new Rect(width * 0.5f - 120f, height - 206f, 240f, 16f);
+                GUI.color = new Color(0f, 0f, 0f, 0.5f);
+                GUI.DrawTexture(new Rect(bar.x - 2f, bar.y - 2f, bar.width + 4f, bar.height + 4f), Texture2D.whiteTexture);
+                GUI.color = new Color(1f, 0.86f, 0.15f, 0.95f);
+                GUI.DrawTexture(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(_peeHeld / PeeHold), bar.height), Texture2D.whiteTexture);
+                GUI.color = old;
+                Skin.Ensure();
+                Skin.Outlined(new Rect(bar.x, bar.y - 24f, bar.width, 22f), "PEEING...", Skin.Hint, Skin.White, Skin.Outline, 1.5f);
+            }
             if (Time.time < _wetScreenUntil)
             {
                 if (_blob == null)
@@ -1599,7 +1963,7 @@ namespace ClassPack
             {
                 if (_under)
                 {
-                    return "Under water: mischief every second while your air lasts";
+                    return OldMischief ? "Under water: mischief every second while your air lasts" : "Under water while your air lasts";
                 }
                 if (Time.time < _breathUntil)
                 {
@@ -1607,10 +1971,12 @@ namespace ClassPack
                 }
                 if (_inWater)
                 {
+                    string peeWait = Time.time < _nextPeeAt ? " (" + Mathf.CeilToInt(_nextPeeAt - Time.time) + "s)" : "";
                     string wait = Time.time < _nextSplashAt ? " (" + Mathf.CeilToInt(_nextSplashAt - Time.time) + "s)" : "";
-                    return "[" + Plugin.Settings.UseKeyCode + "] splash the teacher" + wait + "     [" + CrawlKey() + "] dive under     the ramp at the shallow end leads out";
+                    return "[" + Plugin.Settings.PeeKeyCode + "] hold to pee in the pool" + peeWait + "     [" + Plugin.Settings.UseKeyCode + "] splash" + wait
+                        + "     [" + CrawlKey() + "] dive under";
                 }
-                return "Swim class     walk off the diving board     splash the teacher from the water     dive under for mischief";
+                return "Swim class     get in the water and pee in the pool for mischief     the ramp at the shallow end leads in";
             }
             if (me.IsTeacher)
             {

@@ -371,6 +371,31 @@ namespace ClassPack
             {
                 // Things only a student does. They need the class to be running.
                 Add(t += 1f, "wait for class", WaitForClass);
+                // Peeing in the pool, the swim class's mischief, first: the DoorDash food pays
+                // mischief too, and in a solo test the class is won (and over) soon after.
+                Add(t += 0.5f, "state", () => DescribeMe("before peeing"));
+                Add(t += 0.3f, "pee", Swim.TestPee);
+                Add(t += 0.6f, "pee starts", () => Shot("26_pee_cloud_start", new Vector3(-2f, 2.4f, 4.2f), new Vector3(1f, -0.15f, 0.8f)));
+                Add(t += 2.4f, "pee cloud", () => Shot("27_pee_cloud", new Vector3(-2f, 2.4f, 4.2f), new Vector3(1f, -0.15f, 0.8f)));
+                Add(t += 0.4f, "eyes", () => Screen("28_eyes_pee"));
+                Add(t += 0.3f, "state", () => DescribeMe("after peeing"));
+                Add(t += 0.3f, "pee again", Swim.TestPee);
+                Add(t += 0.5f, "state", () => DescribeMe("peeing again right away (should not pay)"));
+                Add(t += 0.5f, "owner window", () =>
+                {
+                    if (HostPanel.Instance != null)
+                    {
+                        HostPanel.Instance.TestShow(true);
+                    }
+                });
+                Add(t += 0.8f, "owner window", () => Screen("29_owner_window"));
+                Add(t += 0.3f, "owner window", () =>
+                {
+                    if (HostPanel.Instance != null)
+                    {
+                        HostPanel.Instance.TestShow(false);
+                    }
+                });
                 Add(t += 1f, "order", () =>
                 {
                     DoorDash.Order(0);
@@ -646,6 +671,12 @@ namespace ClassPack
                 {
                     if (unit == null || !unit.isActived || unit.transform == null || unit.GetComponent<StudentNPCComponent>() == null
                         || (unit.Position - Swim.Origin).magnitude > 45f || Swim.Swimming(unit) != swimming)
+                    {
+                        continue;
+                    }
+                    // The camera stands beside the bot: a bot right by a wall would put it inside the wall.
+                    Vector3 inHall = unit.Position - Swim.Origin;
+                    if (!swimming && (Mathf.Abs(inHall.x) > 11f || Mathf.Abs(inHall.z) > 6.5f))
                     {
                         continue;
                     }

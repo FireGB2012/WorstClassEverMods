@@ -89,7 +89,9 @@ namespace ClassPack
         Wig = 68,           // tell: teacher a's wig lies at v (j = 1), or is back on (j = 0)
         Pool = 70,          // tell: swim class: the pool hall stands at v (j = 1), or is taken away (j = 0)
         SplashAsk = 71,     // ask: I splash from the water at v, looking along w
-        Splash = 72         // tell: water flies from v to w (i = 0 someone got in, 1 a dive, 2 a splash that hit teacher a for f seconds)
+        Splash = 72,        // tell: water flies from v to w (i = 0 someone got in, 1 a dive, 2 a splash that hit teacher a for f seconds)
+        PeeAsk = 73,        // ask: I pee in the pool where I stand (v)
+        Pee = 74            // tell: student a peed in the pool at v: a yellow cloud spreads there
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -346,6 +348,7 @@ namespace ClassPack
                     Teachers.OnAsk(player, ask);
                     break;
                 case CpKind.SplashAsk:
+                case CpKind.PeeAsk:
                     Swim.OnAsk(player, ask);
                     break;
             }
@@ -394,6 +397,7 @@ namespace ClassPack
                     break;
                 case CpKind.Pool:
                 case CpKind.Splash:
+                case CpKind.Pee:
                     Swim.OnTell(tell);
                     break;
             }

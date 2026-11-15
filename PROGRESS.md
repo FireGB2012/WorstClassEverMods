@@ -559,3 +559,101 @@ Most likely to be wrong, in my order of doubt: the swimming pose on the game's s
 left/right, the hips' height, hats on swimmers), bots that were already seated when the class
 turned into a swim class, bots walking through the poles (they are not in the walkable area's
 picture), the sofa's facing.
+
+## Bots in the pool and a new swimming move (version 0.12.0, 2026-11-15, second PC)
+
+Set up on a second PC the same day: the game is in `D:\SteamLibrary\steamapps\common` (the
+build now looks in both Steam libraries), .NET 8 SDK 8.0.428. ILSpy was not installed: the
+game's code was read with a small PowerShell script that loads `Assembly-CSharp.dll` for
+reflection only and prints a method's IL with its calls and fields named (kept outside the
+repository).
+
+Gabriel picked "bots into the pool" first and then wrote: "after that make the other stuff and
+open the game yourself and check, I won't be here for a while". So everything below was built
+and checked with the hands-free self-test while he was away. Nothing is pushed yet.
+
+What the game's bot code does (read from the IL):
+- `PlaygroundNavigationArea.TryGetDestination(agent, path, out destination)`: up to 12 tries of
+  a random point weighted by triangle area, `NavMesh.SamplePosition` within 0.4 m, inside the
+  surface's bounds, at least 2 m away, and `agent.CalculatePath` must give `PathComplete`. The
+  path is left in `path`, and `StudentNPCComponent.UpdatePlayground` then calls `agent.SetPath`.
+- On a link (`agent.isOnOffMeshLink`) `StudentNPCComponent.MoveAcrossLink` walks the bot in a
+  straight line to the link's far end at walking speed, then `CompleteOffMeshLink`.
+
+Bots into the pool (done, seen in the self-test):
+- `Swim.AddRampLink`: a `NavMeshLink` over the ramp, 7.8 m wide, from the deck at (-8.5, 0) to
+  the pool floor at (-4.5, -0.85), both ways, area "PlaygroundArea". The report now says "way
+  from the deck into the pool: PathComplete".
+- `PoolBotDestinations` (Harmony postfix on `TryGetDestination`) calls `Swim.SteerBot`, which
+  moves 60 % of the bots' picks on the deck to a spot on the pool floor and works out the
+  game's path to it (if none is found, the way to the game's own pick is put back).
+- With 35 % only 2 to 7 of 20 bots were in the water; with 60 % it is 9 to 11 of 20.
+
+New swimming move (done, seen) - `SwimPose.cs` rewritten:
+- Why the old one looked bad, from the skeleton files: spine1 sits at the same place as gupen
+  (so turning it as "the hips" left the pelvis and legs upright), and the hands
+  (`shouzhang2.L/R`, with the fingers under them) and the feet (`foot.L/R`) hang under `Root`,
+  not under the forearms and shins. The game's animations place them with IK, so when the arms
+  and legs were turned, the hands and feet stayed where the walk had left them.
+- Now: each bone is aimed at a direction in the swimmer's own frame (forward, right, up),
+  turned the shortest way from a fixed resting direction (spine up, arms straight out to the
+  side, legs down). The moves never point a bone straight against its resting direction, so an
+  arm can circle without flipping. Every bone of this skeleton points along its own up axis.
+  Hands and feet are then put at the wrist and ankle (their offset from the forearm or shin is
+  noted when the rig is set up). The hips are held at 0.17 torso lengths under the surface in
+  the crawl and 0.92 when treading water.
+- Crawl: body flat, head up, big alternating arm circles (straight pull under the body, bent
+  elbow over the water), flutter kick, toes pointed. Treading water: upright, hands sculling,
+  legs pedalling. Speed above 0.3 m/s means the crawl.
+- Seen in the pictures (`dist\autotest\student\` 10b, 11, 16 to 18, and teacher0 16 to 18):
+  bots, the student player and the game's own teacher crawl flat with the head up. A bot that
+  stops in the pool treads water upright; the water is so clear that this reads more like
+  standing in the pool.
+- The three new teachers (own Meshy bodies) still play their Meshy clips; `SwimPose.SurfaceFor`
+  still reads `moves_swim.cpr` for them.
+
+Also checked: the light (overview pictures show the tiles and colours, no longer washed out);
+DoorDash in the lounge (the self-test now orders before the dive, which used to win the solo
+class first; `24_lounge_food` shows the hamburger on the coffee table).
+
+Self-test changes: the DoorDash order and lounge pictures come before the dive, a
+`10b_bots_in_pool` picture and "bots in the water" counts were added, and the "bot on the deck"
+picture skips bots by the walls (the camera ended up inside the wall).
+
+Teacher runs (`-Role teacher -Kind 0..4`, all five went through with no errors): the game's
+own teacher and the wig teacher crawl with the new move (the wig stays on the head). The gym
+teacher, lunch lady and janitor have their own Meshy bodies and clips: their stroke is a flat
+breaststroke glide, which reads fine. The first runs only showed them treading water, because
+`SwimPose.ForceMoving` did not reach their bodies; `Looks.PlaceBody` now honours it too.
+
+### Peeing in the pool (asked for 2026-11-15, same version 0.12.0)
+
+Gabriel: "make so the way to get mischief is to piss in the pool". Then, after the first
+version (+10 every 10 s, which won a solo class with one pee): "it works, it's OP now, just make
+the peeing balanced".
+
+How it plays now:
+- A student in the pool's water holds P (`peeKey`) for 3 seconds: a yellow bar "PEEING..." fills
+  and they can hardly move meanwhile (speed x0.25), so a teacher close by can catch them at it.
+  Letting go early cancels it.
+- Then a yellow cloud spreads in the water around them (about 5 m across after 3 s, fades away
+  after 16 s, seen by everyone, with a leaking sound) and they get +4 mischief (`peePoints`).
+  Double (+8) when a teacher is in the water inside the cloud; that teacher is told who did it.
+- The next pee is possible after 30 seconds (`peeWaitSeconds`). The host's numbers count; the
+  host tells the student's game the wait, so its countdown matches.
+- Diving off the board, splashing the teacher and staying under water still happen, but no
+  longer pay mischief unless the room owner switches on "Diving, splashing and staying under
+  water pay mischief too" (`poolOldMischief`) in the F6 window. The F6 window also has "Pee
+  mischief" (1 to 10) and "Pee wait" (10 to 60 s) sliders, host only. Keep labels in that
+  window short: a row wider than the window spills out on the right (a scroll view was tried
+  and made it worse: it widened everything and broke the wrapped notes).
+- New how-to cards `swimpee` and `swimteacher2` (new names, so everyone sees them once).
+- Code: `Swim.OnPeeAsk` (host), the hold in the local tick, `AddCloud`/`TickCloud` (two
+  see-through sheets made with `Rooms.Water` and a soft yellow picture made in code), Net kinds
+  `PeeAsk = 73` and `Pee = 74`.
+- Seen in the self-test: the cloud spreading around the student, from above and through their
+  eyes (`27_pee_cloud`, `28_eyes_pee`); mischief 0 before, 4 after; a second pee right away
+  pays nothing; diving under and the dive off the board pay nothing; the class no longer ends
+  early in the solo test. The self-test now pees right after the class starts (before
+  DoorDash, whose food also pays mischief) and takes a picture of the F6 window
+  (`29_owner_window`).

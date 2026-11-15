@@ -77,6 +77,15 @@ namespace ClassPack
         public bool poolBots = true;
         // While you swim, show the picture from behind you so you see your own body swim.
         public bool swimSelfView = true;
+        // Swim class mischief: a student pees in the pool by holding peeKey in the water.
+        // Diving off the board, splashing the teacher and staying under water only pay
+        // mischief too when the room owner has poolOldMischief on.
+        public string peeKey = "P";
+        public bool poolOldMischief = false;
+        // What one pee pays (double when a teacher is in the water inside the yellow cloud) and
+        // how long a student has to wait before the next. The room owner's numbers count.
+        public float peePoints = 4f;
+        public float peeWaitSeconds = 30f;
 
         // Raised when a number the player may have saved has to change once (see Load).
         public int rulesVersion = 0;
@@ -168,6 +177,8 @@ namespace ClassPack
         public KeyCode DoorDashKeyCode => ParseKey(doorDashKey, KeyCode.O);
 
         public KeyCode TeacherSnackKeyCode => ParseKey(teacherSnackKey, KeyCode.G);
+
+        public KeyCode PeeKeyCode => ParseKey(peeKey, KeyCode.P);
 
         private static KeyCode ParseKey(string name, KeyCode fallback)
         {

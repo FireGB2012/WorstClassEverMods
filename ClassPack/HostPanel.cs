@@ -18,6 +18,27 @@ namespace ClassPack
 
         private bool _open;
         private float _length;
+
+        /// <summary>The one window, for the self-test's picture of it.</summary>
+        public static HostPanel Instance { get; private set; }
+
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        /// <summary>Self-test: open or close the window to take a picture of it.</summary>
+        public void TestShow(bool show)
+        {
+            if (show && !_open && InRoom)
+            {
+                Open();
+            }
+            else if (!show && _open)
+            {
+                Close();
+            }
+        }
         private float _teachers;
         private float _targetPercent;
         private string _message = "";
@@ -259,6 +280,41 @@ namespace ClassPack
                 {
                     settings.swimSelfView = behind;
                     _lightChanged = true;
+                }
+                if (isHost)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Pee mischief", _label, GUILayout.Width(120f));
+                    float pee = GUILayout.HorizontalSlider(Mathf.Clamp(settings.peePoints, 1f, 10f), 1f, 10f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
+                    pee = Mathf.Round(pee);
+                    GUILayout.Space(12f);
+                    GUILayout.Label("+" + pee, _label);
+                    GUILayout.EndHorizontal();
+                    if (!Mathf.Approximately(pee, settings.peePoints))
+                    {
+                        settings.peePoints = pee;
+                        _lightChanged = true;
+                    }
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("Pee wait", _label, GUILayout.Width(120f));
+                    float wait = GUILayout.HorizontalSlider(Mathf.Clamp(settings.peeWaitSeconds, 10f, 60f), 10f, 60f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
+                    wait = Mathf.Round(wait / 5f) * 5f;
+                    GUILayout.Space(12f);
+                    GUILayout.Label(wait + " s", _label);
+                    GUILayout.EndHorizontal();
+                    if (!Mathf.Approximately(wait, settings.peeWaitSeconds))
+                    {
+                        settings.peeWaitSeconds = wait;
+                        _lightChanged = true;
+                    }
+                    GUILayout.Space(6f);
+                    GUILayout.Label("Peeing in the pool pays this, double next to a teacher in the water, then the student waits.", _note);
+                    bool oldWays = GUILayout.Toggle(settings.poolOldMischief, "Diving, splashing and diving under pay mischief too", _toggle);
+                    if (oldWays != settings.poolOldMischief)
+                    {
+                        settings.poolOldMischief = oldWays;
+                        _lightChanged = true;
+                    }
                 }
             }
         }

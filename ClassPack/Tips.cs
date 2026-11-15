@@ -78,22 +78,23 @@ namespace ClassPack
                         "You can mop again after 6 seconds"
                     };
                     return true;
-                case "swim":
+                case "swimpee":
                     title = "SWIM CLASS: what you can do as a student";
                     lines = new[]
                     {
-                        "Climb the diving board and walk off its end into the pool for mischief",
-                        "In the water,  " + Use + "  splashes. Soak the teacher when they are close for big mischief",
-                        "Crawl in the pool to dive under: mischief every second while your air lasts",
-                        "The water slows you down. The ramp at the shallow end leads out",
+                        "In the water, hold  " + Plugin.Settings.PeeKeyCode + "  to pee in the pool for mischief. It takes 3 seconds and you can hardly move",
+                        "Pee right next to the teacher while they are in the water: double mischief. Then you have to wait a while",
+                        "In the water,  " + Use + "  splashes the teacher's screen. Crawl in the pool to dive under",
+                        "The water slows you down. The ramp at the shallow end leads in and out",
                         "DoorDash food lands in the teachers' lounge, through the door at the deep end"
                     };
                     return true;
-                case "swimteacher":
+                case "swimteacher2":
                     title = "SWIM CLASS: what you can do as the teacher";
                     lines = new[]
                     {
                         "Catch students as usual. The poles stand along the pool",
+                        "Students pee in the pool for mischief: keep out of the yellow water",
                         "There is no blackboard here: stand next to the lifeguard chair and your stamina fills up",
                         "The water slows you down too. Stay back from the edge, or you get splashed",
                         "Students order DoorDash to your lounge, through the door at the deep end",
@@ -123,7 +124,7 @@ namespace ClassPack
             }
             if (Swim.Active && (me.IsTeacher || me.IsStudent))
             {
-                return me.IsTeacher ? "swimteacher" : "swim";
+                return me.IsTeacher ? "swimteacher2" : "swimpee";
             }
             if (me.IsTeacher)
             {
