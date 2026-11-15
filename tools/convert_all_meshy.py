@@ -77,6 +77,15 @@ MODELS = {
     # The teachers' lounge next to the pool: same rules as the pool props.
     'lounge_sofa': (1.8, '0.5,0.5,0', '0,0,0', BACK),
     'lounge_table': (1.3, '0.5,0.5,0', '0,0,0', BACK),
+    # Dance hall props: same rules as the pool props. The disco ball's (0, 0, 0) is the top of
+    # its chain, so it hangs from there. The stage is sized to be about 0.6 m high, a good step
+    # up for the game's small students; its steps are at its front.
+    'dance_discoball': (1.0, '0.5,0.5,1', '0,0,0', BACK),
+    'dance_speaker': (1.5, '0.5,0.5,0', '0,0,0', BACK),
+    'dance_djbooth': (1.9, '0.5,0.5,0', '0,0,0', BACK),
+    'dance_stage': (3.2, '0.5,0.5,0', '0,0,0', BACK),
+    'dance_boombox': (0.6, '0.5,0.5,0', '0,0,0', BACK),
+    'dance_snacks': (1.2, '0.5,0.5,0', '0,0,0', BACK),
 }
 
 

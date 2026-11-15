@@ -81,3 +81,20 @@ All made: `meshy/teachers/teacher_<name>_swim.glb` (swim moves, added to the `.c
 `convert_character.py --append`; the janitor's also gave `package/models/moves_swim.cpr`) and
 `meshy/toy/lounge_sofa.glb`, `lounge_table.glb` (pictures: `meshy/pictures/lounge_models.png`).
 60 credits used, 291 left by my count.
+
+## Dance class props, 2026-11-15 (126 credits approved, 291 before)
+
+Gabriel chose "6 props, 126 credits". Game-style recipe as for the pool props; the two style
+screenshots (from the Steam store data) are
+`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/5175310/5e243e634eb16b2ef336a47f76c107de1e2f4d31/ss_5e243e634eb16b2ef336a47f76c107de1e2f4d31.1920x1080.jpg`
+and `.../12f3c4378f48f9f45c56c24d019370026ec3c1c7/ss_12f3c4378f48f9f45c56c24d019370026ec3c1c7.1920x1080.jpg`.
+Style pictures: `meshy/style/dance_<name>.png`.
+
+| Prop | Picture task | 3D task |
+|------|--------------|---------|
+| dance_discoball | 01a1e048-cfd3-726f-9fae-2f41ff5271cb | 01a1e04a-29a3-7212-8825-43c087f29d82 |
+| dance_speaker | 01a1e048-d33a-7325-806d-e6497cc12ea2 | 01a1e04a-2e41-7058-b496-16ccfc2abb0e |
+| dance_djbooth | 01a1e048-d631-7179-a569-16cc962a9e51 | 01a1e04a-3170-77bd-b76c-e5e5bd2aa8e8 |
+| dance_stage | 01a1e048-d82c-7578-b609-1d029fa88baa | 01a1e04a-347b-7569-a8cc-2e173a04764b |
+| dance_boombox | 01a1e048-da54-7461-90b7-fc2c89ac9f08 | 01a1e04a-37b7-7315-b6df-4cf47fb57512 |
+| dance_snacks | 01a1e048-dd1c-746f-93b7-4aa65ed8f17d | 01a1e04a-3b5a-7663-9378-d32575f5c878 |
