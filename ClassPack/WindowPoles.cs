@@ -264,13 +264,32 @@ namespace ClassPack
                 {
                     continue;
                 }
-                Vector3 outward = glass.center - pole.Position;
+                // Out: from the pole to the window it stands at (the poles are put 0.75 m straight
+                // in from a window). The glass can be a long one, its middle metres along the wall.
+                Vector3 outward = unit.Position - pole.Position;
                 outward.y = 0f;
-                if (outward.sqrMagnitude < 0.01f)
+                if (outward.sqrMagnitude < 0.0025f)
+                {
+                    outward = glass.center - pole.Position;
+                    outward.y = 0f;
+                }
+                if (outward.sqrMagnitude < 0.0025f)
                 {
                     continue;
                 }
-                hang = new Hang { Sill = new Vector3(glass.center.x, glass.min.y, glass.center.z), Out = outward.normalized };
+                outward.Normalize();
+                // The sill: in the wall straight out from the pole, kept within the glass sideways.
+                Vector3 side = Vector3.Cross(Vector3.up, outward);
+                Vector3 wall = pole.Position + outward * Vector3.Dot(glass.center - pole.Position, outward);
+                float reach = Mathf.Abs(side.x) * glass.extents.x + Mathf.Abs(side.z) * glass.extents.z;
+                float along = Vector3.Dot(glass.center - wall, side);
+                float shift = Mathf.Clamp(0f, along - reach + 0.35f, along + reach - 0.35f);
+                if (reach < 0.35f)
+                {
+                    shift = along;
+                }
+                wall += side * shift;
+                hang = new Hang { Sill = new Vector3(wall.x, glass.min.y, wall.z), Out = outward };
                 known = true;
                 break;
             }
