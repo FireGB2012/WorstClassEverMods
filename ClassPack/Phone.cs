@@ -240,7 +240,7 @@ namespace ClassPack
             GUILayout.BeginVertical();
             GUILayout.Space(8f);
             int points = Mathf.RoundToInt(Plugin.Settings.doorDashPoints);
-            GUILayout.Label("We deliver to the teacher's office. Go and get it, then eat it for " + points + " mischief.", _small);
+            GUILayout.Label("We deliver " + DoorDash.WhereFood + ". Go and get it, then eat it for " + points + " mischief.", _small);
             GUILayout.Space(6f);
 
             DoorDash.Stage stage = DoorDash.Current;
@@ -254,7 +254,7 @@ namespace ClassPack
             {
                 if (stage == DoorDash.Stage.Arrived)
                 {
-                    GUILayout.Label("Delivered! Your " + DoorDash.MenuNames[DoorDash.OrderedFood] + " is in the teacher's office.", _note);
+                    GUILayout.Label("Delivered! Your " + DoorDash.MenuNames[DoorDash.OrderedFood] + " is " + DoorDash.WhereFood + ".", _note);
                 }
                 else if (stage == DoorDash.Stage.Failed)
                 {

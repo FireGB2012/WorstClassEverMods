@@ -30,6 +30,9 @@ namespace ClassPack
         public static Stage Current { get; private set; }
         public static int OrderedFood { get; private set; }
         public static float ArrivesAt { get; private set; }
+
+        /// <summary>Where the food goes in the class being played, for the messages.</summary>
+        public static string WhereFood => Swim.Active ? "in the teachers' lounge by the pool" : Dance.Active ? "on the snack table" : "in the teacher's office";
         public static float ReadyAt { get; private set; }
 
         // Delivered food that is still lying around, known to every modded player
@@ -290,7 +293,7 @@ namespace ClassPack
                 Current = Stage.Arrived;
                 ReadyAt = Time.time + Mathf.Max(0f, Plugin.Settings.doorDashCooldownSeconds);
                 Game.PlaySound(AudioEvents.sfx_GameAddItem_sfx);
-                Game.Notify("DoorDash: your " + MenuNames[food] + " is in the teacher's office. Eat it for "
+                Game.Notify("DoorDash: your " + MenuNames[food] + " is " + WhereFood + ". Eat it for "
                     + Mathf.RoundToInt(Plugin.Settings.doorDashPoints) + " mischief", 5f);
             }
             else

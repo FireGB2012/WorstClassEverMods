@@ -111,10 +111,15 @@ namespace ClassPack
         private static readonly Dictionary<ulong, Dancer> HostDancers = new Dictionary<ulong, Dancer>();
         private static readonly Dictionary<ulong, BotState> BotStates = new Dictionary<ulong, BotState>();
         private static readonly Dictionary<ulong, float> Claimed = new Dictionary<ulong, float>();
+        /// <summary>Bots on their way to dance with a player who danced alone: bot's walker, player.</summary>
+        private static readonly Dictionary<NavMeshAgent, ulong> Recruits = new Dictionary<NavMeshAgent, ulong>();
+        /// <summary>When each player who dances alone last had a bot sent over.</summary>
+        private static readonly Dictionary<ulong, float> RecruitedAt = new Dictionary<ulong, float>();
         private static NavMeshSurface _nav;
         private static PlaygroundNavigationArea _navArea;
         private static bool _navTried;
         private static bool _loggedPick;
+        private static bool _loggedRecruit;
 
         /// <summary>True while this player's game shows the dance hall.</summary>
         public static bool Active => _on;
@@ -165,6 +170,8 @@ namespace ClassPack
                 HostBots.Clear();
                 HostDancers.Clear();
                 BotStates.Clear();
+                Recruits.Clear();
+                RecruitedAt.Clear();
                 if (_on || _hall != null)
                 {
                     Take();
@@ -257,6 +264,8 @@ namespace ClassPack
             HostDancers.Clear();
             BotStates.Clear();
             Claimed.Clear();
+            Recruits.Clear();
+            RecruitedAt.Clear();
             _song = (_song + 1) % Songs.Length;
             Net.SendToModded(new CpTell { kind = CpKind.DanceHall, j = 1, i = _song, v = _hostOrigin });
             SpawnPoles(units, centre);
@@ -354,6 +363,8 @@ namespace ClassPack
             HostDancers.Clear();
             BotStates.Clear();
             Claimed.Clear();
+            Recruits.Clear();
+            RecruitedAt.Clear();
             RemovePoles();
             Net.SendToModded(new CpTell { kind = CpKind.DanceHall, j = 0 });
             Plugin.Log("dance: class over, the dance hall is taken away");
@@ -718,21 +729,125 @@ namespace ClassPack
                 Vector3 at = bot.Position - _hostOrigin;
                 float moved = Tricks.Flat(bot.Position - state.Last).magnitude;
                 state.Last = bot.Position;
+                bool withPlayer = NextToDancingPlayer(units, bot);
                 bool dancing = Dancers.Contains(uid);
                 if (dancing)
                 {
-                    if (moved > 0.12f || !OnDanceFloor(at) || Time.time > state.DanceUntil)
+                    if (withPlayer)
+                    {
+                        // A player's dance partner stays as long as the player keeps dancing.
+                        Hold(bot);
+                        state.DanceUntil = Mathf.Max(state.DanceUntil, Time.time + 3f);
+                    }
+                    if (moved > 0.12f || !(OnDanceFloor(at) || withPlayer) || Time.time > state.DanceUntil)
                     {
                         SetDancing(uid, false);
                         state.StillFor = 0f;
                     }
                     continue;
                 }
-                state.StillFor = moved < 0.04f ? state.StillFor + dt : 0f;
-                if (state.StillFor > 0.6f && OnDanceFloor(at))
+                state.StillFor = moved < 0.06f ? state.StillFor + dt : 0f;
+                if (state.StillFor > 0.5f && (OnDanceFloor(at) || withPlayer))
                 {
                     state.DanceUntil = Time.time + 25f;
                     SetDancing(uid, true);
+                }
+            }
+            RecruitPartners(units);
+        }
+
+        /// <summary>True when a dancing player is close enough to this bot to dance with it.</summary>
+        private static bool NextToDancingPlayer(UnitManager units, Unit bot)
+        {
+            foreach (ulong uid in HostDancers.Keys)
+            {
+                Unit player = units.GetUnitByUID(uid);
+                if (player != null && player.isActived && player.transform != null
+                    && Tricks.Flat(player.Position - bot.Position).magnitude < DanceReach && Mathf.Abs(player.Position.y - bot.Position.y) < 1f)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Keeps a bot where it stands a little longer: the game lets it wait before it walks on.</summary>
+        private static void Hold(Unit bot)
+        {
+            StudentNPCComponent npc = bot.GetComponent<StudentNPCComponent>();
+            if (npc == null)
+            {
+                return;
+            }
+            Traverse wait = Traverse.Create(npc).Field("playgroundWaitUntil");
+            if (wait.FieldExists() && wait.GetValue<float>() < Time.time + 1.5f)
+            {
+                wait.SetValue(Time.time + 1.5f);
+            }
+        }
+
+        /// <summary>
+        /// Host: a student who dances alone gets a partner. The nearest bot that isn't busy
+        /// dancing with someone is told to pick a new spot now (SteerBot then sends it to the
+        /// student), and is asked again if it hasn't got there after a while.
+        /// </summary>
+        private static void RecruitPartners(UnitManager units)
+        {
+            foreach (ulong playerUid in HostDancers.Keys)
+            {
+                Unit player = units.GetUnitByUID(playerUid);
+                if (player == null || !player.isActived || !player.IsStudent || player.transform == null || HasPartner(units, player))
+                {
+                    continue;
+                }
+                float at;
+                if (RecruitedAt.TryGetValue(playerUid, out at) && Time.time < at + 9f)
+                {
+                    continue;
+                }
+                Unit best = null;
+                NavMeshAgent bestAgent = null;
+                float nearest = 14f;
+                foreach (ulong uid in HostBots)
+                {
+                    Unit bot = units.GetUnitByUID(uid);
+                    NavMeshAgent agent = bot != null && bot.model != null ? bot.model.GetComponent<NavMeshAgent>() : null;
+                    if (agent == null || !bot.isActived || Recruits.ContainsKey(agent) || (Dancers.Contains(uid) && HasPartner(units, bot)))
+                    {
+                        continue;
+                    }
+                    float distance = Tricks.Flat(bot.Position - player.Position).magnitude;
+                    if (distance < nearest)
+                    {
+                        nearest = distance;
+                        best = bot;
+                        bestAgent = agent;
+                    }
+                }
+                if (best == null)
+                {
+                    continue;
+                }
+                StudentNPCComponent npc = best.GetComponent<StudentNPCComponent>();
+                if (npc == null)
+                {
+                    continue;
+                }
+                RecruitedAt[playerUid] = Time.time;
+                Recruits[bestAgent] = playerUid;
+                Claimed.Remove(playerUid);
+                // Drop what it was doing: with no spot to go to and no wait, it picks a new
+                // spot on its next update, and SteerBot makes that the spot next to the player.
+                Traverse.Create(npc).Field("hasDestination").SetValue(false);
+                Traverse.Create(npc).Field("playgroundWaitUntil").SetValue(0f);
+                if (Dancers.Contains(best.UID))
+                {
+                    SetDancing(best.UID, false);
+                }
+                if (!_loggedRecruit)
+                {
+                    _loggedRecruit = true;
+                    Plugin.Log("dance: a bot " + nearest.ToString("F1") + " m away was sent to dance with a student who danced alone");
                 }
             }
         }
@@ -745,7 +860,7 @@ namespace ClassPack
         /// </summary>
         public static void SteerBot(PlaygroundNavigationArea area, NavMeshAgent agent, NavMeshPath path, ref Vector3 destination)
         {
-            if (area == null || area != _navArea || !_hostOn || agent == null || path == null || Random.value > BotShare)
+            if (area == null || area != _navArea || !_hostOn || agent == null || path == null)
             {
                 return;
             }
@@ -754,10 +869,29 @@ namespace ClassPack
             {
                 return;
             }
-            // Someone dancing alone who no bot is on its way to yet.
+            // A bot sent to dance with a particular student (RecruitPartners) goes to that student.
             Unit lonely = null;
+            ulong recruitedFor;
+            if (Recruits.TryGetValue(agent, out recruitedFor))
+            {
+                Recruits.Remove(agent);
+                Unit player = units.GetUnitByUID(recruitedFor);
+                if (player != null && player.isActived && player.transform != null && Dancers.Contains(recruitedFor))
+                {
+                    lonely = player;
+                }
+            }
+            if (lonely == null && Random.value > BotShare)
+            {
+                return;
+            }
+            // Otherwise someone dancing alone who no bot is on its way to yet.
             foreach (ulong uid in Dancers)
             {
+                if (lonely != null)
+                {
+                    break;
+                }
                 float until;
                 if (Claimed.TryGetValue(uid, out until) && Time.time < until)
                 {

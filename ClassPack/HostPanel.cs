@@ -327,7 +327,7 @@ namespace ClassPack
             if (isHost && (dance || Dance.Active))
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Dance mischief", _label, GUILayout.Width(120f));
+                GUILayout.Label("Dancing pays", _label, GUILayout.Width(120f));
                 float points = GUILayout.HorizontalSlider(Mathf.Clamp(settings.dancePoints, 1f, 5f), 1f, 5f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
                 points = Mathf.Round(points);
                 GUILayout.Space(12f);
