@@ -33,7 +33,7 @@ namespace ClassPack
         public static void Tick()
         {
             Unit me = Game.LocalPlayer;
-            bool want = Plugin.Settings.swimSelfView && Swim.Active && me != null && me.isActived && Swim.Swimming(me);
+            bool want = Plugin.Settings.swimSelfView && me != null && me.isActived && ((Swim.Active && Swim.Swimming(me)) || Dance.IsDancing(me));
             _weight = Mathf.MoveTowards(_weight, want ? 1f : 0f, Time.unscaledDeltaTime / EaseSeconds);
             if (_weight > 0f && !_hooked)
             {

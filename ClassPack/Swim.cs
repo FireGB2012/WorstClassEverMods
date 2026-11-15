@@ -27,7 +27,7 @@ namespace ClassPack
     {
         public const int NormalClass = 0;
         public const int SwimClass = 1;
-        public static readonly string[] ClassNames = { "Normal class", "Swim class" };
+        public static readonly string[] ClassNames = { "Normal class", "Swim class", "Dance class" };
 
         // ---- the hall
         private const float HalfLength = 14f;

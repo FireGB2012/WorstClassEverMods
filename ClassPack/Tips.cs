@@ -101,6 +101,27 @@ namespace ClassPack
                         "A splash covers your screen with water for a few seconds"
                     };
                     return true;
+                case "dance":
+                    title = "DANCE CLASS: what you can do as a student";
+                    lines = new[]
+                    {
+                        Plugin.Settings.DanceKeyCode + "  starts your dance, and stops it again. You can't walk while you dance",
+                        "Dance right next to another dancer, a classmate or a bot, for mischief every few seconds",
+                        "It only counts while you both keep dancing",
+                        "Dance alone on the dance floor and a bot comes over to dance with you",
+                        "DoorDash food lands on the snack table"
+                    };
+                    return true;
+                case "danceteacher":
+                    title = "DANCE CLASS: what you can do as the teacher";
+                    lines = new[]
+                    {
+                        "Students dance in pairs for mischief. A dancer can't run away: catch them at it",
+                        "The poles stand along the wall",
+                        "There is no blackboard here: stand at the DJ booth on the stage and your stamina fills up",
+                        "Students order DoorDash to the snack table"
+                    };
+                    return true;
                 case "teacher4":
                     title = "You are the BALD TEACHER WITH A WIG";
                     lines = new[]
@@ -121,6 +142,10 @@ namespace ClassPack
             if (me == null)
             {
                 return null;
+            }
+            if (Dance.Active && (me.IsTeacher || me.IsStudent))
+            {
+                return me.IsTeacher ? "danceteacher" : "dance";
             }
             if (Swim.Active && (me.IsTeacher || me.IsStudent))
             {

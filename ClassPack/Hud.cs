@@ -35,7 +35,7 @@ namespace ClassPack
                 string hint = FireAlarm.DrawHud(width, height);
                 string gun = NerfGuns.DrawHud(width, height);
                 string trick = Tricks.DrawHud(width, height);
-                string swim = Swim.DrawHud(width, height);
+                string swim = Swim.DrawHud(width, height) ?? Dance.DrawHud(width, height);
                 string teacher = Teachers.DrawHud(width, height);
                 Tips.Draw(width, height);
                 string call = PrankCall.DrawHud();

@@ -201,7 +201,7 @@ namespace ClassPack
         public static void LateTick()
         {
             UnitManager units = Game.Peek<UnitManager>();
-            if (!Swim.Active || units == null || !Plugin.Settings.looks)
+            if ((!Swim.Active && !Dance.Active) || units == null || !Plugin.Settings.looks)
             {
                 return;
             }
@@ -214,7 +214,7 @@ namespace ClassPack
                 }
                 Unit unit = units.GetUnitByUID(pair.Key);
                 if (unit != null && unit.isActived && unit.model != null && unit.transform != null
-                    && (!unit.isLocalPlayer || SelfView.Showing) && Swim.Swimming(unit))
+                    && (!unit.isLocalPlayer || SelfView.Showing) && (Swim.Swimming(unit) || Dance.IsDancing(unit)))
                 {
                     Place(unit, worn, true);
                 }

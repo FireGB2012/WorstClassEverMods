@@ -196,6 +196,12 @@ namespace ClassPack
                 // In a swim class the food goes to the lounge next to the pool, onto its table.
                 bool atPool = Swim.TryLoungeSpot(out spot);
                 how = "the pool hall's lounge table";
+                // In a dance class it goes onto the snack table.
+                if (!atPool && Dance.TrySnackSpot(out spot))
+                {
+                    atPool = true;
+                    how = "the dance hall's snack table";
+                }
                 if (atPool || TeacherOffice.TryFind(out spot, out how))
                 {
                     Vector2 scatter = UnityEngine.Random.insideUnitCircle * (atPool ? 0.22f : 0.45f);

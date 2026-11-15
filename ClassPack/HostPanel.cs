@@ -246,11 +246,13 @@ namespace ClassPack
             for (int i = 0; i < Swim.ClassNames.Length; i++)
             {
                 bool picked = settings.nextClass == i;
-                if (GUILayout.Toggle(picked, Swim.ClassNames[i], _pick, GUILayout.Width(150f)) && !picked)
+                if (GUILayout.Toggle(picked, Swim.ClassNames[i], _pick, GUILayout.Width(112f)) && !picked)
                 {
                     settings.nextClass = i;
                     settings.Save();
-                    _message = i == Swim.SwimClass ? "The next bell starts a swim class in the pool hall." : "The next bell starts a normal class.";
+                    _message = i == Swim.SwimClass ? "The next bell starts a swim class in the pool hall."
+                        : i == Dance.DanceClass ? "The next bell starts a dance class in the dance hall."
+                        : "The next bell starts a normal class.";
                     Plugin.Log("next class picked in the panel: " + Swim.ClassNames[i]);
                 }
             }
@@ -316,6 +318,40 @@ namespace ClassPack
                         _lightChanged = true;
                     }
                 }
+            }
+            bool dance = isHost && settings.nextClass == Dance.DanceClass;
+            if (dance)
+            {
+                GUILayout.Label("At the bell everyone who runs Class Pack goes to the dance hall, and the bots come along.", _note);
+            }
+            if (isHost && (dance || Dance.Active))
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Dance mischief", _label, GUILayout.Width(120f));
+                float points = GUILayout.HorizontalSlider(Mathf.Clamp(settings.dancePoints, 1f, 5f), 1f, 5f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
+                points = Mathf.Round(points);
+                GUILayout.Space(12f);
+                GUILayout.Label("+" + points, _label);
+                GUILayout.EndHorizontal();
+                if (!Mathf.Approximately(points, settings.dancePoints))
+                {
+                    settings.dancePoints = points;
+                    _lightChanged = true;
+                }
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Dance every", _label, GUILayout.Width(120f));
+                float every = GUILayout.HorizontalSlider(Mathf.Clamp(settings.danceSeconds, 3f, 15f), 3f, 15f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
+                every = Mathf.Round(every);
+                GUILayout.Space(12f);
+                GUILayout.Label(every + " s", _label);
+                GUILayout.EndHorizontal();
+                if (!Mathf.Approximately(every, settings.danceSeconds))
+                {
+                    settings.danceSeconds = every;
+                    _lightChanged = true;
+                }
+                GUILayout.Space(6f);
+                GUILayout.Label("Two dancers right next to each other earn this, again and again while both keep dancing.", _note);
             }
         }
 

@@ -65,8 +65,13 @@ namespace ClassPack
             public Quaternion AnimEndTurn;
             public Vector3 SavedEndAt;
             public Quaternion SavedEndTurn;
+            /// <summary>The hand's or foot's turn while standing, in the character's frame (feet stay flat in the dance).</summary>
+            public Quaternion EndRest;
             /// <summary>-1 for the character's left, +1 for its right.</summary>
             public float Side;
+            /// <summary>Lengths of the upper and lower part, for keeping the feet on the floor when the knees bend.</summary>
+            public float UpperLength;
+            public float LowerLength;
         }
 
         private sealed class Rig
@@ -85,7 +90,10 @@ namespace ClassPack
             public List<Bone> All;
             public float Torso;
             public bool Ready;
+            /// <summary>True while this code poses the character (swimming or dancing).</summary>
             public bool Swimming;
+            /// <summary>What it does: 1 swims, 2 dances. Kept while easing back out of it.</summary>
+            public int Mode;
             public float Weight;
             public float Clock;
             public float Still;
@@ -107,7 +115,7 @@ namespace ClassPack
         /// <summary>Called late in every frame, after the game has posed its characters.</summary>
         public static void LateTick()
         {
-            if (!Swim.Active)
+            if (!Swim.Active && !Dance.Active)
             {
                 if (Rigs.Count > 0)
                 {
@@ -140,10 +148,12 @@ namespace ClassPack
                     continue;
                 }
                 bool swims = Swim.Swimming(unit) && !Looks.HasOwnBody(unit.UID);
+                bool dances = !swims && Dance.IsDancing(unit) && !Looks.HasOwnBody(unit.UID);
+                bool posed = swims || dances;
                 Rig rig;
                 if (!Rigs.TryGetValue(unit.UID, out rig) || rig.Model != unit.model.transform)
                 {
-                    if (!swims && rig == null)
+                    if (!posed && rig == null)
                     {
                         continue;
                     }
@@ -155,7 +165,7 @@ namespace ClassPack
                     rig.RetryAt = Time.time + 0.5f;
                     Rigs[unit.UID] = rig;
                 }
-                else if (!rig.Ready && swims && Time.time >= rig.RetryAt)
+                else if (!rig.Ready && posed && Time.time >= rig.RetryAt)
                 {
                     // It could not be set up before (it was lying down or being carried): try again.
                     rig = Build(unit);
@@ -173,11 +183,11 @@ namespace ClassPack
                     {
                         rig.Speed = 1.3f;
                         rig.LastAt = unit.Position;
-                        Apply(unit, rig, swims, true);
+                        Apply(unit, rig, swims, dances, true);
                     }
                     else
                     {
-                        Apply(unit, rig, swims, false);
+                        Apply(unit, rig, swims, dances, false);
                     }
                 }
                 catch (System.Exception ex)
@@ -206,7 +216,7 @@ namespace ClassPack
             }
         }
 
-        private static void Apply(Unit unit, Rig rig, bool swims, bool keepSpeed)
+        private static void Apply(Unit unit, Rig rig, bool swims, bool dances, bool keepSpeed)
         {
             float dt = Time.deltaTime;
             Vector3 at = unit.Position;
@@ -216,7 +226,11 @@ namespace ClassPack
                 rig.Speed = Mathf.Lerp(rig.Speed, Mathf.Min(moved, 8f), 1f - Mathf.Exp(-dt * 6f));
             }
             rig.LastAt = at;
-            rig.Weight = Mathf.MoveTowards(rig.Weight, swims ? 1f : 0f, dt / 0.3f);
+            if (swims || dances)
+            {
+                rig.Mode = swims ? 1 : 2;
+            }
+            rig.Weight = Mathf.MoveTowards(rig.Weight, swims || dances ? 1f : 0f, dt / 0.3f);
             if (rig.Weight <= 0f)
             {
                 if (rig.Swimming)
@@ -239,6 +253,12 @@ namespace ClassPack
                 }
                 rig.Swimming = true;
                 rig.Still = rig.Speed > 0.3f ? 0f : 1f;
+            }
+            if (rig.Mode == 2)
+            {
+                rig.Clock += dt;
+                ApplyDance(unit, rig, rig.Weight);
+                return;
             }
             // Two moves, eased into each other: the crawl while moving, treading water while still.
             rig.Still = Mathf.MoveTowards(rig.Still, rig.Speed > 0.3f ? 0f : 1f, dt / 0.4f);
@@ -318,6 +338,91 @@ namespace ClassPack
                 // Toes pointed in the crawl.
                 PlaceEnd(leg, weight, 0.75f * (1f - still), shin);
             }
+        }
+
+        /// <summary>Beats a second of the dance, the same as the dance hall's lights.</summary>
+        private const float DanceBeats = 2f;
+
+        /// <summary>
+        /// The dance class's silly chicken dance: elbows out and flapping like wings with the
+        /// hands tucked in at the chest, the head pecking forward on the beat, the knees bouncing
+        /// (the body goes down with them, so the feet stay flat on the floor) and a sway from
+        /// side to side.
+        /// </summary>
+        private static void ApplyDance(Unit unit, Rig rig, float weight)
+        {
+            Quaternion yaw = Quaternion.Euler(0f, unit.transform.eulerAngles.y, 0f);
+            Vector3 f = yaw * Vector3.forward;
+            Vector3 r = yaw * Vector3.right;
+            Vector3 u = Vector3.up;
+
+            rig.Top.localPosition = rig.TopHome;
+            foreach (Bone bone in rig.All)
+            {
+                bone.Anim = bone.T.rotation;
+            }
+
+            float beat = rig.Clock * DanceBeats * Mathf.PI * 2f;
+            float bounce = 0.5f - 0.5f * Mathf.Cos(beat);
+            float sway = Mathf.Sin(beat * 0.5f);
+            float peck = Mathf.Max(0f, Mathf.Sin(beat));
+            float flap = 0.5f + 0.5f * Mathf.Sin(beat * 2f);
+
+            // The knees: the thighs tip forward and the shins back by the same angle, and the
+            // whole body goes down by as much as the legs get shorter.
+            float knee = (8f + 22f * bounce) * Mathf.Deg2Rad;
+            float drop = 0f;
+            foreach (Limb leg in rig.Legs)
+            {
+                drop = Mathf.Max(drop, (leg.UpperLength + leg.LowerLength) * (1f - Mathf.Cos(knee)));
+            }
+            rig.Top.position -= u * (drop * weight);
+            foreach (Limb limb in Ends(rig))
+            {
+                limb.AnimEndAt = limb.End.position;
+                limb.AnimEndTurn = limb.End.rotation;
+            }
+
+            Vector3 torso = (u + f * 0.15f + r * (0.12f * sway)).normalized;
+            Pose(rig.Hips, torso, yaw, weight);
+            Pose(rig.Spine1, torso, yaw, weight);
+            Pose(rig.Spine2, torso, yaw, weight);
+            Pose(rig.Neck, (u + f * (0.2f + 0.3f * peck)).normalized, yaw, weight);
+            Pose(rig.Head, (u + f * (0.1f + 0.45f * peck) + r * (0.08f * sway)).normalized, yaw, weight);
+
+            foreach (Limb arm in rig.Arms)
+            {
+                float s = arm.Side;
+                float lift = (5f + 40f * flap) * Mathf.Deg2Rad;
+                Vector3 upper = r * (s * Mathf.Cos(lift)) + u * Mathf.Sin(lift) - f * 0.25f;
+                Vector3 lower = f * 0.6f - r * (s * 0.7f) + u * 0.05f;
+                Pose(arm.Upper, upper.normalized, yaw, weight);
+                Pose(arm.Lower, lower.normalized, yaw, weight);
+                PlaceEnd(arm, weight, 0f, Vector3.zero);
+            }
+            foreach (Limb leg in rig.Legs)
+            {
+                float s = leg.Side;
+                Vector3 thigh = -u * Mathf.Cos(knee) + f * Mathf.Sin(knee) + r * (s * 0.06f);
+                Vector3 shin = -u * Mathf.Cos(knee) - f * Mathf.Sin(knee) + r * (s * 0.03f);
+                Pose(leg.Upper, thigh.normalized, yaw, weight);
+                Pose(leg.Lower, shin.normalized, yaw, weight);
+                PlaceFlat(leg, weight, yaw);
+            }
+        }
+
+        /// <summary>Puts a foot at the ankle, kept flat the way it was while the character stood.</summary>
+        private static void PlaceFlat(Limb limb, float weight, Quaternion yaw)
+        {
+            if (limb.End == null)
+            {
+                return;
+            }
+            Transform lower = limb.Lower.T;
+            Vector3 place = lower.position + lower.rotation * limb.EndOffset;
+            Quaternion turn = yaw * limb.EndRest;
+            limb.End.position = Vector3.Lerp(limb.AnimEndAt, place, weight);
+            limb.End.rotation = weight >= 1f ? turn : Quaternion.Slerp(limb.AnimEndTurn, turn, weight);
         }
 
         private static Vector3 Blend(Vector3 crawl, Vector3 tread, float still)
@@ -546,7 +651,8 @@ namespace ClassPack
             {
                 Upper = MakeBone(rig, upper, Axis(upper), restInFrame, yaw),
                 Lower = MakeBone(rig, lower, Axis(lower), restInFrame, yaw),
-                Side = side
+                Side = side,
+                UpperLength = (lower.position - upper.position).magnitude
             };
             // A hand or foot that hangs under the limb follows it anyway; only one that hangs
             // elsewhere has to be put in place.
@@ -556,8 +662,14 @@ namespace ClassPack
                 Quaternion back = Quaternion.Inverse(lower.rotation);
                 limb.EndOffset = back * (end.position - lower.position);
                 limb.EndTurn = back * end.rotation;
+                limb.EndRest = Quaternion.Inverse(yaw) * end.rotation;
                 limb.SavedEndAt = end.localPosition;
                 limb.SavedEndTurn = end.localRotation;
+                limb.LowerLength = limb.EndOffset.magnitude;
+            }
+            if (limb.LowerLength <= 0.001f)
+            {
+                limb.LowerLength = limb.UpperLength;
             }
             return limb;
         }
