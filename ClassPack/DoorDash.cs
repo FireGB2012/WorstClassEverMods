@@ -172,6 +172,11 @@ namespace ClassPack
             {
                 refused = "that player ordered too recently";
             }
+            else if (!Phones.HostUse(player))
+            {
+                // Checked last: it uses the phone up.
+                refused = "that player has no phone";
+            }
             if (refused != null)
             {
                 Plugin.Log("DoorDash: order refused, " + refused);

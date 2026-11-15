@@ -5,9 +5,11 @@ using UnityEngine;
 namespace ClassPack
 {
     /// <summary>
-    /// The student's phone: a small screen you pull up with a key. It has a home screen with
-    /// app icons for DoorDash, prank calls and the bag of tricks. The rules of each app live
-    /// in its own file; this file only draws the phone and passes on the taps.
+    /// The student's phone screen. It only opens in class, for a player who holds a phone
+    /// (Phones.cs: phones turn up in desk drawers), with the phone key; out of class the same
+    /// key opens the wardrobe. It has a home screen with app icons for DoorDash, prank calls
+    /// and the bag of tricks. Doing something in an app uses the phone up. The rules of each
+    /// app live in its own file; this file only draws the phone and passes on the taps.
     /// </summary>
     internal sealed class Phone : MonoBehaviour
     {
@@ -32,23 +34,36 @@ namespace ClassPack
 
         private static bool InRoom => NetworkClient.active || NetworkServer.active;
 
+        private bool _closeSoon;
+
         private void Update()
         {
             Unit me = Game.LocalPlayer;
-            if (_open && (!InRoom || me == null || me.IsStun || me.BodyActionsBlocked))
+            // Used up, out of class, knocked over: the phone screen goes away.
+            if (_open && (!InRoom || me == null || me.IsStun || me.BodyActionsBlocked || !Game.InClass || !Phones.HasLocal))
             {
                 Close();
             }
-            if (Input.GetKeyDown(Plugin.Settings.DoorDashKeyCode) && !Game.IsTyping)
+            // In class the key is the phone's; out of class it is the wardrobe's (Wardrobe.cs).
+            if (Input.GetKeyDown(Plugin.Settings.DoorDashKeyCode) && !Game.IsTyping && Game.InClass)
             {
                 if (_open)
                 {
                     Close();
                 }
+                else if (!Phones.HasLocal)
+                {
+                    if (me != null && me.IsStudent)
+                    {
+                        Phones.TipNoPhone();
+                    }
+                }
                 else if (InRoom && me != null && !me.IsStun && !me.BodyActionsBlocked && _cursor.Begin())
                 {
                     _open = true;
                     _screen = Screen.Home;
+                    // Up in front of the face: everybody, the teacher too, sees it.
+                    Phones.SetUp(true);
                 }
             }
             else if (_open && Input.GetKeyDown(KeyCode.Escape))
@@ -72,7 +87,12 @@ namespace ClassPack
 
         private void Close()
         {
+            if (_open)
+            {
+                Phones.SetUp(false);
+            }
             _open = false;
+            _closeSoon = false;
             _cursor.End();
         }
 
@@ -125,6 +145,11 @@ namespace ClassPack
                 GUI.matrix = oldMatrix;
                 GUI.depth = oldDepth;
             }
+            if (_closeSoon && Event.current.type == EventType.Repaint)
+            {
+                // Something was done in an app: that used the phone up.
+                Close();
+            }
         }
 
         private void DrawStatusBar()
@@ -161,17 +186,7 @@ namespace ClassPack
             GUILayout.EndHorizontal();
 
             GUILayout.Space(14f);
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(13f);
-            bool wardrobe = DrawApp("Looks", "Wardrobe", _iconBlue);
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-            if (wardrobe)
-            {
-                // The wardrobe is its own big window, so the phone goes away first.
-                Close();
-                Wardrobe.RequestOpen();
-            }
+            GUILayout.Label("One thing and the phone is used up.", _small);
 
             GUILayout.FlexibleSpace();
             DrawPutAway();
@@ -271,6 +286,7 @@ namespace ClassPack
                     if (GUILayout.Button(DoorDash.MenuNames[i], _dish, GUILayout.Height(38f)))
                     {
                         DoorDash.Order(i);
+                        _closeSoon = true;
                     }
                 }
                 GUI.enabled = true;
@@ -309,6 +325,7 @@ namespace ClassPack
             if (GUILayout.Button("Call the teacher", _dish, GUILayout.Height(44f)))
             {
                 PrankCall.Call();
+                _closeSoon = true;
             }
             GUI.enabled = true;
             GUILayout.EndVertical();

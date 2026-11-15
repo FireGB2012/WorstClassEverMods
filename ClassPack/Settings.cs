@@ -11,7 +11,10 @@ namespace ClassPack
     [Serializable]
     public sealed class Settings
     {
-        // The student's phone and its DoorDash app. doorDashKey pulls the phone up.
+        // The student's phone and its DoorDash app. In class, doorDashKey uses the phone in
+        // the player's hand (out of class the same key opens the wardrobe). A phone turns up
+        // in a student's drawer with this chance each time they finish a snack.
+        public float phoneChancePerSnack = 0.074f;
         public bool doorDash = true;
         public string doorDashKey = "O";
         public float doorDashWaitSeconds = 10f;
@@ -38,7 +41,7 @@ namespace ClassPack
         // twelve. Every gun has one shot.
         public float nerfChancePerSnack = 0.08f;
         public float nerfTeacherChancePerSnack = 0.05f;
-        // For trying things out: every snack eaten gives a gun.
+        // For trying things out: every snack eaten gives a gun, and a phone.
         public bool nerfAlwaysForTesting = false;
         public bool windowPoles = true;
         public bool prankCall = true;
@@ -53,7 +56,8 @@ namespace ClassPack
         // The game's "Caught 0/1" count at the top of the screen in class is hidden.
         public bool hideCaughtCount = true;
         public bool teachers = true;
-        public string wardrobeKey = "F7";
+        // The wardrobe opens with this key during the break, never in class.
+        public string wardrobeKey = "O";
         public int lookA = 0;
         public int lookB = 0;
         // lookC: hairstyle and face sizes (see Look.C).
@@ -158,6 +162,15 @@ namespace ClassPack
                     settings.danceSeconds = 5f;
                     settings.rulesVersion = 2;
                 }
+                if (settings.rulesVersion < 3)
+                {
+                    // 0.15.0: the wardrobe moved from F7 to O (the phone is an item you find now).
+                    if (settings.wardrobeKey == "F7")
+                    {
+                        settings.wardrobeKey = "O";
+                    }
+                    settings.rulesVersion = 3;
+                }
                 if (settings.fitVersion < CurrentFit)
                 {
                     var fresh = new Settings();
@@ -196,7 +209,7 @@ namespace ClassPack
 
         public KeyCode PanelKeyCode => ParseKey(panelKey, KeyCode.F6);
 
-        public KeyCode WardrobeKeyCode => ParseKey(wardrobeKey, KeyCode.F7);
+        public KeyCode WardrobeKeyCode => ParseKey(wardrobeKey, KeyCode.O);
 
         public KeyCode HelpKeyCode => ParseKey(helpKey, KeyCode.F1);
 

@@ -5,9 +5,10 @@ namespace ClassPack
 {
     /// <summary>
     /// The wardrobe window: pick hair, body, clothes, colours, a hat and other extras, and the
-    /// teacher type. Opened with a key or from the phone. Because the game never shows a
-    /// player their own body, the window has a small picture of the player taken by its own
-    /// camera, so every change can be seen straight away.
+    /// teacher type. Opened with its key (O) in the lobby and the break, never while a class
+    /// runs: it closes when the bell rings. Because the game never shows a player their own
+    /// body, the window has a small picture of the player taken by its own camera, so every
+    /// change can be seen straight away.
     /// </summary>
     internal sealed class Wardrobe : MonoBehaviour
     {
@@ -22,7 +23,7 @@ namespace ClassPack
         {
             "Normal: the game's own teacher, plus eating snacks from drawers.",
             "Gym teacher: bald on top with a big belly. X throws a slice of pizza that knocks a student over.",
-            "Lunch lady: X throws mashed potatoes that stick a student in place. No blackboard: hold B at her pot for stamina.",
+            "Lunch lady: X throws mashed potatoes that stick a student in place. No blackboard: stand at her pot for stamina.",
             "Janitor: X mops. That clears banana peels, glue and whoopee cushions and leaves a wet floor students slip on.",
             "Bald with a wig: a student behind you can pull the wig off. No chalk until you walk over it and get it back."
         };
@@ -72,12 +73,14 @@ namespace ClassPack
             {
                 Close();
             }
-            bool key = Input.GetKeyDown(Plugin.Settings.WardrobeKeyCode) && !Game.IsTyping;
-            if (IsOpen && (key || _closeRequested || Input.GetKeyDown(KeyCode.Escape)))
+            // In class the key belongs to the phone (Phone.cs), and the wardrobe stays shut.
+            bool inClass = Game.InClass;
+            bool key = Input.GetKeyDown(Plugin.Settings.WardrobeKeyCode) && !Game.IsTyping && !inClass;
+            if (IsOpen && (key || _closeRequested || inClass || Input.GetKeyDown(KeyCode.Escape)))
             {
                 Close();
             }
-            else if (!IsOpen && (key || _openRequested) && Plugin.Settings.looks && InRoom && me != null && _cursor.Begin())
+            else if (!IsOpen && (key || _openRequested) && !inClass && Plugin.Settings.looks && InRoom && me != null && _cursor.Begin())
             {
                 Open();
             }

@@ -95,7 +95,9 @@ namespace ClassPack
         DanceHall = 75,     // tell: dance class: the hall stands at v with song i (j = 1), or is taken away (j = 0)
         DanceAsk = 76,      // ask: I start (i = 1) or stop (i = 0) dancing
         Dancing = 77,       // tell: character a dances (i = 1) or stops (i = 0)
-        Faint = 78          // tell: character a was hit by a nerf dart and faints for f seconds, knocked along v
+        Faint = 78,         // tell: character a was hit by a nerf dart and faints for f seconds, knocked along v
+        PhoneAsk = 79,      // ask: my phone: i 0 take it from my drawer, 1 up (in use), 2 back down
+        PhoneTell = 80      // tell: i 0: a phone is in your drawer (j 1) or not (j 0); i 1: player a's phone is gone (j 0), in hand (1) or up (2)
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -359,6 +361,9 @@ namespace ClassPack
                 case CpKind.DanceAsk:
                     Dance.OnAsk(player, ask);
                     break;
+                case CpKind.PhoneAsk:
+                    Phones.OnAsk(player, ask);
+                    break;
             }
         }
 
@@ -409,6 +414,9 @@ namespace ClassPack
                     break;
                 case CpKind.Faint:
                     Faint.OnTell(tell);
+                    break;
+                case CpKind.PhoneTell:
+                    Phones.OnTell(tell);
                     break;
                 case CpKind.Pool:
                 case CpKind.Splash:

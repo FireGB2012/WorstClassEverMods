@@ -33,6 +33,7 @@ namespace ClassPack
                 float height = Screen.height / scale;
 
                 string faint = Faint.DrawHud(width, height);
+                string phone = Phones.DrawHud(width, height);
                 string hint = FireAlarm.DrawHud(width, height);
                 string gun = NerfGuns.DrawHud(width, height);
                 string trick = Tricks.DrawHud(width, height);
@@ -42,7 +43,7 @@ namespace ClassPack
                 string call = PrankCall.DrawHud();
                 // One line at a time: a ringing phone first, then the gun, the trick in hand,
                 // the swim class, the teacher's own power or a wig to grab, the alarm box.
-                string line = faint ?? call ?? gun ?? trick ?? swim ?? teacher ?? hint;
+                string line = faint ?? call ?? gun ?? trick ?? phone ?? swim ?? teacher ?? hint;
                 if (!string.IsNullOrEmpty(line) && !CursorGrab.Busy)
                 {
                     Skin.Ensure();

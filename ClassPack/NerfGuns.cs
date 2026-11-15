@@ -34,6 +34,7 @@ namespace ClassPack
             if (__state != null)
             {
                 NerfGuns.OnStudentAte(__state);
+                Phones.OnStudentAte(__state);
             }
         }
     }
@@ -54,7 +55,7 @@ namespace ClassPack
             }
             try
             {
-                return !NerfGuns.TryTakeWithPickUpKey();
+                return !(NerfGuns.TryTakeWithPickUpKey() || Phones.TryTakeWithPickUpKey());
             }
             catch (Exception)
             {
@@ -221,7 +222,7 @@ namespace ClassPack
         }
 
         /// <summary>The drawer of the desk the player sits at, or null.</summary>
-        private static DrawerComponent MyDrawer(Unit me)
+        internal static DrawerComponent MyDrawer(Unit me)
         {
             if (me == null || !me.IsSitting || me.currentSitUnit == null)
             {
@@ -397,7 +398,7 @@ namespace ClassPack
             return true;
         }
 
-        private static string PickUpKeyName()
+        internal static string PickUpKeyName()
         {
             if (_pickUpKey == null || Time.unscaledTime - _pickUpKeyReadAt > 3f)
             {
@@ -426,6 +427,9 @@ namespace ClassPack
 
         /// <summary>True while this player carries a nerf gun.</summary>
         public static bool HoldingLocal => Mine() != null;
+
+        /// <summary>True while a nerf gun waits in this player's desk drawer.</summary>
+        public static bool DrawerGunWaiting => _drawerGun != 0;
 
         private static Held Mine()
         {

@@ -595,11 +595,17 @@ namespace ClassPack
                 Add(t += 0.3f, "state", () => DescribeMe("after the worm (mischief should be up)"));
                 Add(t += 0.5f, "class dance", () => Dance.TestDance(Dance.ClassDance));
                 Add(t += 1f, "state", () => DescribeMe("back to the class dance"));
+                // DoorDash needs a phone in the hand now: one is put in the drawer and taken.
+                Add(t += 0.5f, "phone", () => Phones.TestGive(Game.LocalPlayer));
+                Add(t += 0.5f, "phone", Phones.TestTake);
+                Add(t += 0.6f, "phone", () => Note("phone in my hand: " + Phones.HasLocal));
+                Add(t += 0.2f, "phone", () => ShotOfUnit("21_me_phone_in_hand", Game.LocalPlayer, -2.2f));
                 Add(t += 0.5f, "order", () =>
                 {
                     DoorDash.Order(0);
                     Note("DoorDash ordered, state " + DoorDash.Current + (DoorDash.WhyNot() != null ? " (" + DoorDash.WhyNot() + ")" : ""));
                 });
+                Add(t += 1f, "phone", () => Note("phone after the order (should be used up): " + Phones.HasLocal));
                 Add(t += Plugin.Settings.doorDashWaitSeconds + 2f, "snacks", () => Shot("24_snack_food", new Vector3(7.3f, 1.4f, 6.6f), new Vector3(7.7f, 0.55f, 8.05f)));
                 Add(t += 1f, "delivery", () => Note("DoorDash state " + DoorDash.Current));
                 Add(t += 0.5f, "owner window", () =>

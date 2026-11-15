@@ -33,10 +33,11 @@ namespace ClassPack
                     title = "Class Pack: what you can do as a student";
                     lines = new[]
                     {
-                        Plugin.Settings.DoorDashKeyCode + "  pulls up your phone: DoorDash, prank calls, tricks and the wardrobe",
+                        "Phones turn up in desk drawers when you eat snacks. Grab one, then " + Plugin.Settings.DoorDashKeyCode
+                            + " uses it once: DoorDash, a prank call or a trick",
                         "Tricks go in your hand:  " + Plugin.Settings.FireKeyCode + " or a wheel click  uses one,  " + Use + "  puts it away",
                         "Eat snacks: now and then a nerf gun turns up in your desk.  " + Use + "  grabs it",
-                        Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe: hats, outfits and colours"
+                        Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe in the break (not in class): hats, hair, face and body"
                     };
                     return true;
                 case "teacher0":
@@ -45,7 +46,7 @@ namespace ClassPack
                     {
                         Plugin.Settings.TeacherSnackKeyCode + "  next to a student's desk eats a snack from the drawer for stamina",
                         Plugin.Settings.AnswerKeyCode + "  answers the phone when a student prank calls you",
-                        Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe. Pick a teacher type there: gym teacher, lunch lady, janitor or wig"
+                        Plugin.Settings.WardrobeKeyCode + "  opens the wardrobe in the break. Pick a teacher type there: gym teacher, lunch lady, janitor or wig"
                     };
                     return true;
                 case "teacher1":

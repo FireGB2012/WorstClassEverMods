@@ -432,6 +432,7 @@ namespace ClassPack
                 _sentUid = 0uL;
                 return;
             }
+            KeepGamePicks(me);
             Look mine = Mine;
             NetworkConnection connection = NetworkClient.connection;
             if (me.UID == _sentUid && mine.A == _sentA && mine.B == _sentB && mine.C == _sentC && connection == _sentTo)
@@ -525,6 +526,39 @@ namespace ClassPack
         }
 
         /// <summary>The body, hair and clothes set (1 to 4) the game gave a student.</summary>
+        /// <summary>
+        /// The game hands every student one of its four faces and bodies, hairs and outfits, and
+        /// can hand out another one the next game. Whatever this player left on "game's pick" is
+        /// saved as their own pick the first time the game shows it, so it stays from game to game.
+        /// </summary>
+        private static void KeepGamePicks(Unit me)
+        {
+            int game;
+            if (!me.IsStudent || !GameIndex.TryGetValue(me.UID, out game) || game < 1 || game > 4)
+            {
+                return;
+            }
+            Look mine = Mine;
+            if (mine.Body != 0 && mine.Cloth != 0 && (mine.Hair != 0 || mine.Hairstyle != 0))
+            {
+                return;
+            }
+            if (mine.Body == 0)
+            {
+                mine.Body = game;
+            }
+            if (mine.Cloth == 0)
+            {
+                mine.Cloth = game;
+            }
+            if (mine.Hair == 0 && mine.Hairstyle == 0)
+            {
+                mine.Hair = game;
+            }
+            Mine = mine;
+            Plugin.Log("looks: kept the game's pick " + game + " as my own face, body, hair and clothes, so they stay from game to game");
+        }
+
         private static int GameIndexOf(Unit unit)
         {
             int game;
@@ -856,13 +890,8 @@ namespace ClassPack
             {
                 return;
             }
-            // Two floors dress everybody in a set outfit. The game's rule wins there.
-            ClassroomManager classroom = Game.Peek<ClassroomManager>();
-            if (classroom != null && (classroom.currentFloor == 6 || classroom.currentFloor == 8)
-                && classroom.curState != EClassroomState.BeforeClass)
-            {
-                return;
-            }
+            // (Two of the game's floors dress everybody in a set outfit once class starts. That
+            // used to win over the wardrobe; Gabriel wants his own look kept every game.)
             int game;
             if (!GameIndex.TryGetValue(unit.UID, out game) || game < 1 || game > 4)
             {

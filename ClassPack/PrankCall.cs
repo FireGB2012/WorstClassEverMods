@@ -133,6 +133,11 @@ namespace ClassPack
                 Net.Toast(caller, "Nobody picked up. There is no teacher in this class.", 3f);
                 return;
             }
+            if (!Phones.HostUse(caller))
+            {
+                Net.Toast(caller, "You need a phone in your hand for that.", 3f);
+                return;
+            }
             HostReadyAt[caller.UID] = Time.time + CallerWait;
             Unit teacher = teachers[Random.Range(0, teachers.Count)];
             Net.TellPlayer(teacher, new CpTell { kind = CpKind.Ring, f = RingSeconds, a = caller.UID });

@@ -822,7 +822,9 @@ namespace ClassPack
             switch (ask.kind)
             {
                 case CpKind.TrickHold:
-                    if (ask.i == 0 || (ask.i >= Airplane && ask.i <= Cushion && !player.IsStun && !player.BodyActionsBlocked))
+                    // Picking a trick on the phone uses the phone up; putting one away doesn't.
+                    if (ask.i == 0 || (ask.i >= Airplane && ask.i <= Cushion && !player.IsStun && !player.BodyActionsBlocked
+                        && Phones.HostUse(player)))
                     {
                         HostSetHand(player.UID, ask.i);
                     }
@@ -834,10 +836,13 @@ namespace ClassPack
                     HostShine(player, ask);
                     break;
                 case CpKind.NoteAsk:
-                    HostPassNote(player);
+                    if (Phones.HostUse(player))
+                    {
+                        HostPassNote(player);
+                    }
                     break;
                 case CpKind.NapAsk:
-                    if (ask.i != 0 && player.IsSitting && !player.IsStun && !player.BodyActionsBlocked)
+                    if (ask.i != 0 && player.IsSitting && !player.IsStun && !player.BodyActionsBlocked && Phones.HostUse(player))
                     {
                         HostNaps[player.UID] = new HostNap { Since = Time.time, NextAt = Time.time + 2f };
                     }

@@ -199,7 +199,7 @@ namespace ClassPack
                     Plugin.Settings.soloClass = solo;
                     Plugin.Settings.Save();
                 }
-                bool always = GUILayout.Toggle(Plugin.Settings.nerfAlwaysForTesting, "Every snack eaten gives a nerf gun (for testing)", _toggle);
+                bool always = GUILayout.Toggle(Plugin.Settings.nerfAlwaysForTesting, "Every snack eaten gives a nerf gun and a phone (testing)", _toggle);
                 if (always != Plugin.Settings.nerfAlwaysForTesting)
                 {
                     Plugin.Settings.nerfAlwaysForTesting = always;
