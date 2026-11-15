@@ -98,3 +98,13 @@ Style pictures: `meshy/style/dance_<name>.png`.
 | dance_stage | 01a1e048-d82c-7578-b609-1d029fa88baa | 01a1e04a-347b-7569-a8cc-2e173a04764b |
 | dance_boombox | 01a1e048-da54-7461-90b7-fc2c89ac9f08 | 01a1e04a-37b7-7315-b6df-4cf47fb57512 |
 | dance_snacks | 01a1e048-dd1c-746f-93b7-4aa65ed8f17d | 01a1e04a-3b5a-7663-9378-d32575f5c878 |
+
+## Hairstyles, 2026-11-15 (42 credits approved, 165 before)
+
+Gabriel chose "Afro + dreads, 42 credits". Game-style recipe, made very light grey so the
+wardrobe's hair colour can tint them. Style pictures: `meshy/style/hair_<name>.png`.
+
+| Hair | Picture task | 3D task |
+|------|--------------|---------|
+| hair_afro | 01a1e087-f009-758d-b173-ed4fe54e5461 | 01a1e088-9da8-7679-ba23-ae4818ad5b8c |
+| hair_dreads | 01a1e087-f24c-7167-b0c3-384b54122b26 | 01a1e088-a097-76b7-95be-3934b439efdd |
