@@ -9,9 +9,10 @@ added, what was tested and what is still open.
 
 You need:
 
-1. **The game**, installed through Steam. The build expects it at
-   `C:\Program Files (x86)\Steam\steamapps\common\Worst Class Ever`. If your Steam library is
-   somewhere else, change the `$game` line near the top of `build.ps1`.
+1. **The game**, installed through Steam. The build looks for it in
+   `C:\Program Files (x86)\Steam\steamapps\common` and `D:\SteamLibrary\steamapps\common`. If
+   your Steam library is somewhere else, add it to the `$libraries` list near the top of
+   `build.ps1`.
 2. **The .NET SDK** (version 6 or newer). The mod is compiled with the SDK's own C# compiler
    straight against the game's dlls; no packages are downloaded.
 

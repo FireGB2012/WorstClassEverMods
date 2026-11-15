@@ -6,11 +6,16 @@ param([switch]$Install, [switch]$Share)
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$game = 'C:\Program Files (x86)\Steam\steamapps\common\Worst Class Ever'
+# The game's folder: the first of these Steam libraries that has it. Add yours to the list.
+$libraries = @(
+    'C:\Program Files (x86)\Steam\steamapps\common',
+    'D:\SteamLibrary\steamapps\common'
+)
+$game = $libraries | ForEach-Object { Join-Path $_ 'Worst Class Ever' } |
+    Where-Object { Test-Path (Join-Path $_ 'Worst Class Ever_Data\Managed') } | Select-Object -First 1
+if (-not $game) { throw "Game not found in: $($libraries -join ', ')" }
 $managed = Join-Path $game 'Worst Class Ever_Data\Managed'
 $dist = Join-Path $root 'dist\classpack'
-
-if (-not (Test-Path $managed)) { throw "Game not found at $game" }
 
 # The C# compiler that ships with the .NET SDK. No NuGet packages are needed:
 # the mod compiles straight against the game's own dlls.
