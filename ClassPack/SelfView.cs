@@ -71,6 +71,16 @@ namespace ClassPack
             {
                 _walls = LayerMask.GetMask("Ground", "Wall", "Default", "Obstacle");
             }
+            // Knocked out: the body lies on the floor, so look down at it from above and behind,
+            // instead of from behind the head where the body itself would block the view.
+            Vector3 body;
+            if (Faint.LocalBody(out body))
+            {
+                Vector3 back = -new Vector3(view.forward.x, 0f, view.forward.z).normalized;
+                offset = back * 1.6f + Vector3.up * 2.4f;
+                way = offset.normalized;
+                reach = offset.magnitude * eased;
+            }
             // Never through a wall, the deck or the ceiling.
             RaycastHit hit;
             if (reach > 0.05f && Physics.SphereCast(_homeAt, 0.25f, way, out hit, reach, _walls, QueryTriggerInteraction.Ignore))
@@ -78,6 +88,10 @@ namespace ClassPack
                 reach = Mathf.Max(0f, hit.distance - 0.05f);
             }
             view.position = _homeAt + way * reach;
+            if (Faint.LocalBody(out body))
+            {
+                view.rotation = Quaternion.Slerp(_homeTurn, Quaternion.LookRotation(body - view.position, Vector3.up), eased);
+            }
         }
 
         private static void After(ScriptableRenderContext context, Camera camera)

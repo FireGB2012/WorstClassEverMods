@@ -341,7 +341,22 @@ namespace ClassPack
             UnitManager units = Game.Peek<UnitManager>();
             Unit pole = units != null && Spawned.Count > 0 ? units.GetUnitByUID(Spawned[0]) : null;
             Hang hang;
-            if (pole == null || !WindowAt(units, pole, out hang) || !Poles.PutOnPole(student, false, pole))
+            RoomManager room = Game.Peek<RoomManager>();
+            if (pole == null || room == null || student == null || !WindowAt(units, pole, out hang))
+            {
+                return false;
+            }
+            // Brought to the pole first, the way a teacher carries a student there.
+            var move = new UnitTeleportPositionMessageResponse_S2C
+            {
+                unitUID = student.UID,
+                position = pole.Position - hang.Out * 0.5f,
+                rotation = new Vector3(0f, Mathf.Atan2(hang.Out.x, hang.Out.z) * Mathf.Rad2Deg, 0f),
+                floor = 0
+            };
+            room.GetUnitMessageHandler().OnUnitTeleportPositionMessageResponse(move);
+            room.BroadcastToAllExceptHost(move);
+            if (!Poles.PutOnPole(student, false, pole))
             {
                 return false;
             }

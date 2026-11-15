@@ -95,6 +95,20 @@ namespace ClassPack
         /// <summary>True while this player lies knocked out.</summary>
         public static bool LocalDown => IsDown(Game.LocalPlayer);
 
+        /// <summary>True, with where its middle is, while this player's own body lies as a rag doll.</summary>
+        public static bool LocalBody(out Vector3 at)
+        {
+            at = Vector3.zero;
+            Unit me = Game.LocalPlayer;
+            Doll doll;
+            if (me == null || !IsDown(me) || !Dolls.TryGetValue(me.UID, out doll) || doll.Pelvis == null || doll.Pelvis.Body == null)
+            {
+                return false;
+            }
+            at = doll.Pelvis.Body.position;
+            return true;
+        }
+
         /// <summary>True for the doll's own capsules, which nerf darts fly through.</summary>
         public static bool IsDollPart(Collider collider)
         {
