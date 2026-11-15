@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace ClassPack
 {
@@ -346,16 +347,36 @@ namespace ClassPack
             {
                 return false;
             }
-            // Brought to the pole first, the way a teacher carries a student there.
-            var move = new UnitTeleportPositionMessageResponse_S2C
+            // Brought to the pole first, the way a teacher carries a student there. A bot walks
+            // on the game's walkable area, so it is moved the way the dance class moves bots.
+            Vector3 spot = pole.Position - hang.Out * 0.5f;
+            var facing = new Vector3(0f, Mathf.Atan2(hang.Out.x, hang.Out.z) * Mathf.Rad2Deg, 0f);
+            NavMeshAgent agent = student.model != null ? student.model.GetComponent<NavMeshAgent>() : null;
+            if (agent != null)
             {
-                unitUID = student.UID,
-                position = pole.Position - hang.Out * 0.5f,
-                rotation = new Vector3(0f, Mathf.Atan2(hang.Out.x, hang.Out.z) * Mathf.Rad2Deg, 0f),
-                floor = 0
-            };
-            room.GetUnitMessageHandler().OnUnitTeleportPositionMessageResponse(move);
-            room.BroadcastToAllExceptHost(move);
+                agent.enabled = false;
+            }
+            student.SetPosition(spot);
+            student.SetRotation(facing);
+            if (agent != null)
+            {
+                agent.enabled = true;
+                if (agent.isOnNavMesh)
+                {
+                    agent.Warp(spot);
+                }
+            }
+            ForceComponent force = student.GetComponent<ForceComponent>();
+            if (force != null && force.rigidBody != null)
+            {
+                force.rigidBody.position = spot;
+            }
+            SyncTransformComponet sync = student.GetComponent<SyncTransformComponet>();
+            if (sync != null)
+            {
+                sync.ApplyTransformImmediately(spot, facing);
+                sync.ForceSendTransformSync();
+            }
             if (!Poles.PutOnPole(student, false, pole))
             {
                 return false;
