@@ -140,8 +140,8 @@ namespace ClassPack
         public static readonly string[] FaceNames = { "None", "Sunglasses", "Clown nose", "Moustache" };
         public static readonly string[] BackNames = { "None", "Backpack", "Cape", "Wings" };
         public static readonly string[] TeacherNames = { "Normal", "Gym teacher", "Lunch lady", "Janitor", "Bald with a wig" };
-        public static readonly string[] HairstyleNames = { "None", "Afro", "Dreads" };
-        private static readonly string[] HairstyleModels = { "", "hair_afro", "hair_dreads" };
+        public static readonly string[] HairstyleNames = { "None", "Afro", "Dreads", "Mohawk", "Spiky" };
+        private static readonly string[] HairstyleModels = { "", "hair_afro", "hair_dreads", "hair_mohawk", "hair_spiky" };
         /// <summary>The afro's and dreads' colour when no hair colour is picked: a natural dark brown.</summary>
         private static readonly Color32 NaturalHair = new Color32(78, 54, 40, 255);
 

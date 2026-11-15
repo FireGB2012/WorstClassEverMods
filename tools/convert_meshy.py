@@ -170,16 +170,25 @@ def main():
 
     preview = option(args, '--preview', '')
     if preview:
-        render_preview(obj, os.path.abspath(preview))
+        view = numbers(option(args, '--view', '0.55,1,0.5'))
+        render_preview(obj, os.path.abspath(preview), '--head' in args, Vector(view))
 
 
-def render_preview(obj, path):
+def render_preview(obj, path, head=False, view=Vector((0.55, 1.0, 0.5))):
     """A picture of the finished model seen from the front (+Y side), a little from the right and above.
 
     The red bar on the ground starts at (0, 0, 0) and points forward (+Y), the blue bar
     points up, so the model's facing and its origin can be checked before it goes in the game.
+    With head, a skin-coloured ball 0.11 m in radius sits at (0, 0, 0): the head that hats and
+    hairstyles are built around, to see how they fit.
     """
     scene = bpy.context.scene
+    if head:
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.11, location=(0.0, 0.0, 0.0))
+        ball = bpy.context.active_object
+        skin = bpy.data.materials.new('skin')
+        skin.diffuse_color = (0.95, 0.72, 0.55, 1.0)
+        ball.data.materials.append(skin)
     corners = [Vector(c) for c in obj.bound_box]
     low = Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
     high = Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
@@ -204,7 +213,7 @@ def render_preview(obj, path):
     camera_data.ortho_scale = reach * 1.5
     camera = bpy.data.objects.new('cam', camera_data)
     scene.collection.objects.link(camera)
-    direction = Vector((0.55, 1.0, 0.5)).normalized()
+    direction = view.normalized()
     camera.location = centre + direction * 5.0
     camera.rotation_euler = (-direction).to_track_quat('-Z', 'Y').to_euler()
     scene.camera = camera

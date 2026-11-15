@@ -28,7 +28,7 @@ namespace ClassPack
         };
 
         private static readonly string[] Tabs = { "Hair", "Face", "Outfit", "Teacher", "Fit" };
-        private static readonly string[] HairChoices = { "Game's", "1", "2", "3", "4", "Bald", "Afro", "Dreads" };
+        private static readonly string[] HairChoices = { "Game's", "1", "2", "3", "4", "Bald", "Afro", "Dreads", "Mohawk", "Spiky" };
         private static int _tab;
         private GUIStyle _tabStyle;
 
@@ -282,7 +282,7 @@ namespace ClassPack
                     case 0:
                         // The game's four hairstyles, bald, and the mod's own.
                         int style = look.Hairstyle > 0 ? 5 + look.Hairstyle : look.Hair;
-                        int picked = Row("Hairstyle", style, HairChoices, 4);
+                        int picked = Row("Hairstyle", style, HairChoices, 5);
                         if (picked != style)
                         {
                             look.Hairstyle = picked > 5 ? picked - 5 : 0;

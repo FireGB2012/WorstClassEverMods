@@ -92,6 +92,14 @@ MODELS = {
     # doesn't wrap round the chin like a hood.
     'hair_afro': (0.40, '0.5,0.5,0.32', '0,0,0', FRONT, -0.06),
     'hair_dreads': (0.42, '0.5,0.5,0.69', '0,0,0', FRONT),
+    'hair_mohawk': (0.34, '0.5,0.5,0.3', '0,0,0', FRONT),
+    'hair_spiky': (0.40, '0.5,0.5,0.31', '0,0,0', FRONT),
+    # The phone: held in the hand like food, its screen facing the holder (+Y is forward, so
+    # the screen faces -Y, back at the player). (0, 0, 0) is its middle.
+    'phone': (0.16, '0.5,0.5,0.5', '0,0,0', BACK),
+    # The elevator panel on a wall: its back flat against the wall at (0, 0, 0), the buttons
+    # facing into the room (+Y), the middle of the panel at that height.
+    'elevator_panel': (0.55, '0.5,0,0.5', '0,0,0', FRONT),
 }
 
 
@@ -117,6 +125,8 @@ def main():
     for name in wanted:
         size, origin, offset, rot = MODELS[name][:4]
         cut = ['--cut', str(MODELS[name][4])] if len(MODELS[name]) > 4 else []
+        if name.startswith(('hair_', 'hat_', 'face_')):
+            cut.append('--head')
         source = os.path.join(source_dir, name + '.glb')
         if not os.path.exists(source):
             failed.append(name + ' (no .glb)')
