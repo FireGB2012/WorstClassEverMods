@@ -108,3 +108,16 @@ wardrobe's hair colour can tint them. Style pictures: `meshy/style/hair_<name>.p
 |------|--------------|---------|
 | hair_afro | 01a1e087-f009-758d-b173-ed4fe54e5461 | 01a1e088-9da8-7679-ba23-ae4818ad5b8c |
 | hair_dreads | 01a1e087-f24c-7167-b0c3-384b54122b26 | 01a1e088-a097-76b7-95be-3934b439efdd |
+
+## Phone, elevator panel, mohawk and spiky hair, 2026-11-15 (84 credits approved, 123 before)
+
+Gabriel chose "Phone, panel, 3 hairstyles" and picked two styles (mohawk, spiky anime hair);
+the third hairstyle (21 credits) waits until he names one. Same game-style recipe; the hair is
+very light grey so the wardrobe's hair colour tints it. Style pictures: meshy/style/<name>.png.
+
+| Model | Picture task | 3D task |
+|-------|--------------|---------|
+| hair_mohawk | 01a1e101-8b38-7644-b076-b03ae8f36a4a | |
+| hair_spiky | 01a1e101-8d1d-72f6-b682-84baea69ff98 | |
+| phone | 01a1e101-8f35-7479-aea5-c89bc35249ae | |
+| elevator_panel | 01a1e101-90eb-72d9-9d25-d94ded736cd5 | |
