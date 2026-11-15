@@ -85,7 +85,8 @@ namespace ClassPack
                         "Climb the diving board and walk off its end into the pool for mischief",
                         "In the water,  " + Use + "  splashes. Soak the teacher when they are close for big mischief",
                         "Crawl in the pool to dive under: mischief every second while your air lasts",
-                        "You wade slowly in the water. The ramp at the shallow end leads out"
+                        "The water slows you down. The ramp at the shallow end leads out",
+                        "DoorDash food lands in the teachers' lounge, through the door at the deep end"
                     };
                     return true;
                 case "swimteacher":
@@ -94,7 +95,8 @@ namespace ClassPack
                     {
                         "Catch students as usual. The poles stand along the pool",
                         "There is no blackboard here: stand next to the lifeguard chair and your stamina fills up",
-                        "You wade slowly in the water too. Stay back from the edge, or you get splashed",
+                        "The water slows you down too. Stay back from the edge, or you get splashed",
+                        "Students order DoorDash to your lounge, through the door at the deep end",
                         "A splash covers your screen with water for a few seconds"
                     };
                     return true;

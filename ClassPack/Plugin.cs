@@ -24,6 +24,7 @@ namespace ClassPack
             var host = new GameObject("[ClassPack]");
             UnityEngine.Object.DontDestroyOnLoad(host);
             host.AddComponent<Runner>();
+            host.AddComponent<LateRunner>();
             host.AddComponent<HostPanel>();
             host.AddComponent<Phone>();
             host.AddComponent<Wardrobe>();
@@ -68,6 +69,33 @@ namespace ClassPack
                         _lastErrorLog[i] = Time.unscaledTime;
                         Plugin.Log("error in " + Features[i].Method.DeclaringType.Name + ": " + ex);
                     }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs at the end of every frame, as late as Unity allows, after the game has posed its
+    /// characters: the swimming move goes on top of that pose, and hats follow the moved heads.
+    /// </summary>
+    [DefaultExecutionOrder(30000)]
+    internal sealed class LateRunner : MonoBehaviour
+    {
+        private float _lastErrorLog;
+
+        private void LateUpdate()
+        {
+            try
+            {
+                SwimPose.LateTick();
+                Looks.LateTick();
+            }
+            catch (Exception ex)
+            {
+                if (_lastErrorLog == 0f || Time.unscaledTime - _lastErrorLog > 10f)
+                {
+                    _lastErrorLog = Time.unscaledTime;
+                    Plugin.Log("error in the swimming move: " + ex);
                 }
             }
         }

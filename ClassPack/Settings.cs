@@ -16,7 +16,7 @@ namespace ClassPack
         public string doorDashKey = "O";
         public float doorDashWaitSeconds = 10f;
         public float doorDashCooldownSeconds = 45f;
-        public float doorDashPoints = 15f;
+        public float doorDashPoints = 5f;
         // Where the food lands when it has to go through the office door: how far past the
         // door, and which side (0 = work it out, 1 or -1 = force a side).
         public float doorDashOfficeDepth = 2.2f;
@@ -74,6 +74,10 @@ namespace ClassPack
         public bool swimClass = true;
         public int nextClass = 0;
         public float poolLight = 1f;
+        public bool poolBots = true;
+
+        // Raised when a number the player may have saved has to change once (see Load).
+        public int rulesVersion = 0;
 
         public bool tips = true;
         public string helpKey = "F1";
@@ -104,6 +108,12 @@ namespace ClassPack
                 if (File.Exists(path))
                 {
                     JsonUtility.FromJsonOverwrite(File.ReadAllText(path), settings);
+                }
+                if (settings.rulesVersion < 1)
+                {
+                    // 2026-11-15: a DoorDash meal pays 5 mischief, not 15.
+                    settings.doorDashPoints = 5f;
+                    settings.rulesVersion = 1;
                 }
                 if (settings.fitVersion < CurrentFit)
                 {

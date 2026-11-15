@@ -54,8 +54,20 @@ def unity_place(matrix):
     return (p.x, p.z, p.y, -q.x, -q.z, -q.y, q.w)
 
 
+# The main joints of a Meshy skeleton under plain names, parents before children.
+JOINTS = [
+    ('hips', 'Hips'), ('chest', 'Spine'), ('neck', 'neck'), ('head', 'Head'), ('headend', 'head_end'),
+    ('l_shoulder', 'LeftShoulder'), ('l_upperarm', 'LeftArm'), ('l_forearm', 'LeftForeArm'), ('l_hand', 'LeftHand'),
+    ('r_shoulder', 'RightShoulder'), ('r_upperarm', 'RightArm'), ('r_forearm', 'RightForeArm'), ('r_hand', 'RightHand'),
+    ('l_thigh', 'LeftUpLeg'), ('l_shin', 'LeftLeg'), ('l_foot', 'LeftFoot'), ('l_toe', 'LeftToeBase'),
+    ('r_thigh', 'RightUpLeg'), ('r_shin', 'RightLeg'), ('r_foot', 'RightFoot'), ('r_toe', 'RightToeBase'),
+]
+
+
 def clip_name(action_name, index):
     lower = action_name.lower()
+    if 'swim' in lower:
+        return 'swimidle' if 'idle' in lower else 'swim'
     if 'idle' in lower:
         return 'idle'
     if 'walk' in lower:
@@ -71,12 +83,16 @@ def main():
     picture_size = int(option(args, '--picture', '1024'))
     fps = float(option(args, '--fps', '15'))
     preview = option(args, '--preview', '')
+    append = '--append' in args
+    moves_path = option(args, '--moves', '')
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=source)
     scene = bpy.context.scene
     armature = next(o for o in scene.objects if o.type == 'ARMATURE')
-    meshes = [o for o in scene.objects if o.type == 'MESH']
+    # Only the skinned body. Blender's glTF import also adds a helper ball ("Icosphere", 2 m
+    # across) that it draws bones with; counting it made the character small and lifted it up.
+    meshes = [o for o in scene.objects if o.type == 'MESH' and any(m.type == 'ARMATURE' for m in o.modifiers)]
     bones = list(armature.data.bones)
     bone_index = {bone.name: i for i, bone in enumerate(bones)}
     actions = list(bpy.data.actions)
@@ -123,7 +139,7 @@ def main():
         lines.append('r %.5f %.5f %.5f %.5f %.5f %.5f %.5f' % unity_place(matrix))
 
     verts, index, tris = [], {}, []
-    for obj in meshes:
+    for obj in ([] if append else meshes):
         mesh = obj.data
         mesh.calc_loop_triangles()
         to_fit = fit @ obj.matrix_world
@@ -161,6 +177,11 @@ def main():
     roots = [i for i, bone in enumerate(bones) if bone.parent is None]
     step = max(1.0, scene.render.fps / fps)
     written = []
+    clip_lines = {}
+    joints = [(plain, bone_index[meshy]) for plain, meshy in JOINTS if meshy in bone_index]
+    move_lines = ['# classpack moves (from %s)' % os.path.basename(source), 'j ' + ' '.join(plain for plain, _ in joints)]
+    for _, i in joints:
+        move_lines.append('r %.5f %.5f %.5f %.5f %.5f %.5f %.5f' % unity_place(rest[i]))
     for action_number, action in enumerate(actions):
         if armature.animation_data is None:
             armature.animation_data_create()
@@ -180,15 +201,47 @@ def main():
         # Keep the hips over the same spot: the game moves the character, not the move.
         anchor = frames[0][roots[0]].to_translation() if roots else Vector()
         clip = clip_name(action.name, action_number)
-        lines.append('a %s %d %.3f' % (clip, len(frames), scene.render.fps / step))
+        own = ['a %s %d %.3f' % (clip, len(frames), scene.render.fps / step)]
+        move_lines.append(own[0])
         for pose in frames:
             drift = (pose[roots[0]].to_translation() - anchor) if roots else Vector()
             shift = Matrix.Translation((-drift.x, -drift.y, 0.0))
             for matrix in pose:
-                lines.append('p %.5f %.5f %.5f %.5f %.5f %.5f %.5f' % unity_place(shift @ matrix))
+                own.append('p %.5f %.5f %.5f %.5f %.5f %.5f %.5f' % unity_place(shift @ matrix))
+            for _, i in joints:
+                move_lines.append('p %.5f %.5f %.5f %.5f %.5f %.5f %.5f' % unity_place(shift @ pose[i]))
+        clip_lines[clip] = own
+        lines.extend(own)
         written.append('%s %d frames' % (clip, len(frames)))
 
-    with open(os.path.join(out_dir, name + '.cpc'), 'w', encoding='ascii', newline='\n') as f:
+    target = os.path.join(out_dir, name + '.cpc')
+    if moves_path:
+        # The same moves on their own, main joints only, for the game's own characters.
+        with open(os.path.abspath(moves_path), 'w', encoding='ascii', newline='\n') as f:
+            f.write('\n'.join(move_lines) + '\n')
+        print('wrote moves %s: %d joints' % (moves_path, len(joints)))
+    if append:
+        # Keep the body that is there, drop its moves of the same names, then add the new ones.
+        with open(target, 'r', encoding='ascii') as f:
+            old = f.read().split('\n')
+        count = next(int(l.split()[1]) for l in old if l.startswith('n '))
+        if count != len(bones):
+            raise SystemExit('skeleton differs: %d bones there, %d here' % (count, len(bones)))
+        there = [l for l in old if l.startswith('r ')]
+        here = [l for l in lines if l.startswith('r ')]
+        worst = max(abs(float(a) - float(b)) for x, y in zip(there, here) for a, b in zip(x.split()[1:4], y.split()[1:4]))
+        if worst > 0.01:
+            raise SystemExit('skeleton differs: a bone is %.3f away from where it was' % worst)
+        kept, skipping = [], False
+        for line in old:
+            if line.startswith('a '):
+                skipping = line.split()[1] in clip_lines
+            if not skipping and line != '':
+                kept.append(line)
+        for clip in clip_lines:
+            kept.extend(clip_lines[clip])
+        lines = kept
+    with open(target, 'w', encoding='ascii', newline='\n') as f:
         f.write('\n'.join(lines) + '\n')
     print('wrote %s: %d bones, %d vertices, %d triangles, moves: %s' % (name, len(bones), len(verts), len(tris), ', '.join(written)))
 

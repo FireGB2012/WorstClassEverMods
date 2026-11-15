@@ -147,6 +147,7 @@ namespace ClassPack
             public CharacterView Body;
             public readonly List<Renderer> HiddenGame = new List<Renderer>();
             public float NeckMax;
+            public float Lift;
             public Vector3 LastAt;
             public float Speed;
             public Transform HeadBone;
@@ -186,6 +187,39 @@ namespace ClassPack
         }
 
         /// <summary>The teacher type a player picked, as everybody in the room knows it.</summary>
+        /// <summary>True for a teacher shown as one of the mod's whole characters, not the game's own body.</summary>
+        public static bool HasOwnBody(ulong uid)
+        {
+            Worn worn;
+            return Worns.TryGetValue(uid, out worn) && worn.Body != null;
+        }
+
+        /// <summary>
+        /// Late in the frame, after the swimming move has posed the swimmers: put what they wear
+        /// back on their heads, which are somewhere else now.
+        /// </summary>
+        public static void LateTick()
+        {
+            UnitManager units = Game.Peek<UnitManager>();
+            if (!Swim.Active || units == null || !Plugin.Settings.looks)
+            {
+                return;
+            }
+            foreach (KeyValuePair<ulong, Worn> pair in Worns)
+            {
+                Worn worn = pair.Value;
+                if (worn.Pieces.Count == 0 || worn.Body != null)
+                {
+                    continue;
+                }
+                Unit unit = units.GetUnitByUID(pair.Key);
+                if (unit != null && unit.isActived && unit.model != null && unit.transform != null && !unit.isLocalPlayer && Swim.Swimming(unit))
+                {
+                    Place(unit, worn, true);
+                }
+            }
+        }
+
         public static int KindOf(ulong uid)
         {
             Worn worn;
@@ -789,7 +823,6 @@ namespace ClassPack
             }
             float tall = worn.NeckMax > 0.3f ? Mathf.Clamp(worn.NeckMax + 0.28f, 1.0f, 2.4f) : 1.7f;
             Transform character = worn.Body.Root.transform;
-            character.position = body.position;
             character.rotation = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
             character.localScale = Vector3.one * tall;
 
@@ -800,13 +833,24 @@ namespace ClassPack
             {
                 worn.Speed = Mathf.Lerp(worn.Speed, moved.magnitude / Time.deltaTime, 0.15f);
             }
-            worn.Body.Play(worn.Speed < 0.25f ? "idle" : worn.Speed < 3.4f ? "walk" : "run");
+            string move = worn.Speed < 0.25f ? "idle" : worn.Speed < 3.4f ? "walk" : "run";
+            float lift = 0f;
+            if (Swim.Swimming(unit) && worn.Body.Has("swim") && worn.Body.Has("swimidle"))
+            {
+                // In the pool: strokes while moving, treading water while still, floating at the surface.
+                bool still = worn.Speed < 0.3f;
+                move = still ? "swimidle" : "swim";
+                lift = Swim.WaterWorldY - SwimPose.SurfaceFor(still) * tall - body.position.y;
+            }
+            worn.Lift = Mathf.MoveTowards(worn.Lift, lift, Time.deltaTime * 2.5f);
+            character.position = body.position + Vector3.up * worn.Lift;
+            worn.Body.Play(move);
             worn.Body.Tick(Time.deltaTime);
         }
 
-        private static void Place(Unit unit, Worn worn)
+        private static void Place(Unit unit, Worn worn, bool late = false)
         {
-            if (worn.Body != null)
+            if (worn.Body != null && !late)
             {
                 PlaceBody(unit, worn);
             }

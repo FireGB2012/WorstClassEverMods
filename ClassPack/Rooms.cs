@@ -369,7 +369,7 @@ namespace ClassPack
         }
 
         /// <summary>Something unseen that players bump into or walk on (a chair's legs, a ramp).</summary>
-        public static void Block(Transform room, string name, Vector3 centre, Vector3 size, Vector3 euler = default(Vector3))
+        public static GameObject Block(Transform room, string name, Vector3 centre, Vector3 size, Vector3 euler = default(Vector3))
         {
             var block = new GameObject(name);
             block.layer = SolidLayer;
@@ -377,6 +377,7 @@ namespace ClassPack
             block.transform.localPosition = centre;
             block.transform.localEulerAngles = euler;
             block.AddComponent<BoxCollider>().size = size;
+            return block;
         }
     }
 }

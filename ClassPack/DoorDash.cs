@@ -193,9 +193,12 @@ namespace ClassPack
             {
                 Vector3 spot;
                 string how;
-                if (TeacherOffice.TryFind(out spot, out how))
+                // In a swim class the food goes to the lounge next to the pool, onto its table.
+                bool atPool = Swim.TryLoungeSpot(out spot);
+                how = "the pool hall's lounge table";
+                if (atPool || TeacherOffice.TryFind(out spot, out how))
                 {
-                    Vector2 scatter = UnityEngine.Random.insideUnitCircle * 0.45f;
+                    Vector2 scatter = UnityEngine.Random.insideUnitCircle * (atPool ? 0.22f : 0.45f);
                     spot += new Vector3(scatter.x, 0f, scatter.y);
                     Unit item = SpawnLooseItem(MenuIds[order.Food], spot);
                     itemUID = item != null ? item.UID : 0uL;

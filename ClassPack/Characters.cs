@@ -67,6 +67,11 @@ namespace ClassPack
             Tick(0f);
         }
 
+        public bool Has(string name)
+        {
+            return _data.Clips.ContainsKey(name);
+        }
+
         /// <summary>Switches to another move, easing over a fifth of a second.</summary>
         public void Play(string name)
         {

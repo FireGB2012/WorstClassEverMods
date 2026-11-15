@@ -74,6 +74,9 @@ MODELS = {
     'pool_ring': (0.8, '0.5,0.5,0.5', '0,0,0', BACK),
     'pool_bench': (1.9, '0.5,0.5,0', '0,0,0', BACK),
     'pool_duck': (1.3, '0.5,0.5,0.14', '0,0,0', BACK),
+    # The teachers' lounge next to the pool: same rules as the pool props.
+    'lounge_sofa': (1.8, '0.5,0.5,0', '0,0,0', BACK),
+    'lounge_table': (1.3, '0.5,0.5,0', '0,0,0', BACK),
 }
 
 

@@ -452,3 +452,53 @@ and `StudentCrawlComponent.IsCrawling` is synced, the bots only count as scenery
 (`AreAllStudentsPunished` looks at players), so the teacher can still win by catching everyone.
 
 Dance class: not started. He tests the swim class first.
+
+## Swim class, second round (version 0.10.0, built 2026-11-15, NOT installed: the game was running)
+
+His first swim class worked (log: hall built at (300, 100, 0), 4 poles, he was sent to the pool
+as the only student; ambient light is flat 0.5 grey and extra lights are on per pixel, max 8).
+He then wrote: "no bots are spawning, add a real swim animation, add a teachers' lounge for
+DoorDash and make DoorDash 5 mischief". Asked about credits and bots he chose: swim moves yes
+(18 credits), lounge props "sofa and table only" (42 credits), bots "use the bots from floor 1".
+291 credits left by my count.
+
+What 0.10.0 adds (all compiled, none of it seen in the game):
+- DoorDash pays 5 mischief. `doorDashPoints` default is 5 and `rulesVersion` 1 rewrites a saved 15 once.
+- Teachers' lounge: a doorway in the deep end wall (z = -6) leads to a 6 by 6 m room with a wooden
+  floor, a sofa and a coffee table (`lounge_sofa`, `lounge_table`). While a swim class runs,
+  `Swim.TryLoungeSpot` makes DoorDash drop the food onto that table instead of the school's office.
+- Bots: the game's own bots come to the pool. The game already has roaming bots for its
+  playground floor: a `PlaygroundNavigationArea` over a `NavMeshSurface` whose area is named
+  "PlaygroundArea", set on a bot with `StudentNPCComponent.SetPlaygroundArea`. `Swim.BringBots`
+  (host, every 0.3 s) builds such a surface from the hall's solid boxes the first time a bot
+  with a `NavMeshAgent` exists (the lounge, the board's plank and its ladder slope carry a
+  `NavMeshModifier` that keeps them out), then warps each new bot onto the deck and sets the
+  area. The game moves and syncs them from there and removes them itself at the end of class.
+  Setting `poolBots` switches it off.
+- Real swimming: Meshy's "Swim Forward" (569) and "Swim Idle" (568) moves.
+  - The three Meshy teachers got them as clips `swim` and `swimidle` in their `.cpc`
+    (`convert_character.py --append`); `Looks.PlaceBody` plays them in the water and floats
+    the body at the surface.
+  - The game's own students, bots and teacher get the same moves through `SwimPose.cs`: the
+    moves are also stored joint by joint in `package\models\moves_swim.cpr`
+    (`convert_character.py --moves`), and in LateUpdate each swimmer's bones are turned by
+    "the joint's turn since rest in the move" x "a fixed turn lining the game's bone up with
+    the move's resting bone" x "how the bone was turned when the character stood upright".
+    The game's bone names (found in the prefab data): spine1, spine2, neck, head, head_end,
+    shoulder/upper_arm/forearm/hand .L/.R, thigh/shin/foot/toe .L/.R. The hips are then put at
+    the water's surface by moving the top of the skeleton.
+  - A player's own body is left alone (the game is seen through its eyes), so alone you only
+    see the move on the bots.
+- BUG FOUND AND FIXED: Blender's glTF import adds a helper ball ("Icosphere", 2 m across) that
+  `convert_character.py` counted as part of the body. All three teacher characters were 63 %
+  of their height and floated 37 % up since 0.8.0 (nobody saw it: a teacher can't see their
+  own body). The converter now takes skinned meshes only and all three were rebuilt.
+
+Log lines to read after his next test: `swim: walkable area for bots ready`, `swim: first bot
+brought to the pool`, `swim move: loaded`, `swim move: first character set up` (names the top
+of the skeleton and what the hips and thighs hang under), and any `error in the swimming move`.
+
+Most likely to be wrong, in my order of doubt: the swimming pose on the game's skeleton (blind:
+left/right, the hips' height, hats on swimmers), bots that were already seated when the class
+turned into a swim class, bots walking through the poles (they are not in the walkable area's
+picture), the sofa's facing.

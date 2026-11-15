@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Mirror;
+using Unity.AI.Navigation;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -47,6 +49,18 @@ namespace ClassPack
         private const float BoardLadderX = BoardTip + 2.7f;
 
         private static readonly Vector3 ChairAt = new Vector3(0f, 0f, 6.7f);
+
+        // ---- the teachers' lounge behind the deep end wall, through a doorway in that wall
+        private const float DoorZ = -6f;
+        private const float DoorHalf = 0.8f;
+        private const float DoorHeight = 2.3f;
+        private const float LoungeDepth = 6f;
+        private const float LoungeHalf = 3f;
+        private const float LoungeHeight = 3f;
+        private const float LoungeNear = HalfLength + 0.5f;
+        private const float TableTop = 0.4f;
+        private static readonly Vector3 LoungeSofa = new Vector3(LoungeNear + LoungeDepth - 0.5f, 0f, DoorZ);
+        private static readonly Vector3 LoungeTable = new Vector3(LoungeNear + LoungeDepth - 1.8f, 0f, DoorZ);
         private static readonly float[] PoleX = { -6f, -2f, 2f, 6f };
         private const float PoleZ = -6.9f;
 
@@ -69,6 +83,9 @@ namespace ClassPack
         private static GameObject _hall;
         private static readonly List<Object> Made = new List<Object>();
         private static readonly List<Light> Lamps = new List<Light>();
+        private static readonly List<float> LampShare = new List<float>();
+        private static readonly Dictionary<ulong, float> FootDrop = new Dictionary<ulong, float>();
+        private static Transform _lounge;
         private static readonly List<Transform> Floats = new List<Transform>();
         private static readonly List<Vector3> FloatHome = new List<Vector3>();
         private static Transform _water;
@@ -120,10 +137,41 @@ namespace ClassPack
         private static float _nextRulesAt;
         private static float _nextStragglersAt;
         private static readonly List<ulong> HostPoles = new List<ulong>();
+        private static readonly HashSet<ulong> HostBots = new HashSet<ulong>();
+        private static NavMeshSurface _nav;
+        private static PlaygroundNavigationArea _navArea;
+        private static bool _navTried;
+        private static float _nextBotsAt;
         private static readonly Dictionary<ulong, Swimmer> Swimmers = new Dictionary<ulong, Swimmer>();
 
         /// <summary>True while this player's game shows the pool hall for a swim class.</summary>
         public static bool Active => _on;
+
+        /// <summary>How high the pool's water stands, in the world.</summary>
+        public static float WaterWorldY => _origin.y + WaterY;
+
+        /// <summary>In water deep enough to swim, and free to: not carried, hung, seated or diving under.</summary>
+        public static bool Swimming(Unit unit)
+        {
+            if (!_on || unit == null || unit.transform == null)
+            {
+                return false;
+            }
+            int state = unit.CurState();
+            if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished || unit.IsSitting)
+            {
+                return false;
+            }
+            Vector3 feet = Feet(unit) - _origin;
+            return InWater(feet) && feet.y < WaterY - 0.45f && !Crawling(unit);
+        }
+
+        /// <summary>Host: where DoorDash puts the food during a swim class: on the lounge's coffee table.</summary>
+        public static bool TryLoungeSpot(out Vector3 spot)
+        {
+            spot = _hostOrigin + LoungeTable + Vector3.up * (TableTop + 0.15f);
+            return _hostOn;
+        }
 
         public static void Tick()
         {
@@ -136,6 +184,7 @@ namespace ClassPack
                 _beginAt = 0f;
                 _bringAt = 0f;
                 HostPoles.Clear();
+                HostBots.Clear();
                 Swimmers.Clear();
                 if (_on || _hall != null)
                 {
@@ -201,6 +250,11 @@ namespace ClassPack
                 _nextStragglersAt = Time.time + 2f;
                 Bring(false);
             }
+            if (starting && Plugin.Settings.poolBots && Time.time >= _nextBotsAt)
+            {
+                _nextBotsAt = Time.time + 0.3f;
+                BringBots();
+            }
             if (state == EClassroomState.Classing && Time.time >= _nextRulesAt)
             {
                 _nextRulesAt = Time.time + 0.2f;
@@ -221,6 +275,7 @@ namespace ClassPack
             _hostOrigin = FindSpot(centre);
             _hostOn = true;
             Swimmers.Clear();
+            HostBots.Clear();
             Net.SendToModded(new CpTell { kind = CpKind.Pool, j = 1, v = _hostOrigin });
             SpawnPoles(units, centre);
             _bringAt = Time.time + 0.6f;
@@ -319,6 +374,7 @@ namespace ClassPack
             _hostOn = false;
             _bringAt = 0f;
             Swimmers.Clear();
+            HostBots.Clear();
             RemovePoles();
             Net.SendToModded(new CpTell { kind = CpKind.Pool, j = 0 });
             Plugin.Log("swim: class over, the pool hall is taken away");
@@ -352,6 +408,9 @@ namespace ClassPack
                 }
                 Vector3 p = player.Position - _hostOrigin;
                 bool inside = Mathf.Abs(p.x) < HalfLength + 1f && Mathf.Abs(p.z) < HalfWidth + 1f && p.y > -3f && p.y < Height + 1f;
+                bool inLounge = p.x > HalfLength - 1f && p.x < LoungeNear + LoungeDepth + 1f && Mathf.Abs(p.z - DoorZ) < LoungeHalf + 1f
+                    && p.y > -3f && p.y < LoungeHeight + 1f;
+                inside |= inLounge;
                 if (inside)
                 {
                     continue;
@@ -468,6 +527,140 @@ namespace ClassPack
             }
         }
 
+        /// <summary>
+        /// Brings the game's own bot classmates to the pool. On its playground floor the game
+        /// already lets bots roam a walkable area by themselves; here the pool hall is made
+        /// such an area (deck, ramp and pool floor, worked out from the hall's solid boxes) and
+        /// each bot is put on it and told to roam. The game runs them from there on, and takes
+        /// them away itself when the class ends.
+        /// </summary>
+        private static void BringBots()
+        {
+            UnitManager units = Game.Peek<UnitManager>();
+            if (units == null || _hall == null || (_navTried && _navArea == null))
+            {
+                return;
+            }
+            foreach (Unit unit in new List<Unit>(units.unitsDict.Values))
+            {
+                if (unit == null || !unit.isActived || unit.transform == null || unit.model == null || HostBots.Contains(unit.UID))
+                {
+                    continue;
+                }
+                StudentNPCComponent bot = unit.GetComponent<StudentNPCComponent>();
+                NavMeshAgent agent = bot != null ? unit.model.GetComponent<NavMeshAgent>() : null;
+                if (agent == null)
+                {
+                    continue;
+                }
+                if (!EnsureWalkable(agent))
+                {
+                    return;
+                }
+                int state = unit.CurState();
+                if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished)
+                {
+                    continue;
+                }
+                if (bot.IsSitting)
+                {
+                    // Already at a desk: have it get up, and take it along on the next round.
+                    bot.StopNPCAction(true);
+                    continue;
+                }
+                // A spot somewhere on the deck around the pool.
+                Vector3 want = Vector3.zero;
+                for (int tries = 0; tries < 12; tries++)
+                {
+                    want = new Vector3(Random.Range(-HalfLength + 1f, HalfLength - 1f), 0f, Random.Range(-HalfWidth + 1f, HalfWidth - 1f));
+                    if (Mathf.Abs(want.x) > PoolX + 0.6f || Mathf.Abs(want.z) > PoolZ + 0.6f)
+                    {
+                        break;
+                    }
+                }
+                var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+                NavMeshHit hit;
+                if (!NavMesh.SamplePosition(_hostOrigin + want, out hit, 2.5f, filter))
+                {
+                    continue;
+                }
+                var facing = new Vector3(0f, Random.Range(0f, 360f), 0f);
+                agent.enabled = false;
+                unit.SetPosition(hit.position);
+                unit.SetRotation(facing);
+                agent.enabled = true;
+                if (agent.isOnNavMesh)
+                {
+                    agent.Warp(hit.position);
+                }
+                ForceComponent force = unit.GetComponent<ForceComponent>();
+                if (force != null && force.rigidBody != null)
+                {
+                    force.rigidBody.position = hit.position;
+                }
+                SyncTransformComponet sync = unit.GetComponent<SyncTransformComponet>();
+                if (sync != null)
+                {
+                    sync.ApplyTransformImmediately(hit.position, facing);
+                    sync.ForceSendTransformSync();
+                }
+                bot.SetPlaygroundArea(_navArea);
+                HostBots.Add(unit.UID);
+                if (HostBots.Count == 1)
+                {
+                    Plugin.Log("swim: first bot brought to the pool at " + hit.position.ToString("F1") + ", on the walkable area: " + agent.isOnNavMesh);
+                }
+            }
+        }
+
+        /// <summary>Works out where bots can walk in the hall, for the kind of walker the game's bots are.</summary>
+        private static bool EnsureWalkable(NavMeshAgent agent)
+        {
+            if (_navTried)
+            {
+                return _navArea != null;
+            }
+            _navTried = true;
+            try
+            {
+                int area = NavMesh.GetAreaFromName("PlaygroundArea");
+                if (area < 0)
+                {
+                    Plugin.Log("swim: the game has no roaming area for bots, the pool stays without them");
+                    return false;
+                }
+                _nav = _hall.AddComponent<NavMeshSurface>();
+                _nav.agentTypeID = agent.agentTypeID;
+                _nav.collectObjects = CollectObjects.Children;
+                _nav.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+                _nav.layerMask = ~0;
+                _nav.defaultArea = area;
+                _nav.BuildNavMesh();
+                if (_nav.navMeshData == null)
+                {
+                    Plugin.Log("swim: the walkable area for bots could not be worked out");
+                    return false;
+                }
+                _navArea = new PlaygroundNavigationArea(_nav, area);
+                Bounds reach = _nav.navMeshData.sourceBounds;
+                Plugin.Log("swim: walkable area for bots ready, " + reach.size.x.ToString("F0") + " by " + reach.size.z.ToString("F0") + " m, walker type " + agent.agentTypeID);
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log("swim: bots can't come to the pool: " + ex.Message);
+                _navArea = null;
+                return false;
+            }
+        }
+
+        /// <summary>Keeps something out of the bots' walkable area (and the bots out of it).</summary>
+        private static GameObject NoBots(GameObject thing)
+        {
+            thing.AddComponent<NavMeshModifier>().ignoreFromBuild = true;
+            return thing;
+        }
+
         public static void OnAsk(Unit player, CpAsk ask)
         {
             ClassroomManager classroom = Game.Peek<ClassroomManager>();
@@ -543,17 +736,25 @@ namespace ClassPack
         private static Vector3 Feet(Unit unit)
         {
             Vector3 at = unit.Position;
-            CapsuleCollider capsule = unit.transform != null ? unit.transform.GetComponentInChildren<CapsuleCollider>() : null;
-            if (capsule != null)
+            float drop;
+            if (!FootDrop.TryGetValue(unit.UID, out drop))
             {
-                float half = capsule.direction == 1 ? Mathf.Max(capsule.height * 0.5f, capsule.radius) : capsule.radius;
-                float bottom = capsule.transform.TransformPoint(capsule.center).y - half * Mathf.Abs(capsule.transform.lossyScale.y);
-                // Only trust it when it is a body-sized capsule around the player's own place.
-                if (Mathf.Abs(bottom - at.y) < 1.5f)
+                // Measured once and remembered: the swimming move lifts and turns the body later.
+                drop = 0f;
+                CapsuleCollider capsule = unit.transform != null ? unit.transform.GetComponentInChildren<CapsuleCollider>() : null;
+                if (capsule != null)
                 {
-                    at.y = bottom;
+                    float half = capsule.direction == 1 ? Mathf.Max(capsule.height * 0.5f, capsule.radius) : capsule.radius;
+                    float bottom = capsule.transform.TransformPoint(capsule.center).y - half * Mathf.Abs(capsule.transform.lossyScale.y);
+                    // Only trust it when it is a body-sized capsule around the player's own place.
+                    if (Mathf.Abs(bottom - at.y) < 1.5f)
+                    {
+                        drop = at.y - bottom;
+                    }
+                    FootDrop[unit.UID] = drop;
                 }
             }
+            at.y -= drop;
             return at;
         }
 
@@ -819,11 +1020,19 @@ namespace ClassPack
             // Walls with a blue band, big bright windows on the chair side, and the ceiling.
             float wallMiddle = Height * 0.5f;
             Rooms.Box(room, "wall", new Vector3(-HalfLength - 0.25f, wallMiddle, 0f), new Vector3(0.5f, Height, HalfWidth * 2f + 1f), wall, 0.5f, true);
-            Rooms.Box(room, "wall", new Vector3(HalfLength + 0.25f, wallMiddle, 0f), new Vector3(0.5f, Height, HalfWidth * 2f + 1f), wall, 0.5f, true);
+            // The deep end wall has the doorway to the teachers' lounge in it.
+            float wallFrom = -HalfWidth - 0.5f;
+            float wallTo = HalfWidth + 0.5f;
+            float doorFrom = DoorZ - DoorHalf;
+            float doorTo = DoorZ + DoorHalf;
+            Rooms.Box(room, "wall", new Vector3(HalfLength + 0.25f, wallMiddle, (wallFrom + doorFrom) * 0.5f), new Vector3(0.5f, Height, doorFrom - wallFrom), wall, 0.5f, true);
+            Rooms.Box(room, "wall", new Vector3(HalfLength + 0.25f, wallMiddle, (doorTo + wallTo) * 0.5f), new Vector3(0.5f, Height, wallTo - doorTo), wall, 0.5f, true);
+            Rooms.Box(room, "wall", new Vector3(HalfLength + 0.25f, (DoorHeight + Height) * 0.5f, DoorZ), new Vector3(0.5f, Height - DoorHeight, DoorHalf * 2f), wall, 0.5f, true);
             Rooms.Box(room, "wall", new Vector3(0f, wallMiddle, -HalfWidth - 0.25f), new Vector3(HalfLength * 2f, Height, 0.5f), wall, 0.5f, true);
             Rooms.Box(room, "wall", new Vector3(0f, wallMiddle, HalfWidth + 0.25f), new Vector3(HalfLength * 2f, Height, 0.5f), wall, 0.5f, true);
             Rooms.Box(room, "band", new Vector3(-HalfLength + 0.015f, 1.25f, 0f), new Vector3(0.03f, 0.3f, HalfWidth * 2f), stripe, 1f, false);
-            Rooms.Box(room, "band", new Vector3(HalfLength - 0.015f, 1.25f, 0f), new Vector3(0.03f, 0.3f, HalfWidth * 2f), stripe, 1f, false);
+            Rooms.Box(room, "band", new Vector3(HalfLength - 0.015f, 1.25f, (-HalfWidth + doorFrom - 0.14f) * 0.5f), new Vector3(0.03f, 0.3f, doorFrom - 0.14f + HalfWidth), stripe, 1f, false);
+            Rooms.Box(room, "band", new Vector3(HalfLength - 0.015f, 1.25f, (doorTo + 0.14f + HalfWidth) * 0.5f), new Vector3(0.03f, 0.3f, HalfWidth - doorTo - 0.14f), stripe, 1f, false);
             Rooms.Box(room, "band", new Vector3(0f, 1.25f, -HalfWidth + 0.015f), new Vector3(HalfLength * 2f, 0.3f, 0.03f), stripe, 1f, false);
             Rooms.Box(room, "band", new Vector3(0f, 1.25f, HalfWidth - 0.015f), new Vector3(HalfLength * 2f, 0.3f, 0.03f), stripe, 1f, false);
             foreach (float x in new[] { -8.5f, 0f, 8.5f })
@@ -832,19 +1041,25 @@ namespace ClassPack
                 Rooms.Box(room, "window", new Vector3(x, 3.7f, HalfWidth - 0.045f), new Vector3(5.2f, 2.4f, 0.03f), glass, 1f, false);
                 Rooms.Box(room, "window bar", new Vector3(x, 3.7f, HalfWidth - 0.065f), new Vector3(0.1f, 2.4f, 0.02f), white, 1f, false);
             }
-            Rooms.Box(room, "ceiling", new Vector3(0f, Height + 0.1f, 0f), new Vector3(HalfLength * 2f + 1f, 0.2f, HalfWidth * 2f + 1f), ceiling, 1f, true);
+            // Nothing reaches the ceiling, so it is for looks only: a solid one would count as
+            // a floor the bots could stand on.
+            Rooms.Box(room, "ceiling", new Vector3(0f, Height + 0.1f, 0f), new Vector3(HalfLength * 2f + 1f, 0.2f, HalfWidth * 2f + 1f), ceiling, 1f, false);
 
             // Lamps: a bright panel in the ceiling and a light under each.
             Lamps.Clear();
+            LampShare.Clear();
             foreach (float x in new[] { -9f, 0f, 9f })
             {
                 foreach (float z in new[] { -4.5f, 4.5f })
                 {
                     Rooms.Box(room, "lamp panel", new Vector3(x, Height - 0.02f, z), new Vector3(2.4f, 0.04f, 0.7f), bulb, 1f, false);
                     Lamps.Add(Rooms.Lamp(room, new Vector3(x, Height - 0.9f, z), 17f, 1f, new Color(1f, 0.97f, 0.9f)));
+                    LampShare.Add(1f);
                 }
             }
             _lampStrength = -1f;
+
+            BuildLounge(room, white, bulb);
 
             GameObject water = Rooms.Sheet(room, "water", new Vector3(0f, WaterY, 0f), PoolX * 2f, PoolZ * 2f, _waterPaint, 3f);
             _water = water.transform;
@@ -857,6 +1072,48 @@ namespace ClassPack
             }
             Furnish(room);
             LogLight();
+        }
+
+        /// <summary>
+        /// The teachers' lounge behind the deep end wall: a small warm room with a sofa and a
+        /// coffee table. In a swim class DoorDash drops the food on that table, so a student
+        /// has to sneak in for it. Bots are kept out.
+        /// </summary>
+        private static void BuildLounge(Transform room, Material white, Material bulb)
+        {
+            var holder = new GameObject("lounge");
+            holder.transform.SetParent(room, false);
+            NoBots(holder);
+            _lounge = holder.transform;
+
+            Texture2D woodPicture = Keep(Rooms.Tiles(new Color32(204, 158, 106, 255), new Color32(162, 118, 76, 255), 53));
+            Material wood = Keep(Rooms.Tiled(woodPicture, 0.3f, 0.2f));
+            Material cream = Keep(Rooms.Plain(new Color32(252, 238, 208, 255), 0.15f, 0.22f));
+            Material rug = Keep(Rooms.Plain(new Color32(214, 84, 62, 255), 0.05f, 0.2f));
+            Material frame = Keep(Rooms.Plain(new Color32(140, 92, 56, 255), 0.3f, 0.2f));
+
+            float far = LoungeNear + LoungeDepth;
+            float middle = (LoungeNear + far) * 0.5f;
+            float wide = LoungeHalf * 2f;
+            // The floor runs from under the doorway to under the far wall.
+            Rooms.Box(_lounge, "lounge floor", new Vector3((HalfLength + far + 0.5f) * 0.5f, -0.6f, DoorZ), new Vector3(far + 0.5f - HalfLength, 1.2f, wide + 1f), wood, 0.6f, true);
+            Rooms.Box(_lounge, "lounge wall", new Vector3(far + 0.25f, LoungeHeight * 0.5f, DoorZ), new Vector3(0.5f, LoungeHeight, wide + 1f), cream, 1f, true);
+            Rooms.Box(_lounge, "lounge wall", new Vector3(middle, LoungeHeight * 0.5f, DoorZ - LoungeHalf - 0.25f), new Vector3(LoungeDepth, LoungeHeight, 0.5f), cream, 1f, true);
+            Rooms.Box(_lounge, "lounge wall", new Vector3(middle, LoungeHeight * 0.5f, DoorZ + LoungeHalf + 0.25f), new Vector3(LoungeDepth, LoungeHeight, 0.5f), cream, 1f, true);
+            // The pool wall's own back, painted like the room.
+            float side = LoungeHalf - DoorHalf;
+            Rooms.Box(_lounge, "lounge wall", new Vector3(LoungeNear + 0.01f, LoungeHeight * 0.5f, DoorZ - DoorHalf - side * 0.5f), new Vector3(0.02f, LoungeHeight, side), cream, 1f, false);
+            Rooms.Box(_lounge, "lounge wall", new Vector3(LoungeNear + 0.01f, LoungeHeight * 0.5f, DoorZ + DoorHalf + side * 0.5f), new Vector3(0.02f, LoungeHeight, side), cream, 1f, false);
+            Rooms.Box(_lounge, "lounge wall", new Vector3(LoungeNear + 0.01f, (DoorHeight + LoungeHeight) * 0.5f, DoorZ), new Vector3(0.02f, LoungeHeight - DoorHeight, DoorHalf * 2f), cream, 1f, false);
+            Rooms.Box(_lounge, "lounge ceiling", new Vector3(middle, LoungeHeight + 0.1f, DoorZ), new Vector3(LoungeDepth + 1f, 0.2f, wide + 1f), white, 1f, false);
+            Rooms.Box(_lounge, "rug", new Vector3(LoungeTable.x, 0.008f, DoorZ), new Vector3(2f, 0.016f, 2.8f), rug, 1f, false);
+            // A wooden door frame on the pool side, so the doorway is easy to spot.
+            Rooms.Box(_lounge, "door frame", new Vector3(HalfLength - 0.03f, DoorHeight * 0.5f, DoorZ - DoorHalf - 0.07f), new Vector3(0.06f, DoorHeight + 0.14f, 0.14f), frame, 1f, false);
+            Rooms.Box(_lounge, "door frame", new Vector3(HalfLength - 0.03f, DoorHeight * 0.5f, DoorZ + DoorHalf + 0.07f), new Vector3(0.06f, DoorHeight + 0.14f, 0.14f), frame, 1f, false);
+            Rooms.Box(_lounge, "door frame", new Vector3(HalfLength - 0.03f, DoorHeight + 0.07f, DoorZ), new Vector3(0.06f, 0.14f, DoorHalf * 2f + 0.28f), frame, 1f, false);
+            Rooms.Box(_lounge, "lamp panel", new Vector3(middle, LoungeHeight - 0.02f, DoorZ), new Vector3(1.6f, 0.04f, 0.6f), bulb, 1f, false);
+            Lamps.Add(Rooms.Lamp(_lounge, new Vector3(middle, LoungeHeight - 0.6f, DoorZ), 8f, 1f, new Color(1f, 0.92f, 0.78f)));
+            LampShare.Add(0.3f);
         }
 
         /// <summary>The models in the hall, and the unseen blocks that make them solid.</summary>
@@ -872,15 +1129,15 @@ namespace ClassPack
                 missing++;
             }
             float plank = BoardBack - BoardTip;
-            Rooms.Block(room, "board plank", new Vector3(BoardTip + plank * 0.5f, BoardTop - 0.08f, 0f), new Vector3(plank, 0.16f, BoardHalfWidth * 2f));
+            NoBots(Rooms.Block(room, "board plank", new Vector3(BoardTip + plank * 0.5f, BoardTop - 0.08f, 0f), new Vector3(plank, 0.16f, BoardHalfWidth * 2f)));
             float block = BoardBack - BoardBlock;
             Rooms.Block(room, "board block", new Vector3(BoardBlock + block * 0.5f, 0.42f, 0f), new Vector3(block, 0.84f, BoardHalfWidth * 2f));
             const float climbRun = 1f;
             float climb = Mathf.Sqrt(climbRun * climbRun + BoardTop * BoardTop);
             float climbAngle = Mathf.Atan2(BoardTop, climbRun) * Mathf.Rad2Deg;
             Quaternion climbTurn = Quaternion.Euler(-climbAngle, 0f, 0f);
-            Rooms.Block(room, "board ladder", new Vector3(BoardLadderX, BoardTop * 0.5f, -BoardHalfWidth - climbRun * 0.5f) - climbTurn * Vector3.up * 0.05f,
-                new Vector3(0.95f, 0.1f, climb), new Vector3(-climbAngle, 0f, 0f));
+            NoBots(Rooms.Block(room, "board ladder", new Vector3(BoardLadderX, BoardTop * 0.5f, -BoardHalfWidth - climbRun * 0.5f) - climbTurn * Vector3.up * 0.05f,
+                new Vector3(0.95f, 0.1f, climb), new Vector3(-climbAngle, 0f, 0f)));
 
             // Lifeguard chair, facing the pool.
             if (Rooms.Prop(room, "pool_chair", ChairAt, 0f) == null)
@@ -918,8 +1175,24 @@ namespace ClassPack
                 missing++;
             }
             Rooms.Prop(room, "pool_ring", new Vector3(7f, 2.1f, -HalfWidth + 0.09f), 0f);
-            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, 5f), 90f);
-            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, -5f), 90f);
+            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, 3.2f), 90f);
+            Rooms.Prop(room, "pool_ring", new Vector3(HalfLength - 0.09f, 2.1f, -3.2f), 90f);
+
+            // The lounge: a sofa against the far wall, facing the door, and the coffee table in
+            // front of it. DoorDash puts the food on the table.
+            if (_lounge != null)
+            {
+                if (Rooms.Prop(_lounge, "lounge_sofa", LoungeSofa, 90f) == null)
+                {
+                    missing++;
+                }
+                Rooms.Block(_lounge, "sofa", LoungeSofa + Vector3.up * 0.45f, new Vector3(0.95f, 0.9f, 1.8f));
+                if (Rooms.Prop(_lounge, "lounge_table", LoungeTable, 90f) == null)
+                {
+                    missing++;
+                }
+                Rooms.Block(_lounge, "table", LoungeTable + Vector3.up * (TableTop * 0.5f), new Vector3(0.72f, TableTop, 1.3f));
+            }
 
             // Rubber ducks that float around.
             Floats.Clear();
@@ -989,8 +1262,14 @@ namespace ClassPack
             }
             Drops.Clear();
             Lamps.Clear();
+            LampShare.Clear();
+            FootDrop.Clear();
             Floats.Clear();
             FloatHome.Clear();
+            _lounge = null;
+            _nav = null;
+            _navArea = null;
+            _navTried = false;
             _water = null;
             _waterPaint = null;
             if (_hall != null)
@@ -1017,11 +1296,11 @@ namespace ClassPack
             if (!Mathf.Approximately(strength, _lampStrength))
             {
                 _lampStrength = strength;
-                foreach (Light lamp in Lamps)
+                for (int i = 0; i < Lamps.Count; i++)
                 {
-                    if (lamp != null)
+                    if (Lamps[i] != null)
                     {
-                        lamp.intensity = strength;
+                        Lamps[i].intensity = strength * (i < LampShare.Count ? LampShare[i] : 1f);
                     }
                 }
             }

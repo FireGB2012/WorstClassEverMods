@@ -238,7 +238,7 @@ namespace ClassPack
             bool swim = isHost && settings.nextClass == Swim.SwimClass;
             if (swim)
             {
-                GUILayout.Label("At the bell everyone who runs Class Pack goes to the pool hall. The bots stay in the classroom.", _note);
+                GUILayout.Label("At the bell everyone who runs Class Pack goes to the pool hall, and the bots come along.", _note);
             }
             if (swim || Swim.Active)
             {

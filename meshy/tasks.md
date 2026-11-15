@@ -58,3 +58,26 @@ All six were made (126 credits, 351 left), converted by `tools/convert_all_meshy
 `package/models/pool_*.cpm` and are in version 0.9.0. Pictures: `meshy/pictures/pool/` and the
 sheet `meshy/pictures/pool_models.png`. Their textures are bright and flat; the renders only
 look dull because of the render's light. Meshy's download links expire on 2026-11-17.
+
+## Swim moves and lounge props, 2026-11-15 (60 credits approved: 18 + 42; 351 before)
+
+Swim moves: `meshy_animate` on each teacher's rig task with action_ids [568, 569] (Swim Idle,
+Swim Forward), 6 credits each.
+
+| Teacher | Swim moves task |
+|---------|-----------------|
+| gym | 01a1de46-6a0b-728c-8eb3-507d3a00c081 |
+| lunch lady | 01a1de46-6bcd-7346-8914-fe0c975bb1e8 |
+| janitor | 01a1de46-6d7a-7120-9799-e836931f50cd |
+
+Lounge props (he chose "sofa and table only"), game-style recipe:
+
+| Prop | Picture task | 3D task |
+|------|--------------|---------|
+| lounge_sofa | 01a1de46-6f20-7201-a8ad-bc9936484476 | 01a1de46-b7b3-7373-8fe1-17ff5b5fe3ac |
+| lounge_table | 01a1de46-7188-7313-a44c-ab2c75d5c2eb | 01a1de46-baab-7024-8720-8e352637b832 |
+
+All made: `meshy/teachers/teacher_<name>_swim.glb` (swim moves, added to the `.cpc` files with
+`convert_character.py --append`; the janitor's also gave `package/models/moves_swim.cpr`) and
+`meshy/toy/lounge_sofa.glb`, `lounge_table.glb` (pictures: `meshy/pictures/lounge_models.png`).
+60 credits used, 291 left by my count.
