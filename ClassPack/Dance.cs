@@ -76,7 +76,6 @@ namespace ClassPack
         private static float _nextMusicCheckAt;
         private static bool _slowed;
         private static float _nextKeyAt;
-        private static float _nextBoothAt;
         private static bool _atBooth;
         private static float _wormShown;
         private static Transform _ball;
@@ -117,6 +116,9 @@ namespace ClassPack
 
         /// <summary>True while this player's game shows the dance hall.</summary>
         public static bool Active => _on;
+
+        /// <summary>True while this player is the teacher standing at the DJ booth.</summary>
+        public static bool TeacherAtBooth => _on && _atBooth;
 
         /// <summary>Where the hall stands in the world: the middle of its floor.</summary>
         public static Vector3 Origin => _origin;
@@ -817,18 +819,8 @@ namespace ClassPack
                 }
             }
 
+            // The DJ booth stands in for the blackboard (Teachers.TickStamina does the stamina).
             _atBooth = me.IsTeacher && Tricks.Flat(feet - BoothSpot).magnitude < BoothReach && feet.y > StageTop - 0.3f;
-            if (Game.InClass && me.IsTeacher && InHall(feet) && Time.time >= _nextBoothAt)
-            {
-                // A little all the time anywhere in the dance hall, as much as a blackboard at the booth.
-                _nextBoothAt = Time.time + 0.25f;
-                SkillComponent skill = me.GetComponent<SkillComponent>();
-                float perSecond = _atBooth ? Plugin.Settings.hallStationStaminaPerSecond : Plugin.Settings.hallStaminaPerSecond;
-                if (skill != null && perSecond > 0f)
-                {
-                    skill.AddSkillEnergy(Mathf.Clamp(perSecond, 0f, 50f) * 0.25f);
-                }
-            }
 
             // How long this student has done the worm, for the bar on screen (the host keeps
             // the real count, which only runs in class).

@@ -56,7 +56,6 @@ namespace ClassPack
         // This player's own side
         private static float _readyAt;
         private static float _pizzaUntil;
-        private static float _nextStirAt;
         private static float _nextStirSoundAt;
         private static Texture2D _pizza;
         private static string _secondKey;
@@ -84,15 +83,122 @@ namespace ClassPack
         {
             if (!Game.InClass)
             {
+                ReleaseDrain();
                 Clear();
                 return;
             }
             _dirty = true;
             Animate();
             HandleKeys();
+            TickStamina();
             if (NetworkServer.active)
             {
                 HostTick();
+            }
+        }
+
+        // ---------------------------------------------------------------------- stamina
+
+        private static SkillComponent _pausedSkill;
+        private static float _staminaOwed;
+        private static float _nextStaminaAt;
+
+        /// <summary>
+        /// The local teacher's stamina. The game drains a teacher's stamina all through class;
+        /// writing on the blackboard stops the drain and fills it up. The spots that stand in for
+        /// the blackboard (the lunch lady's pot, the lifeguard chair, the DJ booth) do the same,
+        /// at least as fast as the blackboard. In the swim and dance halls, where that spot can
+        /// be far away, only part of the drain applies anywhere in the hall.
+        /// </summary>
+        private static void TickStamina()
+        {
+            Unit me = Game.LocalPlayer;
+            SkillComponent skill = me != null && me.isActived && me.IsTeacher ? me.GetComponent<SkillComponent>() : null;
+            if (skill == null)
+            {
+                ReleaseDrain();
+                return;
+            }
+            bool atPot = KindOf(me) == Looks.Lunch && AtPot(me);
+            bool atStation = atPot || Swim.TeacherAtChair || Dance.TeacherAtBooth;
+            if (atStation && _pausedSkill != skill)
+            {
+                ReleaseDrain();
+                skill.PauseAutoEnergyConsume = true;
+                _pausedSkill = skill;
+            }
+            else if (!atStation && _pausedSkill != null)
+            {
+                ReleaseDrain();
+            }
+
+            float perSecond = 0f;
+            if (atStation)
+            {
+                perSecond = Mathf.Max(Mathf.Clamp(Plugin.Settings.stationStaminaPerSecond, 0f, 100f), BoardRefillPerSecond());
+            }
+            else if (Swim.Active || Dance.Active)
+            {
+                perSecond = DrainPerSecond() * (1f - Mathf.Clamp01(Plugin.Settings.hallDrainShare));
+            }
+            _staminaOwed += perSecond * Time.deltaTime;
+            if (Time.time >= _nextStaminaAt)
+            {
+                _nextStaminaAt = Time.time + 0.25f;
+                if (_staminaOwed > 0.01f && skill.currentSkillEnergy < 100f)
+                {
+                    skill.AddSkillEnergy(_staminaOwed);
+                }
+                _staminaOwed = 0f;
+            }
+            if (atPot && Time.time >= _nextStirSoundAt)
+            {
+                _nextStirSoundAt = Time.time + 1.4f;
+                Game.PlaySoundAt(AudioEvents.sfx_hotPot_sfx, _pot);
+            }
+        }
+
+        /// <summary>Lets the game's own stamina drain run again, if this mod stopped it.</summary>
+        private static void ReleaseDrain()
+        {
+            if (_pausedSkill != null)
+            {
+                _pausedSkill.PauseAutoEnergyConsume = false;
+                _pausedSkill = null;
+            }
+            _staminaOwed = 0f;
+        }
+
+        /// <summary>How much stamina the game takes from the teacher a second right now (it depends on the class size).</summary>
+        private static float DrainPerSecond()
+        {
+            try
+            {
+                ClassroomManager classroom = Game.Peek<ClassroomManager>();
+                if (classroom == null || classroom.curState != EClassroomState.Classing)
+                {
+                    return 0f;
+                }
+                return Mathf.Max(0f, StudentNumBalanceConfig.GetTeacherEnergyDrainPerTick()
+                    * (float)Mathf.Clamp(ConfigManager.TeacherSetting.energyDrainTicksPerSecond, 1, 60));
+            }
+            catch (Exception)
+            {
+                return 0f;
+            }
+        }
+
+        /// <summary>How much stamina writing on the blackboard gives a second right now.</summary>
+        private static float BoardRefillPerSecond()
+        {
+            try
+            {
+                return Mathf.Max(0f, StudentNumBalanceConfig.GetBlackboardEnergyRecoveryPerTick()
+                    * (float)Mathf.Clamp(ConfigManager.LevelInteractionSetting.blackboardEnergyTicksPerSecond, 1, 60));
+            }
+            catch (Exception)
+            {
+                return 0f;
             }
         }
 
@@ -126,6 +232,7 @@ namespace ClassPack
             HostReadyAt.Clear();
             HostWet.Clear();
             HostWigs.Clear();
+            HostWigSince.Clear();
             _hostPot = false;
         }
 
@@ -177,9 +284,19 @@ namespace ClassPack
         public static void TryUsePower()
         {
             Unit me = Game.LocalPlayer;
-            if (me == null || !me.isActived || !Net.CanSendToHost || CursorGrab.Busy || me.IsStun || me.BodyActionsBlocked
-                || !HasPower(me) || NerfGuns.HoldingLocal)
+            if (me == null || !me.isActived || !HasPower(me))
             {
+                return;
+            }
+            if (!Net.CanSendToHost || CursorGrab.Busy || me.IsStun || me.BodyActionsBlocked)
+            {
+                NotNow("can't send " + !Net.CanSendToHost + ", window open " + CursorGrab.Busy + ", stunned " + me.IsStun + ", blocked " + me.BodyActionsBlocked);
+                return;
+            }
+            if (NerfGuns.HoldingLocal)
+            {
+                Tricks.Tip("You're holding a nerf gun. Press " + Plugin.Settings.UseKeyCode + " to throw it away first.");
+                NotNow("holding a nerf gun");
                 return;
             }
             int kind = KindOf(me);
@@ -203,8 +320,72 @@ namespace ClassPack
             Vector3 from = camera.transform.position;
             Vector3 end;
             Unit target = NerfGuns.Trace(units, me, from, camera.transform.forward, ThrowReach, out end);
+            if (target == null)
+            {
+                // A throw, not a laser: a student close to where the teacher aims is hit too.
+                target = NearAim(units, me, from, camera.transform.forward, ref end);
+            }
             _readyAt = Time.time + ThrowWait;
             Net.SendToHost(new CpAsk { kind = CpKind.TeacherThrow, i = kind, v = from, w = end, t0 = target != null ? target.UID : 0uL });
+            Plugin.Log("teachers: my " + (kind == Looks.Gym ? "pizza" : "mashed potatoes") + " thrown, aimed at " + (target != null ? Poles.NameOf(target) : "nobody"));
+        }
+
+        private static float _nextNotNowLogAt;
+
+        /// <summary>Writes down why this player's power key did nothing, at most every few seconds.</summary>
+        private static void NotNow(string why)
+        {
+            if (Time.unscaledTime >= _nextNotNowLogAt)
+            {
+                _nextNotNowLogAt = Time.unscaledTime + 3f;
+                Plugin.Log("teachers: my power key did nothing: " + why);
+            }
+        }
+
+        /// <summary>
+        /// The student nearest to the line the teacher aims along, when the throw itself missed:
+        /// up to about a third of a metre off close by and a metre far away, in reach and with
+        /// nothing in between. Null when there is none.
+        /// </summary>
+        private static Unit NearAim(UnitManager units, Unit me, Vector3 from, Vector3 direction, ref Vector3 end)
+        {
+            Unit best = null;
+            float bestScore = 1f;
+            Vector3 bestAt = end;
+            foreach (Unit unit in units.unitsDict.Values)
+            {
+                if (unit == null || unit == me || !unit.isActived || unit.IsDead || !unit.IsStudent || unit.transform == null)
+                {
+                    continue;
+                }
+                Vector3 chest = unit.Position + Vector3.up * 0.5f;
+                float along = Vector3.Dot(chest - from, direction);
+                if (along < 0.5f || along > ThrowReach)
+                {
+                    continue;
+                }
+                float off = (chest - (from + direction * along)).magnitude;
+                float score = off / (0.35f + 0.028f * along);
+                if (score >= bestScore)
+                {
+                    continue;
+                }
+                // Only when nothing solid is in the way.
+                Vector3 seen;
+                Vector3 toward = (chest - from).normalized;
+                if (NerfGuns.Trace(units, me, from, toward, (chest - from).magnitude + 0.6f, out seen) != unit)
+                {
+                    continue;
+                }
+                best = unit;
+                bestScore = score;
+                bestAt = seen;
+            }
+            if (best != null)
+            {
+                end = bestAt;
+            }
+            return best;
         }
 
         /// <summary>The name of the game's own second throw key, for the hint line.</summary>
@@ -271,22 +452,7 @@ namespace ClassPack
             {
                 TryUsePower();
             }
-
-            // The lunch lady only has to stand at her pot: she stirs by herself and her stamina fills.
-            if (kind == Looks.Lunch && AtPot(me) && Time.time >= _nextStirAt)
-            {
-                _nextStirAt = Time.time + 0.25f;
-                SkillComponent skill = me.GetComponent<SkillComponent>();
-                if (skill != null)
-                {
-                    skill.AddSkillEnergy(1.25f);
-                }
-                if (Time.time >= _nextStirSoundAt)
-                {
-                    _nextStirSoundAt = Time.time + 1.4f;
-                    Game.PlaySoundAt(AudioEvents.sfx_hotPot_sfx, _pot);
-                }
-            }
+            // The lunch lady only has to stand at her pot: she stirs by herself (TickStamina).
         }
 
         /// <summary>The wig teacher this student could yank the wig off right now, or null.</summary>
@@ -370,6 +536,8 @@ namespace ClassPack
             if (!Plugin.Settings.teachers || !Game.InClass || units == null || classroom == null || player == null
                 || !player.isActived || !player.isPlayer || player.IsStun || player.BodyActionsBlocked)
             {
+                Refused(player, ask, "not now (teachers on " + Plugin.Settings.teachers + ", in class " + Game.InClass
+                    + (player != null ? ", stunned " + player.IsStun + ", blocked " + player.BodyActionsBlocked : "") + ")");
                 return;
             }
             switch (ask.kind)
@@ -377,8 +545,14 @@ namespace ClassPack
                 case CpKind.TeacherThrow:
                 {
                     int kind = KindOf(player);
-                    if ((kind != Looks.Gym && kind != Looks.Lunch) || kind != ask.i || !HostReady(player.UID, ThrowWait))
+                    if ((kind != Looks.Gym && kind != Looks.Lunch) || kind != ask.i)
                     {
+                        Refused(player, ask, "teacher type " + kind + " here, " + ask.i + " on their screen");
+                        return;
+                    }
+                    if (!HostReady(player.UID, ThrowWait))
+                    {
+                        Refused(player, ask, "thrown again too soon");
                         return;
                     }
                     Vector3 hand = player.Position + Vector3.up * 1.4f;
@@ -409,6 +583,10 @@ namespace ClassPack
                     {
                         Net.Toast(target, "Mashed potatoes! You're stuck for a moment.", 3f);
                     }
+                    // The thrower hears how it went: a miss is easy to overlook from behind the throw.
+                    string what = kind == Looks.Gym ? "Pizza" : "Mashed potatoes";
+                    Net.Toast(player, target != null ? what + " hit " + Poles.NameOf(target) + "!"
+                        : what + " missed. Ready again in " + ThrowWait.ToString("F0") + " seconds.", 2.5f);
                     Plugin.Log("teachers: " + Poles.NameOf(player) + " threw " + (kind == Looks.Gym ? "pizza" : "mashed potatoes")
                         + (target != null ? " and hit" : " and missed"));
                     break;
@@ -448,9 +626,9 @@ namespace ClassPack
                     {
                         return;
                     }
-                    float angle = UnityEngine.Random.Range(0f, 360f);
-                    Vector3 lands = teacher.Position + Quaternion.Euler(0f, angle, 0f) * Vector3.forward * 2.8f + Vector3.up * 0.4f;
+                    Vector3 lands = WigSpot(teacher);
                     HostWigs[teacher.UID] = lands;
+                    HostWigSince[teacher.UID] = Time.time;
                     Net.SendToModded(new CpTell { kind = CpKind.Wig, a = teacher.UID, j = 1, v = lands });
                     classroom.AddTrickCount(player.UID, 20f);
                     Net.Toast(player, "You yanked the teacher's wig off! Big mischief.", 3.5f);
@@ -459,6 +637,65 @@ namespace ClassPack
                     break;
                 }
             }
+        }
+
+        /// <summary>A wig that lies on the floor this long goes back on by itself.</summary>
+        private const float WigBackSeconds = 30f;
+        private static readonly Dictionary<ulong, float> HostWigSince = new Dictionary<ulong, float>();
+
+        /// <summary>
+        /// Host: where a yanked wig lands. A couple of metres away in some direction, but only
+        /// where the teacher can walk to it: nothing solid in between and floor under it at the
+        /// teacher's own height. With no such spot, just in front of the teacher.
+        /// </summary>
+        private static Vector3 WigSpot(Unit teacher)
+        {
+            Vector3 feet = teacher.Position;
+            Vector3 chest = feet + Vector3.up * 0.8f;
+            float start = UnityEngine.Random.Range(0f, 360f);
+            for (int i = 0; i < 12; i++)
+            {
+                Vector3 way = Quaternion.Euler(0f, start + i * 30f, 0f) * Vector3.forward;
+                Vector3 spot = feet + way * 2.4f;
+                if (Blocked(chest, spot + Vector3.up * 0.8f))
+                {
+                    continue;
+                }
+                RaycastHit floor;
+                if (Physics.Raycast(spot + Vector3.up * 1.2f, Vector3.down, out floor, 2.5f, ~0, QueryTriggerInteraction.Ignore)
+                    && Mathf.Abs(floor.point.y - feet.y) < 0.35f && floor.collider.GetComponentInParent<ObjectModel>() == null)
+                {
+                    return floor.point + Vector3.up * 0.4f;
+                }
+            }
+            return feet + Tricks.Flat(teacher.transform.forward).normalized * 1.2f + Vector3.up * 0.4f;
+        }
+
+        /// <summary>True when something solid (not a character or an item) is between two points.</summary>
+        private static bool Blocked(Vector3 from, Vector3 to)
+        {
+            Vector3 way = to - from;
+            foreach (RaycastHit hit in Physics.RaycastAll(from, way.normalized, way.magnitude, ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (hit.collider.GetComponentInParent<ObjectModel>() == null && !Faint.IsDollPart(hit.collider))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static float _nextRefusedLogAt;
+
+        /// <summary>Host: writes down why a teacher's power did nothing, at most every few seconds.</summary>
+        private static void Refused(Unit player, CpAsk ask, string why)
+        {
+            if (Time.unscaledTime < _nextRefusedLogAt)
+            {
+                return;
+            }
+            _nextRefusedLogAt = Time.unscaledTime + 3f;
+            Plugin.Log("teachers: " + (player != null ? Poles.NameOf(player) : "someone") + "'s " + ask.kind + " refused: " + why);
         }
 
         private static void HostTick()
@@ -488,7 +725,8 @@ namespace ClassPack
                     {
                         _hostPot = true;
                         Net.SendToModded(new CpTell { kind = CpKind.Pot, j = 1, v = spot, f = onStand ? 1f : 0f });
-                        Net.Toast(player, "Your pot is on the teacher's stand at the front. Stand next to it and your stamina fills up.", 5f);
+                        Net.Toast(player, (onStand ? "Your pot is on the teacher's stand at the front." : "Your pot is on the floor by the blackboard.")
+                            + " Stand next to it: your stamina stops draining and fills up.", 6f);
                         Plugin.Log("teachers: the pot is at " + spot.ToString("F2") + (onStand ? " on the teacher's stand" : " on the floor by the blackboard"));
                         break;
                     }
@@ -527,14 +765,17 @@ namespace ClassPack
                 {
                     Unit teacher = units.GetUnitByUID(uid);
                     Vector3 offset = teacher != null ? teacher.Position - HostWigs[uid] : Vector3.zero;
-                    if (teacher == null || !teacher.isActived || KindOf(teacher) != Looks.Wig
+                    float since;
+                    bool tooLong = HostWigSince.TryGetValue(uid, out since) && now - since > WigBackSeconds;
+                    if (teacher == null || !teacher.isActived || KindOf(teacher) != Looks.Wig || tooLong
                         || (Mathf.Abs(offset.y) < 1.6f && offset.x * offset.x + offset.z * offset.z < 1.1f * 1.1f))
                     {
                         HostWigs.Remove(uid);
+                        HostWigSince.Remove(uid);
                         Net.SendToModded(new CpTell { kind = CpKind.Wig, a = uid, j = 0 });
                         if (teacher != null)
                         {
-                            Net.Toast(teacher, "Wig back on. You can throw again.", 3f);
+                            Net.Toast(teacher, tooLong ? "Your wig found its way back. You can throw again." : "Wig back on. You can throw again.", 3f);
                         }
                     }
                 }
@@ -625,11 +866,10 @@ namespace ClassPack
                 case CpKind.Thrown:
                 {
                     float distance = Mathf.Max(0.5f, (tell.w - tell.v).magnitude);
-                    Shots.Add(new Shot
-                    {
-                        Model = Tricks.Build(tell.i == Looks.Gym ? "shot_pizza" : "shot_potato", new Color32(245, 220, 120, 255), 0.14f),
-                        From = tell.v, To = tell.w, Start = Time.time, Duration = distance / 15f
-                    });
+                    // Bigger than life, so everybody sees it fly.
+                    GameObject food = Tricks.Build(tell.i == Looks.Gym ? "shot_pizza" : "shot_potato", new Color32(245, 220, 120, 255), 0.14f);
+                    food.transform.localScale = Vector3.one * 1.7f;
+                    Shots.Add(new Shot { Model = food, From = tell.v, To = tell.w, Start = Time.time, Duration = distance / 15f });
                     Game.PlaySoundAt(AudioEvents.sfx_ChalkThrow_sfx, tell.v);
                     if (tell.a == 0uL)
                     {
@@ -783,7 +1023,9 @@ namespace ClassPack
                 case Looks.Lunch:
                     return "Lunch lady     " + key + "throw mashed potatoes" + wait + "     "
                         + (Swim.Active ? "stamina fills fast at the lifeguard chair" : Dance.Active ? "stamina fills fast at the DJ booth"
-                            : AtPot(me) ? "stirring the pot: stamina is filling up" : "stand at your pot for stamina");
+                            : AtPot(me) ? "stirring the pot: stamina is filling up"
+                            : _potThere ? "your pot for stamina: " + Mathf.RoundToInt(Tricks.Flat(me.Position - _pot).magnitude) + " m away"
+                            : "stand at your pot for stamina");
                 case Looks.Janitor:
                     return "Janitor     " + key + "mop the floor" + wait;
                 case Looks.Wig:

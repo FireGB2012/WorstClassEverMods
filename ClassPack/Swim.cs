@@ -111,7 +111,6 @@ namespace ClassPack
         private static float _nextSplashAt;
         private static float _wetScreenUntil;
         private static bool _slowed;
-        private static float _nextChairAt;
         private static bool _atChair;
         private static bool _inWater;
         private static bool _under;
@@ -1251,19 +1250,12 @@ namespace ClassPack
                 }
             }
 
+            // The lifeguard chair stands in for the blackboard (Teachers.TickStamina does the stamina).
             _atChair = me.IsTeacher && Tricks.Flat(feet - ChairAt).magnitude < ChairReach && feet.y > -0.3f;
-            if (inClass && me.IsTeacher && Time.time >= _nextChairAt)
-            {
-                // A little all the time anywhere in the pool hall, as much as a blackboard at the chair.
-                _nextChairAt = Time.time + 0.25f;
-                SkillComponent skill = me.GetComponent<SkillComponent>();
-                float perSecond = _atChair ? Plugin.Settings.hallStationStaminaPerSecond : Plugin.Settings.hallStaminaPerSecond;
-                if (skill != null && perSecond > 0f)
-                {
-                    skill.AddSkillEnergy(Mathf.Clamp(perSecond, 0f, 50f) * 0.25f);
-                }
-            }
         }
+
+        /// <summary>True while this player is the teacher standing at the lifeguard chair.</summary>
+        public static bool TeacherAtChair => Active && _atChair;
 
         /// <summary>Wading: the game has a walking-speed factor of its own that nothing else uses.</summary>
         private static void Slow(Unit me, float factor)
