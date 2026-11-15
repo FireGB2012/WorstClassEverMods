@@ -17,11 +17,47 @@ namespace ClassPack
         public int Hat, Face, Back;
         // Only matters while the player is the teacher. See the constants in Looks.
         public int Teacher;
+        // A hairstyle model worn instead of the game's hair (0 none, see Looks.HairstyleNames),
+        // and the face: eye, pupil and head size as steps (0 is normal size, see Size).
+        public int Hairstyle, Eyes, Pupils, HeadSize;
 
         public int A => (Hair & 7) | (Body & 7) << 3 | (Cloth & 7) << 6 | (HairTint & 15) << 9 | (ClothTint & 15) << 13
             | (BodyTint & 15) << 17 | (Teacher & 7) << 21;
 
         public int B => (Hat & 63) | (Face & 63) << 6 | (Back & 63) << 12;
+
+        // Small enough to travel exactly in a float of the network message.
+        public int C => (Hairstyle & 7) | (Eyes & 31) << 3 | (Pupils & 31) << 8 | (HeadSize & 31) << 13;
+
+        public float EyeScale => Size(Eyes);
+        public float PupilScale => Size(Pupils);
+        public float HeadScale => Size(HeadSize);
+
+        /// <summary>A size step as a scale: 0 is normal (1.0), then 1 is 0.5 and every step adds 0.1.</summary>
+        public static float Size(int step)
+        {
+            return step <= 0 ? 1f : 0.5f + (step - 1) * 0.1f;
+        }
+
+        /// <summary>The step for a scale; 0 when it is (about) normal.</summary>
+        public static int Step(float scale)
+        {
+            if (Mathf.Abs(scale - 1f) < 0.05f)
+            {
+                return 0;
+            }
+            return Mathf.Clamp(Mathf.RoundToInt((scale - 0.5f) / 0.1f) + 1, 1, 31);
+        }
+
+        public static Look From(int a, int b, int c)
+        {
+            Look look = From(a, b);
+            look.Hairstyle = Mathf.Min(c & 7, Looks.HairstyleNames.Length - 1);
+            look.Eyes = (c >> 3) & 31;
+            look.Pupils = (c >> 8) & 31;
+            look.HeadSize = (c >> 13) & 31;
+            return look;
+        }
 
         public static Look From(int a, int b)
         {
@@ -104,6 +140,10 @@ namespace ClassPack
         public static readonly string[] FaceNames = { "None", "Sunglasses", "Clown nose", "Moustache" };
         public static readonly string[] BackNames = { "None", "Backpack", "Cape", "Wings" };
         public static readonly string[] TeacherNames = { "Normal", "Gym teacher", "Lunch lady", "Janitor", "Bald with a wig" };
+        public static readonly string[] HairstyleNames = { "None", "Afro", "Dreads" };
+        private static readonly string[] HairstyleModels = { "", "hair_afro", "hair_dreads" };
+        /// <summary>The afro's and dreads' colour when no hair colour is picked: a natural dark brown.</summary>
+        private static readonly Color32 NaturalHair = new Color32(78, 54, 40, 255);
 
         private static readonly string[] HatModels =
         {
@@ -157,6 +197,8 @@ namespace ClassPack
             public float ForwardSign;
             public readonly List<Piece> Pieces = new List<Piece>();
             public readonly HashSet<Renderer> Tinted = new HashSet<Renderer>();
+            // The face sliders' bones on this body (see FaceTick).
+            public FaceRig Face;
         }
 
         private static readonly Dictionary<ulong, Worn> Worns = new Dictionary<ulong, Worn>();
@@ -165,6 +207,12 @@ namespace ClassPack
         private static readonly List<SkinnedMeshRenderer> PreviewFlipped = new List<SkinnedMeshRenderer>();
         private static readonly MaterialPropertyBlock Block = new MaterialPropertyBlock();
         private static readonly Dictionary<ulong, long> HostLooks = new Dictionary<ulong, long>();
+        /// <summary>Host: everybody's third look number (hairstyle and face sizes), next to HostLooks.</summary>
+        private static readonly Dictionary<ulong, int> HostLooksC = new Dictionary<ulong, int>();
+        /// <summary>Host: which player each bot was dressed like.</summary>
+        private static readonly Dictionary<ulong, ulong> BotSource = new Dictionary<ulong, ulong>();
+        private static float _nextBotDressAt;
+        private static int _sentC = -1;
 
         private static ulong _sentUid;
         private static int _sentA = -1;
@@ -177,11 +225,12 @@ namespace ClassPack
         /// <summary>This player's own pick, kept in the settings file.</summary>
         public static Look Mine
         {
-            get { return Look.From(Plugin.Settings.lookA, Plugin.Settings.lookB); }
+            get { return Look.From(Plugin.Settings.lookA, Plugin.Settings.lookB, Plugin.Settings.lookC); }
             set
             {
                 Plugin.Settings.lookA = value.A;
                 Plugin.Settings.lookB = value.B;
+                Plugin.Settings.lookC = value.C;
                 Plugin.Settings.Save();
             }
         }
@@ -286,6 +335,8 @@ namespace ClassPack
                     Worns.Clear();
                     GameIndex.Clear();
                     HostLooks.Clear();
+                    HostLooksC.Clear();
+                    BotSource.Clear();
                     PreviewFlipped.Clear();
                 }
                 _sentUid = 0uL;
@@ -295,6 +346,8 @@ namespace ClassPack
             if (!NetworkServer.active && HostLooks.Count > 0)
             {
                 HostLooks.Clear();
+                HostLooksC.Clear();
+                BotSource.Clear();
             }
             SendMine();
 
@@ -303,6 +356,7 @@ namespace ClassPack
             {
                 return;
             }
+            DressBots(units);
             // While a player watches themselves swim, their own body has to be drawn like in the
             // wardrobe's picture, also when they wear nothing from the mod.
             Unit me = units.localPlayer;
@@ -350,7 +404,7 @@ namespace ClassPack
             }
             Look mine = Mine;
             NetworkConnection connection = NetworkClient.connection;
-            if (me.UID == _sentUid && mine.A == _sentA && mine.B == _sentB && connection == _sentTo)
+            if (me.UID == _sentUid && mine.A == _sentA && mine.B == _sentB && mine.C == _sentC && connection == _sentTo)
             {
                 return;
             }
@@ -362,8 +416,95 @@ namespace ClassPack
             _sentUid = me.UID;
             _sentA = mine.A;
             _sentB = mine.B;
+            _sentC = mine.C;
             _sentTo = connection;
-            Net.SendToHost(new CpAsk { kind = CpKind.LookSet, i = mine.A, t0 = (ulong)mine.B });
+            Net.SendToHost(new CpAsk { kind = CpKind.LookSet, i = mine.A, t0 = (ulong)mine.B, t1 = (ulong)mine.C });
+        }
+
+        /// <summary>
+        /// Host: every bot is dressed exactly like one of the players, picked at random. A
+        /// player's "game's pick" parts are the parts the game gave that player, so the copy is
+        /// exact. A player who changes outfit changes their copies too (see OnAsk).
+        /// </summary>
+        private static void DressBots(UnitManager units)
+        {
+            if (!NetworkServer.active || !Plugin.Settings.botsCopyPlayers || Time.unscaledTime < _nextBotDressAt)
+            {
+                return;
+            }
+            _nextBotDressAt = Time.unscaledTime + 1f;
+            var players = new List<Unit>();
+            foreach (Unit player in units.playerList)
+            {
+                if (player != null && player.isActived && player.isPlayer)
+                {
+                    players.Add(player);
+                }
+            }
+            if (players.Count == 0)
+            {
+                return;
+            }
+            foreach (Unit unit in units.unitsDict.Values)
+            {
+                if (unit == null || !unit.isActived || unit.isPlayer || BotSource.ContainsKey(unit.UID)
+                    || unit.GetComponent<StudentNPCComponent>() == null)
+                {
+                    continue;
+                }
+                DressBot(unit.UID, players[UnityEngine.Random.Range(0, players.Count)]);
+            }
+        }
+
+        private static void DressBot(ulong botUid, Unit source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+            Look look = default(Look);
+            long ab;
+            if (HostLooks.TryGetValue(source.UID, out ab))
+            {
+                int c;
+                HostLooksC.TryGetValue(source.UID, out c);
+                look = Look.From((int)(ab >> 32), (int)(ab & 0xFFFFFFFFL), c);
+            }
+            int game = GameIndexOf(source);
+            if (look.Hair == 0)
+            {
+                look.Hair = game;
+            }
+            if (look.Body == 0)
+            {
+                look.Body = game;
+            }
+            if (look.Cloth == 0)
+            {
+                look.Cloth = game;
+            }
+            look.Teacher = 0;
+            BotSource[botUid] = source.UID;
+            HostLooks[botUid] = ((long)look.A << 32) | (uint)look.B;
+            HostLooksC[botUid] = look.C;
+            Net.SendToModded(new CpTell { kind = CpKind.Look, a = botUid, i = look.A, j = look.B, f = look.C });
+            if (BotSource.Count == 1)
+            {
+                Plugin.Log("looks: bots copy the players' looks; the first one copies " + Poles.NameOf(source));
+            }
+        }
+
+        /// <summary>The body, hair and clothes set (1 to 4) the game gave a student.</summary>
+        private static int GameIndexOf(Unit unit)
+        {
+            int game;
+            if (unit != null && GameIndex.TryGetValue(unit.UID, out game) && game >= 1 && game <= 4)
+            {
+                return game;
+            }
+            RoleData data = unit != null ? unit.GetData<RoleData>() : null;
+            game = data != null ? data.NetData.BodyMeshIndex : 0;
+            return game >= 1 && game <= 4 ? game : 1;
         }
 
         // ------------------------------------------------------------------------- network
@@ -375,8 +516,18 @@ namespace ClassPack
                 return;
             }
             int b = (int)(ask.t0 & 0xFFFFFFuL);
+            int c = (int)(ask.t1 & 0xFFFFFFuL);
             HostLooks[player.UID] = ((long)ask.i << 32) | (uint)b;
-            Net.SendToModded(new CpTell { kind = CpKind.Look, a = player.UID, i = ask.i, j = b });
+            HostLooksC[player.UID] = c;
+            Net.SendToModded(new CpTell { kind = CpKind.Look, a = player.UID, i = ask.i, j = b, f = c });
+            // The bots dressed like this player change with them.
+            foreach (KeyValuePair<ulong, ulong> pair in new List<KeyValuePair<ulong, ulong>>(BotSource))
+            {
+                if (pair.Value == player.UID)
+                {
+                    DressBot(pair.Key, player);
+                }
+            }
         }
 
         /// <summary>Host: a player with the mod just joined and needs everybody's outfit.</summary>
@@ -384,9 +535,11 @@ namespace ClassPack
         {
             foreach (KeyValuePair<ulong, long> pair in HostLooks)
             {
+                int c;
+                HostLooksC.TryGetValue(pair.Key, out c);
                 Net.SendTo(connection, new CpTell
                 {
-                    kind = CpKind.Look, a = pair.Key, i = (int)(pair.Value >> 32), j = (int)(pair.Value & 0xFFFFFFFFL)
+                    kind = CpKind.Look, a = pair.Key, i = (int)(pair.Value >> 32), j = (int)(pair.Value & 0xFFFFFFFFL), f = c
                 });
             }
         }
@@ -399,7 +552,7 @@ namespace ClassPack
                 worn = new Worn();
                 Worns[tell.a] = worn;
             }
-            worn.Look = Look.From(tell.i, tell.j);
+            worn.Look = Look.From(tell.i, tell.j, Mathf.RoundToInt(tell.f));
             worn.Dirty = true;
         }
 
@@ -601,6 +754,16 @@ namespace ClassPack
                     Add(worn, BackModels[i], OnBack, layer);
                 }
             }
+            // A hairstyle (students): the afro or dreads, in the hair colour.
+            if (worn.Body == null && unit.IsStudent && look.Hairstyle > 0 && look.Hairstyle < HairstyleModels.Length)
+            {
+                int before = worn.Pieces.Count;
+                Add(worn, HairstyleModels[look.Hairstyle], Head, layer);
+                if (worn.Pieces.Count > before)
+                {
+                    Recolour(worn.Pieces[worn.Pieces.Count - 1].Model, look.HairTint > 0 ? (Color)Tints[look.HairTint] : (Color)NaturalHair);
+                }
+            }
 
             // What a player sees of their own outfit while playing: a student sees what is on
             // their body but not what is on their head (a hat or glasses would be in the way),
@@ -644,7 +807,7 @@ namespace ClassPack
 
         private static void StudentParts(Unit unit, Worn worn, Transform root, Look look, bool local, bool preview, int layer)
         {
-            bool wantsParts = look.Hair != 0 || look.Body != 0 || look.Cloth != 0;
+            bool wantsParts = look.Hair != 0 || look.Body != 0 || look.Cloth != 0 || look.Hairstyle != 0;
             if (!wantsParts && !worn.PartsTouched)
             {
                 return;
@@ -666,7 +829,8 @@ namespace ClassPack
                     game = 1;
                 }
             }
-            int hair = look.Hair == 0 ? game : look.Hair;
+            // A hairstyle model takes the place of the game's hair (5 is none of the four).
+            int hair = look.Hairstyle > 0 ? 5 : look.Hair == 0 ? game : look.Hair;
             int body = look.Body == 0 ? game : look.Body;
             int cloth = look.Cloth == 0 ? game : look.Cloth;
             Transform gameHand = root.Find("Hand" + game);
@@ -875,7 +1039,9 @@ namespace ClassPack
             Vector3 neckAt = neck != null ? neck.position : body.position + Vector3.up * 0.76f;
             Quaternion yaw = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
             Settings fit = Plugin.Settings;
-            float size = Mathf.Clamp(fit.headSize, 0.3f, 4f);
+            // A bigger head (the face sliders) carries its hats higher and bigger.
+            float headScale = unit.IsStudent ? worn.Look.HeadScale : 1f;
+            float size = Mathf.Clamp(fit.headSize, 0.3f, 4f) * headScale;
 
             // Hats turn and tilt with the head once it is known which way the head bone's own
             // axes point. That is worked out while the head is upright and facing forward.
@@ -901,7 +1067,7 @@ namespace ClassPack
                     }
                 }
             }
-            Vector3 headMiddle = neckAt + headTurn * new Vector3(0f, fit.headUp, fit.headForward);
+            Vector3 headMiddle = neckAt + headTurn * new Vector3(0f, fit.headUp * headScale, fit.headForward * headScale);
             Vector3 headAt = neckAt;
             bool wigOff = Teachers.WigIsOff(unit.UID);
             foreach (Piece piece in worn.Pieces)
@@ -1014,5 +1180,176 @@ namespace ClassPack
             worn.ForwardAxis = forwardAxis;
             worn.ForwardSign = forwardSign;
         }
+
+        // ------------------------------------------------------------------- the face sliders
+
+        /// <summary>The bones the face sliders change on one student body, and how big they were.</summary>
+        private sealed class FaceRig
+        {
+            public Transform Model;
+            public Transform Head;
+            public Vector3 HeadRest;
+            /// <summary>eye.L and eye.R: the eyes the game turns to look around.</summary>
+            public Transform[] Eyes;
+            public Vector3[] EyeRest;
+            /// <summary>yanpi1 and yanpi2, left and right: the eyelids round the eyes.</summary>
+            public Transform[] Lids;
+            public Vector3[] LidRest;
+        }
+
+        private static FaceRig FindFace(Transform model)
+        {
+            Transform head = null;
+            var eyes = new List<Transform>();
+            var lids = new List<Transform>();
+            foreach (Transform part in model.GetComponentsInChildren<Transform>(true))
+            {
+                switch (part.name)
+                {
+                    case "head":
+                        if (head == null)
+                        {
+                            head = part;
+                        }
+                        break;
+                    case "eye.L":
+                    case "eye.R":
+                        eyes.Add(part);
+                        break;
+                    case "yanpi1.L":
+                    case "yanpi1.R":
+                    case "yanpi2.L":
+                    case "yanpi2.R":
+                        lids.Add(part);
+                        break;
+                }
+            }
+            if (head == null)
+            {
+                return null;
+            }
+            var rig = new FaceRig
+            {
+                Model = model,
+                Head = head,
+                HeadRest = head.localScale,
+                Eyes = eyes.ToArray(),
+                EyeRest = new Vector3[eyes.Count],
+                Lids = lids.ToArray(),
+                LidRest = new Vector3[lids.Count]
+            };
+            for (int i = 0; i < rig.Eyes.Length; i++)
+            {
+                rig.EyeRest[i] = rig.Eyes[i].localScale;
+            }
+            for (int i = 0; i < rig.Lids.Length; i++)
+            {
+                rig.LidRest[i] = rig.Lids[i].localScale;
+            }
+            return rig;
+        }
+
+        /// <summary>
+        /// Late in every frame, after the game's own animation: the face sliders on every student
+        /// who wears them. The head bone is scaled for the head size; the eyes and the eyelids
+        /// round them for the eye size; the eyes alone once more for the pupil size.
+        /// </summary>
+        public static void FaceTick()
+        {
+            if (Worns.Count == 0)
+            {
+                return;
+            }
+            UnitManager units = Game.Peek<UnitManager>();
+            if (units == null)
+            {
+                return;
+            }
+            foreach (KeyValuePair<ulong, Worn> pair in Worns)
+            {
+                Worn worn = pair.Value;
+                Look look = worn.Look;
+                bool changed = look.Eyes != 0 || look.Pupils != 0 || look.HeadSize != 0;
+                if (!changed && worn.Face == null)
+                {
+                    continue;
+                }
+                Unit unit = units.GetUnitByUID(pair.Key);
+                if (unit == null || !unit.isActived || unit.model == null || !unit.IsStudent)
+                {
+                    worn.Face = null;
+                    continue;
+                }
+                Transform model = unit.model.transform;
+                if (worn.Face == null || worn.Face.Model != model)
+                {
+                    worn.Face = FindFace(model);
+                    if (worn.Face == null)
+                    {
+                        continue;
+                    }
+                }
+                FaceRig face = worn.Face;
+                face.Head.localScale = face.HeadRest * look.HeadScale;
+                for (int i = 0; i < face.Lids.Length; i++)
+                {
+                    if (face.Lids[i] != null)
+                    {
+                        face.Lids[i].localScale = face.LidRest[i] * look.EyeScale;
+                    }
+                }
+                for (int i = 0; i < face.Eyes.Length; i++)
+                {
+                    if (face.Eyes[i] != null)
+                    {
+                        face.Eyes[i].localScale = face.EyeRest[i] * (look.EyeScale * look.PupilScale);
+                    }
+                }
+                if (!changed)
+                {
+                    // Back to normal once, then left alone.
+                    worn.Face = null;
+                }
+            }
+        }
+
+        /// <summary>Colours one of the mod's models, such as a hairstyle in the hair colour.</summary>
+        private static void Recolour(GameObject model, Color color)
+        {
+            if (model == null)
+            {
+                return;
+            }
+            foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+            {
+                Material material = renderer.sharedMaterial;
+                int property = material != null ? ColorProperty(material.shader) : 0;
+                if (property == 0)
+                {
+                    continue;
+                }
+                Block.Clear();
+                Block.SetColor(property, color);
+                renderer.SetPropertyBlock(Block);
+            }
+        }
+
+        // ------------------------------------------------------------------- self-test
+
+        /// <summary>Self-test: dress one character in a look, as if the host had said so.</summary>
+        public static void TestDress(ulong uid, Look look)
+        {
+            Worn worn;
+            if (!Worns.TryGetValue(uid, out worn))
+            {
+                worn = new Worn();
+                Worns[uid] = worn;
+            }
+            worn.Look = look;
+            worn.Dirty = true;
+        }
+
+        /// <summary>Self-test: how many bots have been dressed like a player.</summary>
+        public static int BotsDressed => BotSource.Count;
     }
 }

@@ -27,6 +27,18 @@ namespace ClassPack
             "Bald with a wig: a student behind you can pull the wig off. No chalk until you walk over it and get it back."
         };
 
+        private static readonly string[] Tabs = { "Hair", "Face", "Outfit", "Teacher", "Fit" };
+        private static readonly string[] HairChoices = { "Game's", "1", "2", "3", "4", "Bald", "Afro", "Dreads" };
+        private static int _tab;
+        private GUIStyle _tabStyle;
+
+        /// <summary>Which page the window shows (the self-test turns them).</summary>
+        public static int Tab
+        {
+            get { return _tab; }
+            set { _tab = Mathf.Clamp(value, 0, Tabs.Length - 1); }
+        }
+
         private static bool _openRequested;
 
         private readonly CursorGrab _cursor = new CursorGrab();
@@ -178,6 +190,19 @@ namespace ClassPack
             return worn;
         }
 
+        /// <summary>A face slider: a size shown as a percentage, in steps of 10 %.</summary>
+        private float Size(string label, float value, float low, float high)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, _small, GUILayout.Width(80f));
+            float result = GUILayout.HorizontalSlider(Mathf.Clamp(value, low, high), low, high, Skin.Track, Skin.Thumb);
+            result = Mathf.Round(result * 10f) / 10f;
+            GUILayout.Space(10f);
+            GUILayout.Label(Mathf.RoundToInt(result * 100f) + "%", _small, GUILayout.Width(52f));
+            GUILayout.EndHorizontal();
+            return result;
+        }
+
         private float Slide(string label, float value, float low, float high)
         {
             GUILayout.BeginHorizontal();
@@ -235,38 +260,73 @@ namespace ClassPack
                 Look look = Looks.Mine;
                 int before = look.A;
                 int beforeB = look.B;
+                int beforeC = look.C;
                 Settings fit = Plugin.Settings;
                 float fitBefore = fit.headUp + fit.headForward * 7f + fit.headSize * 13f + fit.bodyUp * 17f + fit.bodyOut * 23f;
 
-                GUILayout.BeginArea(new Rect(window.x + 340f, window.y + 54f, Width - 360f, Height - 70f));
-                _scroll = GUILayout.BeginScrollView(_scroll);
-                look.Hat = Row("Hat", look.Hat, Looks.HatNames, 5);
-                look.Face = Several("Face (wear as many as you like)", look.Face, Looks.FaceNames);
-                look.Back = Several("Back (wear as many as you like)", look.Back, Looks.BackNames);
-                GUILayout.Space(6f);
-                look.Hair = Row("Hair (students)", look.Hair, Looks.HairNames, 6);
-                look.Body = Row("Face and body (students)", look.Body, Looks.PartNames, 6);
-                look.Cloth = Row("Clothes (students)", look.Cloth, Looks.PartNames, 6);
-                GUILayout.Space(6f);
-                look.HairTint = Row("Hair colour (students)", look.HairTint, Looks.TintNames, 6);
-                look.ClothTint = Row("Clothes colour (the whole body on a teacher)", look.ClothTint, Looks.TintNames, 6);
-                look.BodyTint = Row("Skin colour (students)", look.BodyTint, Looks.TintNames, 6);
-                GUILayout.Space(6f);
-                look.Teacher = Row("When you are the teacher", look.Teacher, Looks.TeacherNames, 5);
-                GUILayout.Label(TeacherHelp[Mathf.Clamp(look.Teacher, 0, TeacherHelp.Length - 1)], _small);
-                GUILayout.Label("To be the teacher: before class, use the game's teacher wardrobe in the school to change role. "
-                    + "In class, press " + Plugin.Settings.HelpKeyCode + " to see your keys.", _small);
+                // One short page at a time: the tabs along the top pick which.
+                GUILayout.BeginArea(new Rect(window.x + 340f, window.y + 56f, Width - 360f, Height - 72f));
+                _tab = GUILayout.Toolbar(Mathf.Clamp(_tab, 0, Tabs.Length - 1), Tabs, _tabStyle, GUILayout.Height(34f));
                 GUILayout.Space(8f);
-                GUILayout.Label("Fit: move these if hats sit in the wrong place", _label);
-                fit.headUp = Slide("Hats up or down", fit.headUp, -0.4f, 0.6f);
-                fit.headForward = Slide("Hats forward or back", fit.headForward, -0.4f, 0.4f);
-                fit.headSize = Slide("Hat size", fit.headSize, 0.4f, 3f);
-                fit.bodyUp = Slide("Backpack and belly up or down", fit.bodyUp, -0.5f, 0.5f);
-                fit.bodyOut = Slide("Backpack and belly in or out", fit.bodyOut, 0f, 0.4f);
+                _scroll = GUILayout.BeginScrollView(_scroll);
+                switch (_tab)
+                {
+                    case 0:
+                        // The game's four hairstyles, bald, and the mod's own.
+                        int style = look.Hairstyle > 0 ? 5 + look.Hairstyle : look.Hair;
+                        int picked = Row("Hairstyle", style, HairChoices, 4);
+                        if (picked != style)
+                        {
+                            look.Hairstyle = picked > 5 ? picked - 5 : 0;
+                            look.Hair = picked > 5 ? 0 : picked;
+                        }
+                        look.HairTint = Row("Hair colour", look.HairTint, Looks.TintNames, 6);
+                        GUILayout.Label("Students only. A teacher keeps the game's hair.", _small);
+                        break;
+                    case 1:
+                        GUILayout.Label("Face", _label);
+                        look.Eyes = Look.Step(Size("Eyes", look.EyeScale, 0.6f, 1.8f));
+                        look.Pupils = Look.Step(Size("Pupils", look.PupilScale, 0.5f, 2f));
+                        look.HeadSize = Look.Step(Size("Head", look.HeadScale, 0.8f, 1.5f));
+                        GUILayout.BeginHorizontal();
+                        GUILayout.FlexibleSpace();
+                        if (GUILayout.Button("Normal face", _cell, GUILayout.Width(130f)))
+                        {
+                            look.Eyes = 0;
+                            look.Pupils = 0;
+                            look.HeadSize = 0;
+                        }
+                        GUILayout.EndHorizontal();
+                        look.Body = Row("Face and body", look.Body, Looks.PartNames, 5);
+                        look.BodyTint = Row("Skin colour", look.BodyTint, Looks.TintNames, 6);
+                        look.Face = Several("On your face", look.Face, Looks.FaceNames);
+                        break;
+                    case 2:
+                        look.Cloth = Row("Clothes", look.Cloth, Looks.PartNames, 5);
+                        look.ClothTint = Row("Clothes colour (the whole body on a teacher)", look.ClothTint, Looks.TintNames, 6);
+                        look.Hat = Row("Hat", look.Hat, Looks.HatNames, 5);
+                        look.Back = Several("On your back", look.Back, Looks.BackNames);
+                        break;
+                    case 3:
+                        look.Teacher = Row("When you are the teacher", look.Teacher, Looks.TeacherNames, 3);
+                        GUILayout.Label(TeacherHelp[Mathf.Clamp(look.Teacher, 0, TeacherHelp.Length - 1)], _small);
+                        GUILayout.Space(6f);
+                        GUILayout.Label("To be the teacher: before class, use the game's teacher wardrobe in the school. "
+                            + "In class, press " + Plugin.Settings.HelpKeyCode + " to see your keys.", _small);
+                        break;
+                    default:
+                        GUILayout.Label("Move these if hats sit in the wrong place", _label);
+                        fit.headUp = Slide("Hats up or down", fit.headUp, -0.4f, 0.6f);
+                        fit.headForward = Slide("Hats forward or back", fit.headForward, -0.4f, 0.4f);
+                        fit.headSize = Slide("Hat size", fit.headSize, 0.4f, 3f);
+                        fit.bodyUp = Slide("Backpack up or down", fit.bodyUp, -0.5f, 0.5f);
+                        fit.bodyOut = Slide("Backpack in or out", fit.bodyOut, 0f, 0.4f);
+                        break;
+                }
                 GUILayout.EndScrollView();
                 GUILayout.EndArea();
 
-                if (look.A != before || look.B != beforeB)
+                if (look.A != before || look.B != beforeB || look.C != beforeC)
                 {
                     Looks.Mine = look;
                     Game.PlaySound(AudioEvents.sfx_UIButtonClick_sfx);
@@ -310,6 +370,7 @@ namespace ClassPack
             _small = Skin.Small;
             _cell = Skin.Cell;
             _button = Skin.GreenButton;
+            _tabStyle = new GUIStyle(Skin.Cell) { fontSize = 16, fontStyle = FontStyle.Bold };
         }
     }
 }

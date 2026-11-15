@@ -53,6 +53,10 @@ namespace ClassPack
         public string wardrobeKey = "F7";
         public int lookA = 0;
         public int lookB = 0;
+        // lookC: hairstyle and face sizes (see Look.C).
+        public int lookC = 0;
+        // Bots dress like the players: each bot copies one player's whole look (host's setting).
+        public bool botsCopyPlayers = true;
         // Where hats sit compared with the game's own head point, and how big they are.
         // The wardrobe has sliders for these.
         // The game's head point is the neck. With the hair, a student's head is about 0.19 m

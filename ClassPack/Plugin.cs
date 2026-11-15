@@ -90,6 +90,7 @@ namespace ClassPack
             try
             {
                 SwimPose.LateTick();
+                Looks.FaceTick();
                 Looks.LateTick();
             }
             catch (Exception ex)

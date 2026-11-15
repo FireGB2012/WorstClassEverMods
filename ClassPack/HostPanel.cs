@@ -205,6 +205,12 @@ namespace ClassPack
                     Plugin.Settings.nerfAlwaysForTesting = always;
                     Plugin.Settings.Save();
                 }
+                bool copy = GUILayout.Toggle(Plugin.Settings.botsCopyPlayers, "Bots dress exactly like us (each copies one player)", _toggle);
+                if (copy != Plugin.Settings.botsCopyPlayers)
+                {
+                    Plugin.Settings.botsCopyPlayers = copy;
+                    Plugin.Settings.Save();
+                }
                 GUI.enabled = true;
 
                 DrawClassPicker(isHost);
