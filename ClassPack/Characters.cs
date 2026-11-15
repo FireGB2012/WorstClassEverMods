@@ -21,6 +21,8 @@ namespace ClassPack
         public Mesh Mesh;
         public Material Material;
         public int Bones;
+        /// <summary>Where each bone is at rest, in whole-body space (1 m tall, facing +z).</summary>
+        public Vector3[] Rest;
         public readonly Dictionary<string, CharacterClip> Clips = new Dictionary<string, CharacterClip>();
     }
 
@@ -36,6 +38,9 @@ namespace ClassPack
 
         private readonly CharacterData _data;
         private readonly Transform[] _bones;
+        /// <summary>Upper arm, forearm and hand on each side, or null when they can't be told apart.</summary>
+        private readonly int[] _armLeft;
+        private readonly int[] _armRight;
         private CharacterClip _clip;
         private CharacterClip _before;
         private string _playing;
@@ -63,8 +68,60 @@ namespace ClassPack
             Renderer.sharedMaterial = data.Material;
             Renderer.updateWhenOffscreen = true;
             Renderer.localBounds = new Bounds(new Vector3(0f, 0.5f, 0f), new Vector3(1.4f, 1.4f, 1.4f));
+            _armLeft = FindArm(data, -1f);
+            _armRight = FindArm(data, 1f);
             Play("idle");
             Tick(0f);
+        }
+
+        /// <summary>0 arms as the move has them, 1 both arms held out in front (carrying someone).</summary>
+        public float Hold;
+
+        /// <summary>
+        /// The arm on one side: the bones that hang out to that side between hip and shoulder
+        /// height, from the body outwards (upper arm, forearm, hand). Meshy's characters have
+        /// exactly three there; anything else and the arms are left alone.
+        /// </summary>
+        private static int[] FindArm(CharacterData data, float side)
+        {
+            if (data.Rest == null)
+            {
+                return null;
+            }
+            var found = new List<int>();
+            for (int i = 0; i < data.Rest.Length; i++)
+            {
+                Vector3 at = data.Rest[i];
+                if (at.x * side > 0.09f && at.y > 0.33f && at.y < 0.8f)
+                {
+                    found.Add(i);
+                }
+            }
+            if (found.Count != 3)
+            {
+                return null;
+            }
+            found.Sort((a, b) => Mathf.Abs(data.Rest[a].x).CompareTo(Mathf.Abs(data.Rest[b].x)));
+            return found.ToArray();
+        }
+
+        /// <summary>Swings one whole arm about the shoulder joint so it points forward, a little down and in.</summary>
+        private void HoldOut(int[] arm, float side)
+        {
+            Vector3 pivot = _bones[arm[0]].localPosition;
+            Vector3 reach = _bones[arm[2]].localPosition - pivot;
+            if (reach.sqrMagnitude < 1e-8f)
+            {
+                return;
+            }
+            Vector3 want = new Vector3(-side * 0.2f, -0.35f, 1f);
+            Quaternion swing = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(reach, want), Hold);
+            foreach (int i in arm)
+            {
+                Transform bone = _bones[i];
+                bone.localPosition = pivot + swing * (bone.localPosition - pivot);
+                bone.localRotation = swing * bone.localRotation;
+            }
         }
 
         public bool Has(string name)
@@ -113,6 +170,11 @@ namespace ClassPack
                 }
                 _bones[i].localPosition = position;
                 _bones[i].localRotation = rotation;
+            }
+            if (Hold > 0f && _armLeft != null && _armRight != null)
+            {
+                HoldOut(_armLeft, -1f);
+                HoldOut(_armRight, 1f);
             }
         }
 
@@ -263,6 +325,7 @@ namespace ClassPack
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();
             data.Mesh = mesh;
+            data.Rest = restPositions.ToArray();
 
             Texture2D skin = picture != null ? Models.Picture(Path.Combine(folder, picture)) : null;
             data.Material = skin != null ? Shapes.Textured(skin) : Shapes.Paint(new Color32(230, 200, 170, 255));

@@ -49,6 +49,9 @@ namespace ClassPack
         // The wardrobe (hair, clothes, colours, hats and other extras) and the new teacher
         // types. lookA and lookB are this player's own outfit, written by the wardrobe.
         public bool looks = true;
+
+        // The game's "Caught 0/1" count at the top of the screen in class is hidden.
+        public bool hideCaughtCount = true;
         public bool teachers = true;
         public string wardrobeKey = "F7";
         public int lookA = 0;

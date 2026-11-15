@@ -57,4 +57,28 @@ namespace ClassPack
             }
         }
     }
+
+    /// <summary>
+    /// The game's "Caught 0/1" count at the top of the screen goes away (setting
+    /// hideCaughtCount). The game writes it whenever a student is caught or the class starts,
+    /// and each time the text is hidden again right after.
+    /// </summary>
+    [HarmonyLib.HarmonyPatch(typeof(UIBattleMainView), nameof(UIBattleMainView.OnStudentGetCaught))]
+    internal static class HideCaughtCountPatch
+    {
+        private static void Postfix(UIBattleMainView __instance)
+        {
+            try
+            {
+                if (__instance != null && __instance.caughtText != null)
+                {
+                    __instance.caughtText.gameObject.SetActive(!Plugin.Settings.hideCaughtCount);
+                }
+            }
+            catch (System.Exception)
+            {
+                // The game's screen changed: leave it as it is.
+            }
+        }
+    }
 }

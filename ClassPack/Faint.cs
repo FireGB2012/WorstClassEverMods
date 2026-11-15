@@ -148,11 +148,9 @@ namespace ClassPack
                 push.y = 0f;
             }
             push.Normalize();
+            // Every player's game (the host's too) knocks the character down from this; a teacher
+            // gets the game's own slip there, held for the whole faint.
             Net.SendToModded(new CpTell { kind = CpKind.Faint, a = target.UID, f = seconds, v = push });
-            if (target.IsTeacher)
-            {
-                Poles.Slip(target);
-            }
 
             bool own = shooter == target;
             string by = own ? "Your own RPG" : Poles.NameOf(shooter);
@@ -269,6 +267,21 @@ namespace ClassPack
             if (stun != null)
             {
                 stun.TryGetProjectileStun(seconds);
+            }
+            TeacherStunComponent teacherStun = unit.IsTeacher ? unit.GetComponent<TeacherStunComponent>() : null;
+            if (teacherStun != null)
+            {
+                // The game's own slip: the teacher can't move or catch, and drops a student
+                // being carried. It lasts a couple of seconds in the game; here the whole faint.
+                teacherStun.GetSlip();
+                try
+                {
+                    HarmonyLib.Traverse.Create(teacherStun).Field("remaining").SetValue(seconds);
+                }
+                catch (System.Exception)
+                {
+                    // The game's own length then; the player's own game still holds them still.
+                }
             }
             Game.PlaySoundAt(AudioEvents.sfx_BananaSlipp_sfx, unit.Position);
 

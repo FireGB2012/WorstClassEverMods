@@ -185,6 +185,14 @@ namespace ClassPack
             public Vector3 BaseScale;
             // A new teacher's whole body, shown in place of the game's teacher.
             public CharacterView Body;
+            public string BodyName;
+            public float BodyMadeAt;
+            /// <summary>The move the whole body plays now, kept until the speed is clearly past the next one.</summary>
+            public string Move;
+            /// <summary>0 standing, 1 flat on the floor (knocked out or slipped).</summary>
+            public float Down;
+            /// <summary>0 arms free, 1 both arms out in front, carrying a student.</summary>
+            public float Hold;
             public readonly List<Renderer> HiddenGame = new List<Renderer>();
             public float NeckMax;
             public float Lift;
@@ -244,31 +252,53 @@ namespace ClassPack
         }
 
         /// <summary>
-        /// Late in the frame, after the swimming move has posed the swimmers: put what they wear
-        /// back on their heads, which are somewhere else now.
+        /// Late in the frame, after the game has moved and animated everybody: the whole-body
+        /// teachers follow their game teacher (placed any earlier they trail a frame behind), and
+        /// what the swimmers and dancers wear goes back on their heads, which are somewhere else now.
         /// </summary>
         public static void LateTick()
         {
             UnitManager units = Game.Peek<UnitManager>();
-            if ((!Swim.Active && !Dance.Active) || units == null || !Plugin.Settings.looks)
+            if (units == null || !Plugin.Settings.looks)
             {
                 return;
             }
+            bool posed = Swim.Active || Dance.Active;
             foreach (KeyValuePair<ulong, Worn> pair in Worns)
             {
                 Worn worn = pair.Value;
-                if (worn.Pieces.Count == 0 || worn.Body != null)
+                if (worn.Body == null && (worn.Pieces.Count == 0 || !posed))
                 {
                     continue;
                 }
                 Unit unit = units.GetUnitByUID(pair.Key);
-                if (unit != null && unit.isActived && unit.model != null && unit.transform != null
-                    && (!unit.isLocalPlayer || SelfView.Showing) && (Swim.Swimming(unit) || Dance.IsDancing(unit)))
+                if (unit == null || !unit.isActived || unit.model == null || unit.transform == null)
+                {
+                    continue;
+                }
+                if (worn.Body != null)
+                {
+                    try
+                    {
+                        PlaceBody(unit, worn);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!_loggedBodyError)
+                        {
+                            _loggedBodyError = true;
+                            Plugin.Log("looks: error moving a teacher's body: " + ex);
+                        }
+                    }
+                }
+                else if ((!unit.isLocalPlayer || SelfView.Showing) && (Swim.Swimming(unit) || Dance.IsDancing(unit)))
                 {
                     Place(unit, worn, true);
                 }
             }
         }
+
+        private static bool _loggedBodyError;
 
         public static int KindOf(ulong uid)
         {
@@ -576,7 +606,7 @@ namespace ClassPack
             worn.Tinted.Clear();
         }
 
-        private static void DropPieces(Worn worn)
+        private static void DropPieces(Worn worn, bool keepBody = false)
         {
             foreach (Piece piece in worn.Pieces)
             {
@@ -586,10 +616,11 @@ namespace ClassPack
                 }
             }
             worn.Pieces.Clear();
-            if (worn.Body != null)
+            if (worn.Body != null && !keepBody)
             {
                 worn.Body.Destroy();
                 worn.Body = null;
+                worn.BodyName = null;
             }
             foreach (Renderer hidden in worn.HiddenGame)
             {
@@ -614,7 +645,9 @@ namespace ClassPack
 
         private static void Apply(Unit unit, Worn worn, bool local, bool preview)
         {
-            DropPieces(worn);
+            // A whole-body teacher is kept when it stays the same teacher: the game refreshes
+            // its body now and then, and building it again would restart its move and its size.
+            DropPieces(worn, true);
             if (worn.ScaledRoot != null)
             {
                 worn.ScaledRoot.localScale = worn.BaseScale;
@@ -675,12 +708,23 @@ namespace ClassPack
             // The gym teacher, lunch lady and janitor are whole characters of their own. The
             // game's teacher keeps running underneath, unseen, and the new body follows it.
             string bodyName = teacher == Gym ? "teacher_gym" : teacher == Lunch ? "teacher_lunch" : teacher == Janitor ? "teacher_janitor" : null;
-            worn.NeckMax = 0f;
-            worn.Speed = 0f;
-            worn.LastAt = unit.transform.position;
-            if (bodyName != null)
+            if (worn.Body != null && worn.BodyName != bodyName)
             {
+                worn.Body.Destroy();
+                worn.Body = null;
+                worn.BodyName = null;
+            }
+            if (bodyName != null && worn.Body == null)
+            {
+                worn.NeckMax = 0f;
+                worn.Speed = 0f;
+                worn.Move = null;
+                worn.Down = 0f;
+                worn.Hold = 0f;
+                worn.LastAt = unit.transform.position;
+                worn.BodyMadeAt = Time.time;
                 worn.Body = Characters.Create(bodyName);
+                worn.BodyName = worn.Body != null ? bodyName : null;
             }
             if (worn.Body != null)
             {
@@ -983,50 +1027,150 @@ namespace ClassPack
 
         // ------------------------------------------------------------------ following along
 
-        /// <summary>Keeps a whole-body character on the game's teacher and picks its move from how fast it goes.</summary>
+        // How far the Meshy teachers' moves carry them, in body heights a second, measured from
+        // the feet in the move files: the walk is a slow stroll, the run a jog. The game's teacher
+        // goes about 5.4 m/s, so a 1.8 m teacher runs, about 1.7 times as fast as the file.
+        private const float WalkPace = 0.27f;
+        private const float RunPace = 1.8f;
+
+        /// <summary>
+        /// Keeps a whole-body character on the game's teacher, late in the frame. The move comes
+        /// from how fast the teacher goes, with room between the moves so it doesn't flick back
+        /// and forth, and the walk and run play as fast as the teacher really moves. The body
+        /// lies down while the teacher is knocked out or has slipped, wobbles while dizzy, holds
+        /// both arms out while carrying a student and bounces while dancing.
+        /// </summary>
         private static void PlaceBody(Unit unit, Worn worn)
         {
             Transform body = unit.transform;
+            float dt = Time.deltaTime;
+            TeacherStunComponent stun = unit.GetComponent<TeacherStunComponent>();
+            bool stunned = stun != null && stun.IsStunned;
+            bool flat = Faint.IsDown(unit) || (stunned && IsSlipping(stun));
+
+            // The standing height, measured in the first two seconds and only while standing:
+            // the game's own moves (a catch, a slip) never make the body grow afterwards.
             Transform neck = unit.GetPartRoot(EUnitPartType.HeadPosition);
-            if (neck != null)
+            if (neck != null && !stunned && !flat && (worn.NeckMax <= 0.3f || Time.time - worn.BodyMadeAt < 2f))
             {
-                // The tallest the neck has been is the standing height.
-                worn.NeckMax = Mathf.Max(worn.NeckMax, neck.position.y - body.position.y);
+                float height = neck.position.y - body.position.y;
+                if (height > 0.3f && height < 3f)
+                {
+                    worn.NeckMax = Mathf.Max(worn.NeckMax, height);
+                }
             }
             float tall = worn.NeckMax > 0.3f ? Mathf.Clamp(worn.NeckMax + 0.28f, 1.0f, 2.4f) : 1.7f;
             Transform character = worn.Body.Root.transform;
-            character.rotation = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
             character.localScale = Vector3.one * tall;
 
             Vector3 moved = body.position - worn.LastAt;
             moved.y = 0f;
             worn.LastAt = body.position;
-            if (Time.deltaTime > 0f)
+            if (dt > 0f)
             {
-                worn.Speed = Mathf.Lerp(worn.Speed, moved.magnitude / Time.deltaTime, 0.15f);
+                // A jump of several metres at once (put on a pole, sent to the hall) is not walking.
+                float speed = moved.magnitude / dt;
+                worn.Speed = Mathf.Lerp(worn.Speed, speed > 25f ? 0f : speed, 1f - Mathf.Exp(-dt * 8f));
             }
-            string move = worn.Speed < 0.25f ? "idle" : worn.Speed < 3.4f ? "walk" : "run";
+            string move = PickMove(worn.Move, worn.Speed);
+            worn.Move = move;
+            float rate = move == "walk" ? Mathf.Clamp(worn.Speed / (WalkPace * tall), 0.6f, 2.2f)
+                : move == "run" ? Mathf.Clamp(worn.Speed / (RunPace * tall), 0.7f, 1.9f) : 1f;
+
+            Quaternion yaw = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
+            Quaternion turn = yaw;
             float lift = 0f;
-            if (Swim.Swimming(unit) && worn.Body.Has("swim") && worn.Body.Has("swimidle"))
+            if (!flat && Swim.Swimming(unit) && worn.Body.Has("swim") && worn.Body.Has("swimidle"))
             {
                 // In the pool: strokes while moving, treading water while still, floating at the surface.
                 // (The self-test makes its own player stroke while standing still.)
                 bool still = worn.Speed < 0.3f && !(SwimPose.ForceMoving && unit == Game.LocalPlayer);
                 move = still ? "swimidle" : "swim";
+                rate = 1f;
                 lift = Swim.WaterWorldY - SwimPose.SurfaceFor(still) * tall - body.position.y;
             }
-            worn.Lift = Mathf.MoveTowards(worn.Lift, lift, Time.deltaTime * 2.5f);
-            character.position = body.position + Vector3.up * worn.Lift;
+
+            worn.Down = Mathf.MoveTowards(worn.Down, flat ? 1f : 0f, dt / 0.35f);
+            if (worn.Down > 0f)
+            {
+                // Knocked out or slipped: tipped over backwards from the feet, flat on the back.
+                float down = Mathf.SmoothStep(0f, 1f, worn.Down);
+                turn = yaw * Quaternion.Euler(-86f * down, 0f, 0f);
+                lift += 0.07f * tall * down;
+                move = "idle";
+                rate = 1f;
+            }
+            else if (stunned)
+            {
+                // Dizzy: a slow wobble on the spot.
+                float t = Time.time * 4f;
+                turn = yaw * Quaternion.Euler(5f * Mathf.Sin(t * 1.3f), 0f, 7f * Mathf.Sin(t));
+            }
+            else if (move == "idle" && Dance.IsDancing(unit))
+            {
+                // The dance class: a sway and a bounce on the beat, two beats a second like the lights.
+                float beat = Time.time * Mathf.PI * 2f;
+                turn = yaw * Quaternion.Euler(0f, 16f * Mathf.Sin(beat), 6f * Mathf.Sin(beat + 0.7f));
+                lift += 0.035f * tall * Mathf.Abs(Mathf.Sin(beat * 2f));
+            }
+
+            // Carrying a caught student: both arms out in front, where the student hangs.
+            CatchComponent catcher = unit.GetComponent<CatchComponent>();
+            bool carrying = catcher != null && catcher.catchedUnitUID != 0 && worn.Down <= 0f;
+            worn.Hold = Mathf.MoveTowards(worn.Hold, carrying ? 1f : 0f, dt / 0.25f);
+            worn.Body.Hold = worn.Hold;
+
+            worn.Lift = Mathf.MoveTowards(worn.Lift, lift, dt * 2.5f);
+            character.SetPositionAndRotation(body.position + Vector3.up * worn.Lift, turn);
             worn.Body.Play(move);
-            worn.Body.Tick(Time.deltaTime);
+            worn.Body.Tick(dt * rate);
+        }
+
+        /// <summary>Idle, walk or run, keeping the move it has until the speed is clearly past the next one.</summary>
+        private static string PickMove(string now, float speed)
+        {
+            switch (now)
+            {
+                case "walk":
+                    return speed < 0.2f ? "idle" : speed > 2.1f ? "run" : "walk";
+                case "run":
+                    return speed < 0.2f ? "idle" : speed < 1.5f ? "walk" : "run";
+                default:
+                    return speed > 2.1f ? "run" : speed > 0.4f ? "walk" : "idle";
+            }
+        }
+
+        private static HarmonyLib.AccessTools.FieldRef<TeacherStunComponent, bool> _slipping;
+        private static bool _slippingTried;
+
+        /// <summary>True when the game's teacher is down from a slip, not just dizzy (the game keeps that to itself).</summary>
+        private static bool IsSlipping(TeacherStunComponent stun)
+        {
+            if (!_slippingTried)
+            {
+                _slippingTried = true;
+                try
+                {
+                    _slipping = HarmonyLib.AccessTools.FieldRefAccess<TeacherStunComponent, bool>("slipping");
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log("looks: can't tell a slip from a stun on the teacher: " + ex.Message);
+                }
+            }
+            try
+            {
+                return _slipping != null && _slipping(stun);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         private static void Place(Unit unit, Worn worn, bool late = false)
         {
-            if (worn.Body != null && !late)
-            {
-                PlaceBody(unit, worn);
-            }
+            // A whole body is moved late in the frame (LateTick).
             if (worn.Pieces.Count == 0)
             {
                 return;
