@@ -20,6 +20,8 @@ namespace ClassPack
         // A hairstyle model worn instead of the game's hair (0 none, see Looks.HairstyleNames),
         // and the face: eye, pupil and head size as steps (0 is normal size, see Size).
         public int Hairstyle, Eyes, Pupils, HeadSize;
+        // How wide the body is: thin to fat, as a size step like the face (0 is normal).
+        public int BodyWidth;
 
         public int A => (Hair & 7) | (Body & 7) << 3 | (Cloth & 7) << 6 | (HairTint & 15) << 9 | (ClothTint & 15) << 13
             | (BodyTint & 15) << 17 | (Teacher & 7) << 21;
@@ -27,11 +29,12 @@ namespace ClassPack
         public int B => (Hat & 63) | (Face & 63) << 6 | (Back & 63) << 12;
 
         // Small enough to travel exactly in a float of the network message.
-        public int C => (Hairstyle & 7) | (Eyes & 31) << 3 | (Pupils & 31) << 8 | (HeadSize & 31) << 13;
+        public int C => (Hairstyle & 7) | (Eyes & 31) << 3 | (Pupils & 31) << 8 | (HeadSize & 31) << 13 | (BodyWidth & 31) << 18;
 
         public float EyeScale => Size(Eyes);
         public float PupilScale => Size(Pupils);
         public float HeadScale => Size(HeadSize);
+        public float BodyScale => Size(BodyWidth);
 
         /// <summary>A size step as a scale: 0 is normal (1.0), then 1 is 0.5 and every step adds 0.1.</summary>
         public static float Size(int step)
@@ -56,6 +59,7 @@ namespace ClassPack
             look.Eyes = (c >> 3) & 31;
             look.Pupils = (c >> 8) & 31;
             look.HeadSize = (c >> 13) & 31;
+            look.BodyWidth = (c >> 18) & 31;
             return look;
         }
 
@@ -1148,6 +1152,9 @@ namespace ClassPack
             bool carrying = catcher != null && catcher.catchedUnitUID != 0 && worn.Down <= 0f;
             worn.Hold = Mathf.MoveTowards(worn.Hold, carrying ? 1f : 0f, dt / 0.25f);
             worn.Body.Hold = worn.Hold;
+            // The face and body sliders, a little less on a teacher.
+            worn.Body.Width = worn.Look.BodyScale;
+            worn.Body.Head = TeacherSize(worn.Look.HeadScale, 1.25f);
 
             worn.Lift = Mathf.MoveTowards(worn.Lift, lift, dt * 2.5f);
             character.SetPositionAndRotation(body.position + Vector3.up * worn.Lift, turn);
@@ -1448,16 +1455,17 @@ namespace ClassPack
                 return null;
             }
             var rig = new FaceRig { Model = model, Head = head, HeadGame = head.localScale, HeadWritten = head.localScale };
+            // Every mesh on the skeleton (face, body, clothes): the body slider widens all of them alike.
+            foreach (SkinnedMeshRenderer skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                Transform[] used = skin.bones;
+                if (skin.sharedMesh != null && used != null && System.Array.IndexOf(used, head) >= 0)
+                {
+                    rig.Skins.Add(skin);
+                }
+            }
             if (eyes.Count == 2)
             {
-                foreach (SkinnedMeshRenderer skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-                {
-                    Transform[] used = skin.bones;
-                    if (skin.sharedMesh != null && used != null && System.Array.IndexOf(used, eyes[0]) >= 0)
-                    {
-                        rig.Skins.Add(skin);
-                    }
-                }
                 // The face mesh's resting pose says which way each bone faces, even when an
                 // eyelid is half shut in a blink right now.
                 Transform[] faceBones = rig.Skins.Count > 0 ? rig.Skins[0].bones : null;
@@ -1547,13 +1555,15 @@ namespace ClassPack
             {
                 Worn worn = pair.Value;
                 Look look = worn.Look;
-                bool changed = look.Eyes != 0 || look.Pupils != 0 || look.HeadSize != 0;
+                bool changed = look.Eyes != 0 || look.Pupils != 0 || look.HeadSize != 0 || look.BodyWidth != 0;
                 if (!changed && worn.Face == null)
                 {
                     continue;
                 }
                 Unit unit = units.GetUnitByUID(pair.Key);
-                Transform model = unit != null && unit.isActived && unit.model != null && unit.IsStudent ? unit.model.transform : null;
+                // Students and the game's teacher; a teacher with a whole body of its own is done in PlaceBody.
+                Transform model = unit != null && unit.isActived && unit.model != null && (unit.IsStudent || unit.IsTeacher)
+                    && worn.Body == null ? unit.model.transform : null;
                 if (worn.Face != null && (!changed || worn.Face.Model != model))
                 {
                     // Back to normal, or another body now: the old one is put back as the game had it.
@@ -1574,7 +1584,7 @@ namespace ClassPack
                 }
                 try
                 {
-                    ShapeFace(worn.Face, look);
+                    ShapeFace(worn.Face, look, unit.IsTeacher);
                 }
                 catch (System.Exception ex)
                 {
@@ -1582,12 +1592,20 @@ namespace ClassPack
                     worn.Look.Eyes = 0;
                     worn.Look.Pupils = 0;
                     worn.Look.HeadSize = 0;
+                    worn.Look.BodyWidth = 0;
                 }
             }
         }
 
-        private static void ShapeFace(FaceRig face, Look look)
+        /// <summary>A teacher's head and eyes change less, so the teacher can still see and be seen.</summary>
+        public static float TeacherSize(float scale, float most)
         {
+            return Mathf.Clamp(scale, 1f / most, most);
+        }
+
+        private static void ShapeFace(FaceRig face, Look look, bool teacher)
+        {
+            float headScale = teacher ? TeacherSize(look.HeadScale, 1.25f) : look.HeadScale;
             if (face.Head != null)
             {
                 Vector3 now = face.Head.localScale;
@@ -1595,7 +1613,7 @@ namespace ClassPack
                 {
                     face.HeadGame = now;
                 }
-                face.HeadWritten = face.HeadGame * look.HeadScale;
+                face.HeadWritten = face.HeadGame * headScale;
                 face.Head.localScale = face.HeadWritten;
             }
 
@@ -1612,8 +1630,9 @@ namespace ClassPack
                 {
                     original = now;
                 }
-                Mesh want = look.Pupils == 0 ? original : PupilCopy(skin, original, look.Pupils, face);
-                pupilsOnPicture |= want != original;
+                Mesh want = look.Pupils == 0 && look.BodyWidth == 0 ? original : ShapedCopy(skin, original, look.Pupils, look.BodyWidth, face);
+                EyeMap map;
+                pupilsOnPicture |= look.Pupils != 0 && want != original && EyeMaps.TryGetValue(original, out map) && map != null;
                 if (want != now)
                 {
                     skin.sharedMesh = want;
@@ -1623,7 +1642,7 @@ namespace ClassPack
             // little) across, inside eyelids that keep their size: the pupil grows with them.
             float pupils = pupilsOnPicture || look.Pupils == 0 ? 1f : Mathf.Max(0.85f, look.PupilScale);
 
-            float eyes = look.EyeScale;
+            float eyes = teacher ? TeacherSize(look.EyeScale, 1.4f) : look.EyeScale;
             // Across the face the eyes grow fully, in depth only a little.
             float deep = 1f + 0.3f * (eyes - 1f);
             // An eye is about 0.365 of the way to the other eye across; past about 1.3 times
@@ -1680,54 +1699,148 @@ namespace ClassPack
             }
         }
 
-        /// <summary>The game's face mesh with the pupils at another size, made the first time it is needed.</summary>
-        private static Mesh PupilCopy(SkinnedMeshRenderer skin, Mesh original, int step, FaceRig face)
+        /// <summary>The torso's points in one mesh, how much each follows the torso, and the spine's own space.</summary>
+        private sealed class BodyMap
         {
-            long key = (long)original.GetInstanceID() * 64L + (step & 31);
+            public int[] Points;
+            public float[] Weights;
+            public Matrix4x4 ToSpine;
+            public Matrix4x4 FromSpine;
+        }
+
+        private static readonly Dictionary<Mesh, BodyMap> BodyMaps = new Dictionary<Mesh, BodyMap>();
+        private static readonly string[] TorsoBones = { "gupen", "spine1", "spine2", "pelvis.L", "pelvis.R" };
+
+        /// <summary>
+        /// The game's mesh with the pupils at another size and the body wider or thinner, made the
+        /// first time it is needed and shared by everybody who looks the same. The original when
+        /// neither changes anything on this mesh (a hand, say).
+        /// </summary>
+        private static Mesh ShapedCopy(SkinnedMeshRenderer skin, Mesh original, int pupils, int width, FaceRig face)
+        {
+            long key = (long)original.GetInstanceID() * 4096L + (pupils & 31) * 64L + (width & 31);
             Mesh copy;
             if (PupilCopies.TryGetValue(key, out copy))
             {
                 return copy != null ? copy : original;
             }
-            EyeMap map;
-            if (!EyeMaps.TryGetValue(original, out map))
+            EyeMap eyes = null;
+            if (pupils != 0 && !EyeMaps.TryGetValue(original, out eyes))
             {
-                map = MakeEyeMap(skin, original, face);
-                EyeMaps[original] = map;
+                eyes = MakeEyeMap(skin, original, face);
+                EyeMaps[original] = eyes;
+            }
+            BodyMap body = null;
+            if (width != 0 && !BodyMaps.TryGetValue(original, out body))
+            {
+                body = MakeBodyMap(skin, original);
+                BodyMaps[original] = body;
             }
             copy = null;
-            if (map != null)
+            if (eyes != null || body != null)
             {
                 try
                 {
                     copy = UnityEngine.Object.Instantiate(original);
-                    copy.name = original.name + " (pupils " + Look.Size(step).ToString("F1") + ")";
-                    var uv = (Vector4[])map.Uv.Clone();
-                    float zoom = 1f / Look.Size(step);
-                    for (int n = 0; n < map.Points.Length; n++)
+                    copy.name = original.name + " (pupils " + Look.Size(pupils).ToString("F1") + ", body " + Look.Size(width).ToString("F1") + ")";
+                    if (eyes != null)
                     {
-                        int i = map.Points[n];
-                        Vector2 middle = map.Middles[n];
-                        Vector2 to = middle + (new Vector2(uv[i].x, uv[i].y) - middle) * zoom;
-                        // Smaller pupils show more of the picture round the eye: no further than the eye's own white.
-                        if (zoom > 1f && map.Reach[n] > 0f && (to - middle).magnitude > map.Reach[n])
+                        var uv = (Vector4[])eyes.Uv.Clone();
+                        float zoom = 1f / Look.Size(pupils);
+                        for (int n = 0; n < eyes.Points.Length; n++)
                         {
-                            to = middle + (to - middle).normalized * map.Reach[n];
+                            int i = eyes.Points[n];
+                            Vector2 middle = eyes.Middles[n];
+                            Vector2 to = middle + (new Vector2(uv[i].x, uv[i].y) - middle) * zoom;
+                            // Smaller pupils show more of the picture round the eye: no further than the eye's own white.
+                            if (zoom > 1f && eyes.Reach[n] > 0f && (to - middle).magnitude > eyes.Reach[n])
+                            {
+                                to = middle + (to - middle).normalized * eyes.Reach[n];
+                            }
+                            uv[i].x = to.x;
+                            uv[i].y = to.y;
                         }
-                        uv[i].x = to.x;
-                        uv[i].y = to.y;
+                        copy.SetUVs(0, uv);
                     }
-                    copy.SetUVs(0, uv);
+                    if (body != null)
+                    {
+                        // Out from the spine (or in towards it), across the body but not up or down:
+                        // a point that only half follows the torso moves half as far.
+                        Vector3[] points = copy.vertices;
+                        float scale = Look.Size(width);
+                        for (int n = 0; n < body.Points.Length; n++)
+                        {
+                            int i = body.Points[n];
+                            Vector3 local = body.ToSpine.MultiplyPoint3x4(points[i]);
+                            local.x *= scale;
+                            local.z *= scale;
+                            points[i] = Vector3.Lerp(points[i], body.FromSpine.MultiplyPoint3x4(local), body.Weights[n]);
+                        }
+                        copy.vertices = points;
+                        copy.RecalculateBounds();
+                    }
                     PupilSource[copy] = original;
                 }
                 catch (System.Exception ex)
                 {
-                    Plugin.Log("looks: could not make pupils " + Look.Size(step).ToString("F1") + " on " + original.name + ": " + ex.Message);
+                    Plugin.Log("looks: could not reshape " + original.name + ": " + ex.Message);
                     copy = null;
                 }
             }
             PupilCopies[key] = copy;
             return copy != null ? copy : original;
+        }
+
+        /// <summary>Finds the points of a mesh that follow the hips and the spine, and the spine's space.</summary>
+        private static BodyMap MakeBodyMap(SkinnedMeshRenderer skin, Mesh mesh)
+        {
+            try
+            {
+                Transform[] bones = skin.bones;
+                var torso = new HashSet<int>();
+                int spine = -1;
+                for (int b = 0; b < bones.Length; b++)
+                {
+                    if (bones[b] != null && System.Array.IndexOf(TorsoBones, bones[b].name) >= 0)
+                    {
+                        torso.Add(b);
+                        if (bones[b].name == "spine1" || (spine < 0 && bones[b].name == "gupen"))
+                        {
+                            spine = b;
+                        }
+                    }
+                }
+                Matrix4x4[] binds = mesh.bindposes;
+                BoneWeight[] weights = mesh.boneWeights;
+                if (spine < 0 || spine >= binds.Length || weights.Length != mesh.vertexCount)
+                {
+                    return null;
+                }
+                var points = new List<int>();
+                var shares = new List<float>();
+                for (int i = 0; i < weights.Length; i++)
+                {
+                    BoneWeight w = weights[i];
+                    float share = (torso.Contains(w.boneIndex0) ? w.weight0 : 0f) + (torso.Contains(w.boneIndex1) ? w.weight1 : 0f)
+                        + (torso.Contains(w.boneIndex2) ? w.weight2 : 0f) + (torso.Contains(w.boneIndex3) ? w.weight3 : 0f);
+                    if (share > 0.01f)
+                    {
+                        points.Add(i);
+                        shares.Add(Mathf.Clamp01(share));
+                    }
+                }
+                if (points.Count == 0)
+                {
+                    return null;
+                }
+                Plugin.Log("looks: body slider on " + mesh.name + ": " + points.Count + " points follow the torso");
+                return new BodyMap { Points = points.ToArray(), Weights = shares.ToArray(), ToSpine = binds[spine], FromSpine = binds[spine].inverse };
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log("looks: could not read the body of " + mesh.name + ": " + ex.Message);
+                return null;
+            }
         }
 
         /// <summary>Finds the eyes' points in a face mesh and the middle of each pupil on its picture.</summary>

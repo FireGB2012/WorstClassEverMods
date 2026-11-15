@@ -299,13 +299,16 @@ namespace ClassPack
                         look.Eyes = Look.Step(Size("Eyes", look.EyeScale, 0.6f, 1.8f));
                         look.Pupils = Look.Step(Size("Pupils", look.PupilScale, 0.5f, 2f));
                         look.HeadSize = Look.Step(Size("Head", look.HeadScale, 0.8f, 1.5f));
+                        look.BodyWidth = Look.Step(Size("Body (thin to fat)", look.BodyScale, 0.7f, 1.5f));
                         GUILayout.BeginHorizontal();
+                        GUILayout.Label("Teachers get a little less of each, so they can still see.", _small);
                         GUILayout.FlexibleSpace();
-                        if (GUILayout.Button("Normal face", _cell, GUILayout.Width(130f)))
+                        if (GUILayout.Button("Normal face and body", _cell, GUILayout.Width(190f)))
                         {
                             look.Eyes = 0;
                             look.Pupils = 0;
                             look.HeadSize = 0;
+                            look.BodyWidth = 0;
                         }
                         GUILayout.EndHorizontal();
                         look.Body = Row("Face and body", look.Body, Looks.PartNames, 5);

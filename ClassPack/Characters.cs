@@ -77,6 +77,10 @@ namespace ClassPack
         /// <summary>0 arms as the move has them, 1 both arms held out in front (carrying someone).</summary>
         public float Hold;
 
+        /// <summary>How wide the body is (the body slider) and how big the head (the head slider).</summary>
+        public float Width = 1f;
+        public float Head = 1f;
+
         /// <summary>
         /// The arm on one side: the bones that hang out to that side between hip and shoulder
         /// height, from the body outwards (upper arm, forearm, hand). Meshy's characters have
@@ -175,6 +179,21 @@ namespace ClassPack
             {
                 HoldOut(_armLeft, -1f);
                 HoldOut(_armRight, 1f);
+            }
+            // Meshy's 24 bones: 0 to 4 the hips, spine and neck, 5 to 7 the head. The bones hang
+            // side by side, so scaling one only changes its own part of the body.
+            if (bones == 24)
+            {
+                var torso = new Vector3(Width, 1f, Width);
+                for (int i = 0; i <= 4; i++)
+                {
+                    _bones[i].localScale = torso;
+                }
+                Vector3 head = Vector3.one * Head;
+                for (int i = 5; i <= 7; i++)
+                {
+                    _bones[i].localScale = head;
+                }
             }
         }
 

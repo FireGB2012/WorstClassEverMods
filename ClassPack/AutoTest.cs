@@ -575,7 +575,7 @@ namespace ClassPack
                     {
                         if (index < _faceBots.Count)
                         {
-                            Put(_faceBots[index], new Vector3(10.6f, 0.05f, -6f + index * 2.4f), 270f);
+                            Put(_faceBots[index], new Vector3(index < 6 ? 10.6f : 6.6f, 0.05f, -6f + (index % 6) * 2.4f), 270f);
                             SwimPose.TestStill = _faceBots[index].UID;
                         }
                     });
@@ -703,7 +703,7 @@ namespace ClassPack
             Add(t += 1.5f, "end", () => { });
         }
 
-        private static readonly string[] TestFaces = { "big_eyes", "big_pupils", "big_head", "afro_red", "dreads", "normal" };
+        private static readonly string[] TestFaces = { "big_eyes", "big_pupils", "big_head", "afro_red", "dreads", "normal", "fat", "thin_mohawk", "spiky_blue" };
         private static readonly List<Unit> _faceBots = new List<Unit>();
 
         /// <summary>Dresses a few bots each in one face setting or hairstyle, for close pictures.</summary>
@@ -747,6 +747,18 @@ namespace ClassPack
                         break;
                     case 4:
                         look.Hairstyle = 2;
+                        break;
+                    case 6:
+                        look.BodyWidth = Look.Step(1.5f);
+                        break;
+                    case 7:
+                        look.BodyWidth = Look.Step(0.7f);
+                        look.Hairstyle = 3;
+                        look.HairTint = 4;
+                        break;
+                    case 8:
+                        look.Hairstyle = 4;
+                        look.HairTint = 5;
                         break;
                 }
                 Looks.TestDress(_faceBots[i].UID, look);
