@@ -142,6 +142,10 @@ namespace ClassPack
         private static PlaygroundNavigationArea _navArea;
         private static bool _navTried;
         private static float _nextBotsAt;
+        private static bool _loggedPoolPick;
+        private static bool _loggedPoolMiss;
+        /// <summary>The share of a bot's picks on the deck that are moved into the pool instead.</summary>
+        private const float PoolPickShare = 0.6f;
         private static readonly Dictionary<ulong, Swimmer> Swimmers = new Dictionary<ulong, Swimmer>();
 
         /// <summary>True while this player's game shows the pool hall for a swim class.</summary>
@@ -204,7 +208,7 @@ namespace ClassPack
 
         public static string TestState()
         {
-            return "host class on " + _hostOn + ", bots brought " + HostBots.Count + ", walkable area "
+            return "host class on " + _hostOn + ", bots brought " + HostBots.Count + ", in the water now " + BotsInWater() + ", walkable area "
                 + (_navArea != null ? "ready" : _navTried ? "FAILED" : "not asked for yet") + ", poles " + HostPoles.Count;
         }
 
@@ -700,6 +704,7 @@ namespace ClassPack
                     return false;
                 }
                 _navArea = new PlaygroundNavigationArea(_nav, area);
+                AddRampLink(agent.agentTypeID, area);
                 Bounds reach = _nav.navMeshData.sourceBounds;
                 Plugin.Log("swim: walkable area for bots ready, " + reach.size.x.ToString("F0") + " by " + reach.size.z.ToString("F0") + " m, walker type " + agent.agentTypeID);
                 return true;
@@ -710,6 +715,96 @@ namespace ClassPack
                 _navArea = null;
                 return false;
             }
+        }
+
+        /// <summary>
+        /// The game's bots can't walk any slope at all, so on its own the ramp leaves the pool's
+        /// floor an island they never reach. A wide link over the ramp joins the deck at its top
+        /// to the pool's floor at its foot. The game's bot code walks a bot straight along a link
+        /// (StudentNPCComponent.MoveAcrossLink), which here is straight down or up the ramp.
+        /// </summary>
+        private static void AddRampLink(int agentType, int area)
+        {
+            var holder = new GameObject("ramp link for bots");
+            holder.transform.SetParent(_hall.transform, false);
+            NavMeshLink link = holder.AddComponent<NavMeshLink>();
+            link.agentTypeID = agentType;
+            link.area = area;
+            link.bidirectional = true;
+            link.width = PoolZ * 2f - 1.2f;
+            link.startPoint = new Vector3(-PoolX - 0.5f, 0f, 0f);
+            link.endPoint = new Vector3(-PoolX + RampRun + 0.5f, -Depth, 0f);
+            Plugin.Log("swim: link for bots over the ramp, " + link.width.ToString("F1") + " m wide");
+        }
+
+        /// <summary>
+        /// Host, called from the game's own bot code with the spot a roaming bot picked to walk
+        /// to next. The deck is about three times as big as the pool's floor, so left alone only
+        /// a quarter of the picks would be in the water; a share of the deck picks is moved into
+        /// the pool, so that about half of the bots are in the water at any time.
+        /// </summary>
+        public static void SteerBot(PlaygroundNavigationArea area, NavMeshAgent agent, NavMeshPath path, ref Vector3 destination)
+        {
+            if (area == null || area != _navArea || !_hostOn || agent == null || path == null)
+            {
+                return;
+            }
+            if (destination.y - _hostOrigin.y < -Depth * 0.5f || Random.value > PoolPickShare)
+            {
+                return;
+            }
+            var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+            bool pathChanged = false;
+            for (int tries = 0; tries < 6; tries++)
+            {
+                var want = new Vector3(Random.Range(-PoolX + RampRun + 0.6f, PoolX - 0.6f), -Depth, Random.Range(-PoolZ + 0.6f, PoolZ - 0.6f));
+                NavMeshHit hit;
+                if (!NavMesh.SamplePosition(_hostOrigin + want, out hit, 0.6f, filter) || hit.position.y - _hostOrigin.y > -Depth * 0.5f)
+                {
+                    continue;
+                }
+                pathChanged = true;
+                if (agent.CalculatePath(hit.position, path) && path.status == NavMeshPathStatus.PathComplete)
+                {
+                    destination = hit.position;
+                    if (!_loggedPoolPick)
+                    {
+                        _loggedPoolPick = true;
+                        Plugin.Log("swim: first bot sent into the pool, to " + (hit.position - _hostOrigin).ToString("F1"));
+                    }
+                    return;
+                }
+            }
+            if (pathChanged)
+            {
+                // No way into the pool was found: put back the way to the game's own pick.
+                agent.CalculatePath(destination, path);
+                if (!_loggedPoolMiss)
+                {
+                    _loggedPoolMiss = true;
+                    Plugin.Log("swim: a bot found no way into the pool from " + (agent.transform.position - _hostOrigin).ToString("F1"));
+                }
+            }
+        }
+
+        /// <summary>For the self-test: how many of the bots brought to the pool are in the water now.</summary>
+        public static int BotsInWater()
+        {
+            UnitManager units = Game.Peek<UnitManager>();
+            if (units == null)
+            {
+                return 0;
+            }
+            int count = 0;
+            foreach (ulong uid in HostBots)
+            {
+                Unit unit;
+                if (units.unitsDict.TryGetValue(uid, out unit) && unit != null && Swimming(unit))
+                {
+                    count++;
+                }
+            }
+            return count;
         }
 
         /// <summary>Keeps something out of the bots' walkable area (and the bots out of it).</summary>
@@ -1573,6 +1668,36 @@ namespace ClassPack
             picture.SetPixels32(pixels);
             picture.Apply(false, false);
             return picture;
+        }
+    }
+
+    /// <summary>
+    /// The game's roaming bots pick their next spot here. During a swim class a share of those
+    /// picks is moved into the pool (Swim.SteerBot), so that about half of the bots go swimming.
+    /// </summary>
+    [HarmonyLib.HarmonyPatch(typeof(PlaygroundNavigationArea), "TryGetDestination")]
+    internal static class PoolBotDestinations
+    {
+        private static bool _loggedError;
+
+        private static void Postfix(PlaygroundNavigationArea __instance, NavMeshAgent agent, NavMeshPath path, ref Vector3 destination, bool __result)
+        {
+            if (!__result)
+            {
+                return;
+            }
+            try
+            {
+                Swim.SteerBot(__instance, agent, path, ref destination);
+            }
+            catch (System.Exception ex)
+            {
+                if (!_loggedError)
+                {
+                    _loggedError = true;
+                    Plugin.Log("swim: error in sending a bot into the pool: " + ex);
+                }
+            }
         }
     }
 }

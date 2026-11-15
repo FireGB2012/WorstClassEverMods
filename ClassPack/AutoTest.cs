@@ -344,11 +344,15 @@ namespace ClassPack
                 }
             });
             Add(t += 1f, "count", CountThings);
+            // Bots walk into the pool over the ramp's link by themselves: give them time to get there.
+            Add(t += 10f, "bots in water", () => Note("bots in the water: " + Swim.BotsInWater() + " (" + Swim.TestState() + ")"));
+            Add(t += 0.3f, "bots", () => Shot("10b_bots_in_pool", new Vector3(-10.5f, 3.2f, -6.5f), new Vector3(0f, -0.6f, 0f)));
             for (int i = 0; i < 4; i++)
             {
                 int index = i;
                 Add(t += 1.3f, "bot swimming", () => ShotOfBot("11_bot_swim_" + index, true, index));
             }
+            Add(t += 1f, "bots in water", () => Note("bots in the water: " + Swim.BotsInWater()));
             Add(t += 1.3f, "bot on deck", () => ShotOfBot("12_bot_deck", false, 0));
 
             // This player in the water: seen through their own eyes (from behind) and from the side.
@@ -372,7 +376,14 @@ namespace ClassPack
                     DoorDash.Order(0);
                     Note("DoorDash ordered, state " + DoorDash.Current + (DoorDash.WhyNot() != null ? " (" + DoorDash.WhyNot() + ")" : ""));
                 });
-                Add(t += 1f, "dive under", () =>
+                // The food comes before anything that earns mischief: in a solo test the class
+                // is won (and over) within seconds of the dive.
+                Add(t += Plugin.Settings.doorDashWaitSeconds + 2f, "lounge", () => Shot("24_lounge_food", new Vector3(17.2f, 1.5f, -7.9f), new Vector3(18.75f, 0.45f, -6f)));
+                Add(t += 1f, "delivery", () => Note("DoorDash state " + DoorDash.Current));
+                Add(t += 1f, "into the lounge", () => Put(Game.LocalPlayer, new Vector3(16.2f, 0.08f, -6f), 90f));
+                Add(t += 1.5f, "eyes", () => Screen("25_eyes_in_lounge"));
+                Add(t += 0.5f, "back to the pool", () => Put(Game.LocalPlayer, new Vector3(1f, -0.8f, 0.8f), 90f));
+                Add(t += 1.5f, "dive under", () =>
                 {
                     StudentCrawlComponent crawl = Game.LocalPlayer.GetComponent<StudentCrawlComponent>();
                     if (crawl != null)
@@ -399,11 +410,6 @@ namespace ClassPack
                 Add(t += 0.5f, "off the tip", () => Put(Game.LocalPlayer, new Vector3(5.2f, 1.2f, 0f), 270f));
                 Add(t += 0.75f, "dive", () => Shot("23_dive_splash", new Vector3(3.5f, 1.6f, -3.6f), new Vector3(5.4f, -0.1f, 0f)));
                 Add(t += 1f, "state", () => DescribeMe("after the dive"));
-                // DoorDash should have arrived by now.
-                Add(t += 6f, "lounge", () => Shot("24_lounge_food", new Vector3(17.2f, 1.5f, -7.9f), new Vector3(18.75f, 0.45f, -6f)));
-                Add(t += 1f, "delivery", () => Note("DoorDash state " + DoorDash.Current));
-                Add(t += 1f, "into the lounge", () => Put(Game.LocalPlayer, new Vector3(16.2f, 0.08f, -6f), 90f));
-                Add(t += 1.5f, "eyes", () => Screen("25_eyes_in_lounge"));
             }
             else
             {
