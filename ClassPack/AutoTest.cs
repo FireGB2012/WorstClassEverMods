@@ -428,11 +428,23 @@ namespace ClassPack
                         HostPanel.Instance.TestShow(false);
                     }
                 });
-                Add(t += 1f, "order", () =>
+                // DoorDash needs a phone in the hand. In the pool hall one turns up on the lounge's
+                // coffee table: it is made to turn up now, looked at, and grabbed from beside it.
+                Add(t += 0.5f, "phone", Phones.TestHallPhone);
+                Add(t += 0.6f, "into the lounge", () => Put(Game.LocalPlayer, new Vector3(16.2f, 0.08f, -6f), 90f));
+                Add(t += 1.2f, "phone", () => Note("a phone on the lounge table: " + (Phones.TestHallSpot != Vector3.zero)
+                    + ", at " + (Phones.TestHallSpot - Hall).ToString("F2") + " (hall frame)"));
+                Add(t += 0.2f, "lounge", () => Shot("23b_lounge_phone", new Vector3(17.2f, 1.5f, -7.9f), new Vector3(18.75f, 0.45f, -6f)));
+                Add(t += 0.3f, "eyes", () => Screen("23c_eyes_lounge_phone"));
+                Add(t += 0.4f, "phone", Phones.TestTakeHall);
+                Add(t += 0.6f, "phone", () => Note("phone in my hand (grabbed on the lounge table): " + Phones.HasLocal
+                    + ", still on the table: " + (Phones.TestHallSpot != Vector3.zero)));
+                Add(t += 0.3f, "order", () =>
                 {
                     DoorDash.Order(0);
                     Note("DoorDash ordered, state " + DoorDash.Current + (DoorDash.WhyNot() != null ? " (" + DoorDash.WhyNot() + ")" : ""));
                 });
+                Add(t += 1f, "phone", () => Note("phone after the order (should be used up): " + Phones.HasLocal));
                 // The food comes before anything that earns mischief: in a solo test the class
                 // is won (and over) within seconds of the dive.
                 Add(t += Plugin.Settings.doorDashWaitSeconds + 2f, "lounge", () => Shot("24_lounge_food", new Vector3(17.2f, 1.5f, -7.9f), new Vector3(18.75f, 0.45f, -6f)));

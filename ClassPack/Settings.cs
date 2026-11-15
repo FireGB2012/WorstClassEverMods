@@ -15,6 +15,10 @@ namespace ClassPack
         // the player's hand (out of class the same key opens the wardrobe). A phone turns up
         // in a student's drawer with this chance each time they finish a snack.
         public float phoneChancePerSnack = 0.074f;
+        // The swim and dance halls have no desks: there a phone turns up on the lounge's coffee
+        // table or the snack table about this often, the first student to grab it gets it
+        // (0 = never).
+        public float hallPhoneSeconds = 120f;
         public bool doorDash = true;
         public string doorDashKey = "O";
         public float doorDashWaitSeconds = 10f;

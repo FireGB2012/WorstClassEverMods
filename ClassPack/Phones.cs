@@ -18,7 +18,11 @@ namespace ClassPack
     /// that can be heard nearby, and the teacher's screen says someone is on their phone.
     ///
     /// The host keeps who has a phone; DoorDash, prank calls and tricks ask HostUse before
-    /// they go ahead. In the swim and dance halls there are no drawers, so no phones.
+    /// they go ahead.
+    ///
+    /// The swim and dance halls have no desks. There a phone turns up now and then on the
+    /// lounge's coffee table or the snack table (hallPhoneSeconds), hovering big and turning
+    /// like the drawer ones, and the first student to grab it gets it.
     /// </summary>
     internal static class Phones
     {
@@ -47,11 +51,21 @@ namespace ClassPack
         private static float _nextTipAt;
         private static GUIStyle _prompt;
         private static Texture2D _white;
+        // The phone lying out in the swim or dance hall.
+        private static bool _hallPhone;
+        private static Vector3 _hallAt;
+        private static GameObject _hallModel;
+        private static Vector3 _hallMiddle;
+        private static bool _hallAimed;
 
         // Host only: who has a phone waiting in the drawer, who holds one (and whether it is up).
         private static readonly HashSet<ulong> HostDrawer = new HashSet<ulong>();
         private static readonly Dictionary<ulong, bool> HostHeld = new Dictionary<ulong, bool>();
         private static readonly Dictionary<ulong, float> HostTeacherToldAt = new Dictionary<ulong, float>();
+        private static bool _hostHallPhone;
+        private static Vector3 _hostHallAt;
+        private static float _hostHallNextAt;
+        private static float _hostHallToldAt;
 
         // --------------------------------------------------------------- what others ask
 
@@ -81,8 +95,16 @@ namespace ClassPack
             if (Time.unscaledTime >= _nextTipAt)
             {
                 _nextTipAt = Time.unscaledTime + 3f;
-                Tricks.Tip("No phone in your hand. Phones turn up in desk drawers when you eat snacks.");
+                Tricks.Tip(Swim.Active || Dance.Active
+                    ? "No phone in your hand. Now and then one turns up " + HallPlace() + ": grab it first!"
+                    : "No phone in your hand. Phones turn up in desk drawers when you eat snacks.");
             }
+        }
+
+        /// <summary>Where a phone turns up in the hall the player is in.</summary>
+        private static string HallPlace()
+        {
+            return Swim.Active ? "on the coffee table in the teachers' lounge" : "on the snack table";
         }
 
         // ---------------------------------------------------------------------- host side
@@ -136,6 +158,68 @@ namespace ClassPack
                         }
                     }
                     break;
+                case 3:
+                    // The phone lying out in the hall: the first student near it gets it.
+                    if (_hostHallPhone && !HostHeld.ContainsKey(player.UID) && Tricks.Flat(player.Position - _hostHallAt).magnitude < 3.5f)
+                    {
+                        _hostHallPhone = false;
+                        _hostHallNextAt = Time.time + HallPhoneSeconds() * Random.Range(0.7f, 1.3f);
+                        HostHeld[player.UID] = false;
+                        Net.SendToModded(new CpTell { kind = CpKind.PhoneTell, i = 2, j = 0 });
+                        Net.SendToModded(new CpTell { kind = CpKind.PhoneTell, i = 1, a = player.UID, j = InHand });
+                        Plugin.Log("phones: " + Poles.NameOf(player) + " grabbed the phone on the table");
+                    }
+                    break;
+            }
+        }
+
+        private static float HallPhoneSeconds()
+        {
+            return Plugin.Settings.nerfAlwaysForTesting ? 10f : Plugin.Settings.hallPhoneSeconds;
+        }
+
+        /// <summary>
+        /// Host: in the swim and dance halls (no desks) a phone turns up now and then on the
+        /// lounge's coffee table or the snack table, beside where DoorDash puts the food.
+        /// </summary>
+        private static void HostHallTick()
+        {
+            if (!NetworkServer.active)
+            {
+                return;
+            }
+            Vector3 spot;
+            bool swim = Swim.TryLoungeSpot(out spot);
+            bool hall = swim || Dance.TrySnackSpot(out spot);
+            float every = HallPhoneSeconds();
+            if (!hall || every <= 0f)
+            {
+                if (_hostHallPhone)
+                {
+                    _hostHallPhone = false;
+                    Net.SendToModded(new CpTell { kind = CpKind.PhoneTell, i = 2, j = 0 });
+                }
+                _hostHallNextAt = 0f;
+                return;
+            }
+            if (_hostHallNextAt <= 0f)
+            {
+                // The first one a while after the class starts.
+                _hostHallNextAt = Time.time + every * Random.Range(0.4f, 0.8f);
+            }
+            if (!_hostHallPhone && Time.time >= _hostHallNextAt)
+            {
+                _hostHallPhone = true;
+                // Swim: along the lounge table's long side; dance: the other end of the snack table.
+                _hostHallAt = spot + (swim ? new Vector3(0f, 0f, -0.4f) : new Vector3(-0.6f, 0f, 0f));
+                _hostHallToldAt = 0f;
+                Plugin.Log("phones: a phone turned up " + (swim ? "on the lounge table" : "on the snack table"));
+            }
+            if (_hostHallPhone && Time.time >= _hostHallToldAt)
+            {
+                // Told again now and then, for anyone who joined late.
+                _hostHallToldAt = Time.time + 4f;
+                Net.SendToModded(new CpTell { kind = CpKind.PhoneTell, i = 2, j = 1, v = _hostHallAt });
             }
         }
 
@@ -150,7 +234,7 @@ namespace ClassPack
                 return false;
             }
             Net.SendToModded(new CpTell { kind = CpKind.PhoneTell, i = 1, a = player.UID, j = Gone });
-            Net.Toast(player, "That used up your phone. Another one may turn up in your drawer.", 3f);
+            Net.Toast(player, "That used up your phone. Another one may turn up " + (Swim.Active || Dance.Active ? HallPlace() : "in your drawer") + ".", 3f);
             Plugin.Log("phones: " + Poles.NameOf(player) + " used up their phone");
             return true;
         }
@@ -181,6 +265,24 @@ namespace ClassPack
 
         public static void OnTell(CpTell tell)
         {
+            if (tell.i == 2)
+            {
+                // A phone lying out in the hall (j 1), or not any more (j 0).
+                bool was = _hallPhone;
+                _hallPhone = tell.j == 1;
+                _hallAt = tell.v;
+                Unit self = Game.LocalPlayer;
+                if (_hallPhone && !was && self != null && self.IsStudent && !HasLocal)
+                {
+                    Game.PlaySound(AudioEvents.sfx_GameAddItem_sfx);
+                    Game.Notify("A phone turned up " + HallPlace() + "! The first one to grab it gets it.", 5f);
+                }
+                if (!_hallPhone)
+                {
+                    DropHallModel();
+                }
+                return;
+            }
             if (tell.i == 0)
             {
                 // This player's own drawer.
@@ -243,12 +345,18 @@ namespace ClassPack
                 return;
             }
             AnimateDrawer();
+            HostHallTick();
+            AnimateHall();
             UnitManager units = Game.Peek<UnitManager>();
             Unit me = Game.LocalPlayer;
             if (me != null && me.isActived && me.IsSitting && _drawerPhone && !CursorGrab.Busy && !Game.IsTyping
                 && Input.GetKeyDown(Plugin.Settings.UseKeyCode) && !NerfGuns.DrawerGunWaiting)
             {
                 Take("use key");
+            }
+            if (_hallAimed && !CursorGrab.Busy && !Game.IsTyping && Input.GetKeyDown(Plugin.Settings.UseKeyCode))
+            {
+                TakeHall("use key");
             }
             // A phone that is up scribbles away where its holder is, for everybody nearby to hear.
             if (units == null)
@@ -272,10 +380,15 @@ namespace ClassPack
 
         private static void Clear()
         {
-            if (Holders.Count == 0 && !_drawerPhone && HostDrawer.Count == 0 && HostHeld.Count == 0)
+            if (Holders.Count == 0 && !_drawerPhone && HostDrawer.Count == 0 && HostHeld.Count == 0
+                && !_hallPhone && _hallModel == null && !_hostHallPhone && _hostHallNextAt <= 0f)
             {
                 return;
             }
+            _hallPhone = false;
+            DropHallModel();
+            _hostHallPhone = false;
+            _hostHallNextAt = 0f;
             foreach (Held held in Holders.Values)
             {
                 if (held.Model != null)
@@ -300,6 +413,65 @@ namespace ClassPack
             }
             _drawerWaiting = false;
             _drawerAimed = false;
+        }
+
+        private static void DropHallModel()
+        {
+            if (_hallModel != null)
+            {
+                Object.Destroy(_hallModel);
+                _hallModel = null;
+            }
+            _hallAimed = false;
+        }
+
+        /// <summary>
+        /// The phone lying out in the hall: big, hovering and turning over its table, and whether
+        /// this player (a student with no phone yet, close by) looks at it.
+        /// </summary>
+        private static void AnimateHall()
+        {
+            _hallAimed = false;
+            if (!_hallPhone || !(Swim.Active || Dance.Active))
+            {
+                if (_hallModel != null)
+                {
+                    _hallModel.SetActive(false);
+                }
+                return;
+            }
+            if (_hallModel == null)
+            {
+                _hallModel = Build();
+                _hallModel.transform.localScale = Vector3.one * DrawerScale;
+                MeshFilter filter = _hallModel.GetComponent<MeshFilter>();
+                _hallMiddle = filter != null && filter.sharedMesh != null ? filter.sharedMesh.bounds.center : Vector3.zero;
+            }
+            Vector3 middle = _hallAt + Vector3.up * (0.12f + Mathf.Sin(Time.time * 2.2f) * 0.025f);
+            Quaternion turn = Quaternion.Euler(-10f, Time.time * 50f, 0f);
+            _hallModel.SetActive(true);
+            _hallModel.transform.rotation = turn;
+            _hallModel.transform.position = middle - turn * (_hallMiddle * DrawerScale);
+            Unit me = Game.LocalPlayer;
+            Camera camera = Camera.main;
+            if (me == null || !me.isActived || !me.IsStudent || HasLocal || camera == null
+                || Tricks.Flat(me.Position - _hallAt).magnitude > 2.5f)
+            {
+                return;
+            }
+            Vector3 to = middle - camera.transform.position;
+            float along = Vector3.Dot(to, camera.transform.forward);
+            float off = (to - camera.transform.forward * along).magnitude;
+            _hallAimed = along > 0.05f && along < 4f && off < AimSlack + 0.1f;
+        }
+
+        private static void TakeHall(string how)
+        {
+            if (Net.CanSendToHost)
+            {
+                Plugin.Log("phones: grabbing the phone on the table (" + how + ")");
+                Net.SendToHost(new CpAsk { kind = CpKind.PhoneAsk, i = 3 });
+            }
         }
 
         private static GameObject Build()
@@ -369,7 +541,8 @@ namespace ClassPack
         /// <summary>The game's pick-up key went down: true when it took the phone over the drawer.</summary>
         public static bool TryTakeWithPickUpKey()
         {
-            if (!_drawerAimed || !_drawerPhone || !Game.InClass || CursorGrab.Busy || !Net.CanSendToHost)
+            bool drawer = _drawerAimed && _drawerPhone;
+            if (!(drawer || _hallAimed) || !Game.InClass || CursorGrab.Busy || !Net.CanSendToHost)
             {
                 return false;
             }
@@ -378,7 +551,14 @@ namespace ClassPack
             {
                 return false;
             }
-            Take("pick-up key");
+            if (drawer)
+            {
+                Take("pick-up key");
+            }
+            else
+            {
+                TakeHall("pick-up key");
+            }
             return true;
         }
 
@@ -448,31 +628,46 @@ namespace ClassPack
             {
                 return "Phone in your hand     [" + Plugin.Settings.DoorDashKeyCode + "] use it once: DoorDash, a prank call or a trick";
             }
+            if (_hallAimed && !CursorGrab.Busy)
+            {
+                DrawPrompt(width, height, "[" + NerfGuns.PickUpKeyName() + "]  Grab the phone");
+            }
+            if (_hallPhone && (Swim.Active || Dance.Active) && me != null && me.IsStudent)
+            {
+                return "A phone is " + HallPlace() + "!     The first to grab it gets it: [" + NerfGuns.PickUpKeyName() + " or "
+                    + Plugin.Settings.UseKeyCode + "]";
+            }
             if (!_drawerWaiting)
             {
                 return null;
             }
             if (_drawerAimed && !CursorGrab.Busy)
             {
-                if (_white == null)
-                {
-                    _white = new Texture2D(1, 1, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
-                    _white.SetPixel(0, 0, Color.white);
-                    _white.Apply(false, true);
-                }
-                if (_prompt == null)
-                {
-                    _prompt = new GUIStyle { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                    _prompt.normal.textColor = Color.white;
-                }
-                var box = new Rect(width * 0.5f - 170f, height * 0.5f + 76f, 340f, 34f);
-                Color old = GUI.color;
-                GUI.color = new Color(0f, 0f, 0f, 0.6f);
-                GUI.DrawTexture(box, _white);
-                GUI.color = old;
-                GUI.Label(box, "[" + NerfGuns.PickUpKeyName() + "]  Pick up phone", _prompt);
+                DrawPrompt(width, height, "[" + NerfGuns.PickUpKeyName() + "]  Pick up phone");
             }
             return "A phone is in your desk.     [" + NerfGuns.PickUpKeyName() + " or " + Plugin.Settings.UseKeyCode + "] grab it";
+        }
+
+        /// <summary>The pick-up prompt under the middle of the screen.</summary>
+        private static void DrawPrompt(float width, float height, string text)
+        {
+            if (_white == null)
+            {
+                _white = new Texture2D(1, 1, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+                _white.SetPixel(0, 0, Color.white);
+                _white.Apply(false, true);
+            }
+            if (_prompt == null)
+            {
+                _prompt = new GUIStyle { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+                _prompt.normal.textColor = Color.white;
+            }
+            var box = new Rect(width * 0.5f - 170f, height * 0.5f + 76f, 340f, 34f);
+            Color old = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.6f);
+            GUI.DrawTexture(box, _white);
+            GUI.color = old;
+            GUI.Label(box, text, _prompt);
         }
 
         private static bool AnyUp()
@@ -501,6 +696,20 @@ namespace ClassPack
         public static void TestTake()
         {
             Take("self-test");
+        }
+
+        /// <summary>Self-test (host): a phone turns up on the hall's table right now.</summary>
+        public static void TestHallPhone()
+        {
+            _hostHallNextAt = Time.time;
+        }
+
+        /// <summary>Self-test: where the hall's phone lies (zero when there is none), and grabs it.</summary>
+        public static Vector3 TestHallSpot => _hallPhone ? _hallAt : Vector3.zero;
+
+        public static void TestTakeHall()
+        {
+            TakeHall("self-test");
         }
     }
 }
