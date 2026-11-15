@@ -30,6 +30,13 @@ namespace ClassPack
         private static string _folder;
         private static bool _teacher;
         private static int _kind;
+        /// <summary>True when the test runs a dance class instead of a swim class ("class=dance").</summary>
+        private static bool _dance;
+
+        /// <summary>Where the hall of the class under test stands: picture spots are given in its own frame.</summary>
+        private static Vector3 Hall => _dance ? Dance.Origin : Swim.Origin;
+
+        private static bool HallUp => _dance ? Dance.Active : Swim.Active;
         private static int _phase;
         private static float _phaseAt;
         private static float _startedAt;
@@ -74,6 +81,10 @@ namespace ClassPack
                     {
                         int.TryParse(parts[1], out _kind);
                     }
+                    else if (parts[0] == "class")
+                    {
+                        _dance = parts[1] == "dance";
+                    }
                 }
                 File.Delete(flag);
                 _folder = Path.Combine(settingsFolder, "autotest");
@@ -86,7 +97,7 @@ namespace ClassPack
                 _startedAt = Time.realtimeSinceStartup;
                 _phaseAt = _startedAt;
                 Application.runInBackground = true;
-                Note("armed: " + (_teacher ? "teacher, type " + _kind : "student"));
+                Note("armed: " + (_teacher ? "teacher, type " + _kind : "student") + ", " + (_dance ? "dance" : "swim") + " class");
             }
             catch (Exception ex)
             {
@@ -199,7 +210,7 @@ namespace ClassPack
                             Looks.Mine = look;
                             Note("now " + (me.IsTeacher ? "teacher" : "STILL A STUDENT") + ", type " + look.Teacher);
                         }
-                        Plugin.Settings.nextClass = Swim.SwimClass;
+                        Plugin.Settings.nextClass = _dance ? Dance.DanceClass : Swim.SwimClass;
                         classroom.ClassPrepare(0uL);
                         _rang = true;
                     }
@@ -231,18 +242,25 @@ namespace ClassPack
                     break;
                 case 3:
                     // Wait until the pool hall stands and this player is in it.
-                    _steady = Swim.Active && me != null && (me.Position - Swim.Origin).magnitude < 40f ? _steady + Time.unscaledDeltaTime : 0f;
+                    _steady = HallUp && me != null && (me.Position - Hall).magnitude < 40f ? _steady + Time.unscaledDeltaTime : 0f;
                     if (_steady > 2f)
                     {
-                        Note("in the pool hall at " + (me.Position - Swim.Origin).ToString("F1") + " (hall frame)");
-                        Plan(me);
+                        Note("in the " + (_dance ? "dance" : "pool") + " hall at " + (me.Position - Hall).ToString("F1") + " (hall frame)");
+                        if (_dance)
+                        {
+                            PlanDance(me);
+                        }
+                        else
+                        {
+                            Plan(me);
+                        }
                         _stepsFrom = now;
                         _nextStep = 0;
                         NextPhase();
                     }
                     else if (inPhase > 40f)
                     {
-                        Finish("never arrived in the pool hall (hall up: " + Swim.Active + ")");
+                        Finish("never arrived in the hall (hall up: " + HallUp + ")");
                     }
                     break;
                 case 4:
@@ -448,6 +466,98 @@ namespace ClassPack
             Add(t += 1.5f, "end", () => { });
         }
 
+        /// <summary>The dance class's test: the hall, dancing bots, this player's dance, a partner and the snack table.</summary>
+        private static void PlanDance(Unit me)
+        {
+            Steps.Clear();
+            float t = 1f;
+            // The hall from fixed camera spots (hall frame: x along the hall, z across).
+            Add(t, "eyes", () => Screen("01_eyes_arrival"));
+            Add(t += 1f, "overview", () => Shot("02_overview_from_far_end", new Vector3(11f, 4.6f, 7.5f), new Vector3(-3f, 0.5f, -1f)));
+            Add(t += 1f, "overview", () => Shot("03_overview_from_stage", new Vector3(-10.5f, 4.2f, -7.5f), new Vector3(4f, 0.3f, 1.5f)));
+            Add(t += 1f, "stage", () => Shot("04_stage_dj_booth", new Vector3(-5.5f, 2.2f, 2.5f), new Vector3(-10.8f, 1f, 0f)));
+            Add(t += 1f, "snacks", () => Shot("05_snack_table", new Vector3(7.5f, 1.8f, 5.3f), new Vector3(7.2f, 0.5f, 8.1f)));
+            Add(t += 1f, "ball", () => Shot("06_disco_ball_floor", new Vector3(-2f, 2.4f, -4f), new Vector3(2f, 3.6f, 0f)));
+
+            // Bots: time to arrive, stop on the dance floor and dance.
+            Add(t += 16f, "bots", () => Shot("10_bots_overview", new Vector3(11f, 4.6f, -7.5f), new Vector3(1f, 0.3f, 0.5f)));
+            Add(t += 0.3f, "state", () => Note(Dance.TestState()));
+            for (int i = 0; i < 3; i++)
+            {
+                int index = i;
+                Add(t += 1.2f, "bot dancing", () => ShotOfDancingBot("11_bot_dance_" + index, index));
+            }
+
+            // This player dances on the floor: from the side, the front and through their eyes.
+            Add(t += 1f, "to the floor", () => Put(Game.LocalPlayer, new Vector3(4.5f, 0.05f, 2.5f), 90f));
+            Add(t += 1.5f, "dance", () => Dance.TestDance(true));
+            Add(t += 1.5f, "side", () => ShotOfUnit("13_me_dancing_side", Game.LocalPlayer, 2.4f));
+            Add(t += 0.35f, "side", () => ShotOfUnit("14_me_dancing_side2", Game.LocalPlayer, 2.4f));
+            Add(t += 0.35f, "front", () => ShotOfUnit("15_me_dancing_front", Game.LocalPlayer, -2.4f));
+            Add(t += 0.4f, "eyes", () => Screen("16_eyes_dancing"));
+            Add(t += 0.3f, "state", () => DescribeMe("dancing alone"));
+
+            if (!me.IsTeacher)
+            {
+                // A partner: bots walk over to anyone who dances alone. Mischief needs the class running.
+                Add(t += 1f, "wait for class", WaitForClass);
+                Add(t += 0.5f, "state", () => DescribeMe("in class, still dancing"));
+                Add(t += Plugin.Settings.danceSeconds * 2.5f, "partner", () =>
+                {
+                    ShotOfUnit("17_me_with_partner", Game.LocalPlayer, 3f);
+                    Note(Dance.TestState());
+                });
+                Add(t += 0.3f, "state", () => DescribeMe("after dancing with a partner (mischief should be up)"));
+                Add(t += 0.5f, "stop", () => Dance.TestDance(false));
+                Add(t += 1f, "state", () => DescribeMe("stopped dancing (speed factor back to normal)"));
+                Add(t += 0.5f, "order", () =>
+                {
+                    DoorDash.Order(0);
+                    Note("DoorDash ordered, state " + DoorDash.Current + (DoorDash.WhyNot() != null ? " (" + DoorDash.WhyNot() + ")" : ""));
+                });
+                Add(t += Plugin.Settings.doorDashWaitSeconds + 2f, "snacks", () => Shot("24_snack_food", new Vector3(7.3f, 1.4f, 6.6f), new Vector3(7.7f, 0.55f, 8.05f)));
+                Add(t += 1f, "delivery", () => Note("DoorDash state " + DoorDash.Current));
+                Add(t += 0.5f, "owner window", () =>
+                {
+                    if (HostPanel.Instance != null)
+                    {
+                        HostPanel.Instance.TestShow(true);
+                    }
+                });
+                Add(t += 0.8f, "owner window", () => Screen("29_owner_window"));
+                Add(t += 0.3f, "owner window", () =>
+                {
+                    if (HostPanel.Instance != null)
+                    {
+                        HostPanel.Instance.TestShow(false);
+                    }
+                });
+            }
+            else
+            {
+                Add(t += 0.5f, "stop", () => Dance.TestDance(false));
+                Add(t += 1f, "to the booth", () => Put(Game.LocalPlayer, new Vector3(-10.1f, 0.67f, 0.6f), 270f));
+                Add(t += 1.5f, "eyes", () => Screen("19_eyes_teacher_at_booth"));
+                Add(t += 0.5f, "state", () => DescribeMe("at the DJ booth"));
+            }
+            Add(t += 1.5f, "overview", () => Shot("30_overview_end", new Vector3(11f, 5f, 7.5f), new Vector3(-2f, 0f, -1f)));
+            Add(t += 0.3f, "state", () => Note(Dance.TestState()));
+            Add(t += 1.5f, "end", () => { });
+        }
+
+        private static void ShotOfDancingBot(string name, int skip)
+        {
+            Unit bot = Dance.DancingBot(skip);
+            if (bot == null)
+            {
+                Note("picture " + name + " skipped: no bot dances right now");
+                return;
+            }
+            _follow = bot;
+            ShotOfUnit(name, bot, 2.2f);
+            Note("picture " + name + ": bot " + bot.UID + " at " + (bot.Position - Hall).ToString("F1"));
+        }
+
         /// <summary>
         /// Writes down every part of a character's body: its name, what it hangs under, and
         /// where it is and how it is turned, measured from the character's own place and facing.
@@ -531,7 +641,7 @@ namespace ClassPack
             var message = new UnitTeleportPositionMessageResponse_S2C
             {
                 unitUID = unit.UID,
-                position = Swim.Origin + inHall,
+                position = Hall + inHall,
                 rotation = new Vector3(0f, yaw, 0f),
                 floor = 0
             };
@@ -549,7 +659,7 @@ namespace ClassPack
             }
             InputComponent input = me.GetComponent<InputComponent>();
             ClassroomManager classroom = Game.Peek<ClassroomManager>();
-            Note(when + ": at " + (me.Position - Swim.Origin).ToString("F2") + ", swimming " + Swim.Swimming(me)
+            Note(when + ": at " + (me.Position - Hall).ToString("F2") + ", swimming " + Swim.Swimming(me) + ", dancing " + Dance.IsDancing(me)
                 + ", seen from behind " + SelfView.Showing + ", speed factor " + (input != null ? input.speedFac.ToString("F2") : "?")
                 + ", state " + me.CurState() + ", mischief " + (classroom != null ? classroom.currentTrickCount.ToString("F0") : "?"));
         }
@@ -568,7 +678,7 @@ namespace ClassPack
                 {
                     continue;
                 }
-                bool near = (unit.Position - Swim.Origin).magnitude < 45f;
+                bool near = (unit.Position - Hall).magnitude < 45f;
                 if (unit.GetComponent<StudentNPCComponent>() != null)
                 {
                     bots++;
@@ -588,7 +698,7 @@ namespace ClassPack
                 else if (near && DoorDash.IsDelivery(unit.UID))
                 {
                     food++;
-                    Note("DoorDash item at " + (unit.Position - Swim.Origin).ToString("F2") + " (hall frame)");
+                    Note("DoorDash item at " + (unit.Position - Hall).ToString("F2") + " (hall frame)");
                 }
             }
             Note("bots " + bots + ", in the hall " + inHall + ", swimming " + swimming + ", poles " + poles + ", food " + food + "; " + Swim.TestState());
@@ -605,7 +715,7 @@ namespace ClassPack
 
         private static void Shot(string name, Vector3 fromInHall, Vector3 atInHall)
         {
-            ShotWorld(name, Swim.Origin + fromInHall, Swim.Origin + atInHall);
+            ShotWorld(name, Hall + fromInHall, Hall + atInHall);
         }
 
         private static void ShotWorld(string name, Vector3 from, Vector3 at)
@@ -653,7 +763,7 @@ namespace ClassPack
                 return;
             }
             Vector3 at = unit.Position;
-            at.y = Mathf.Max(at.y + 0.5f, Swim.WaterWorldY + 0.1f);
+            at.y = _dance ? at.y + 0.5f : Mathf.Max(at.y + 0.5f, Swim.WaterWorldY + 0.1f);
             Vector3 right = unit.transform.right;
             Vector3 from = sideways >= 0f
                 ? at + right * sideways + Vector3.up * 0.7f
@@ -670,12 +780,12 @@ namespace ClassPack
                 foreach (Unit unit in units.unitsDict.Values)
                 {
                     if (unit == null || !unit.isActived || unit.transform == null || unit.GetComponent<StudentNPCComponent>() == null
-                        || (unit.Position - Swim.Origin).magnitude > 45f || Swim.Swimming(unit) != swimming)
+                        || (unit.Position - Hall).magnitude > 45f || Swim.Swimming(unit) != swimming)
                     {
                         continue;
                     }
                     // The camera stands beside the bot: a bot right by a wall would put it inside the wall.
-                    Vector3 inHall = unit.Position - Swim.Origin;
+                    Vector3 inHall = unit.Position - Hall;
                     if (!swimming && (Mathf.Abs(inHall.x) > 11f || Mathf.Abs(inHall.z) > 6.5f))
                     {
                         continue;
@@ -694,7 +804,7 @@ namespace ClassPack
             }
             _follow = found;
             ShotOfUnit(name, found, 2.2f);
-            Note("picture " + name + ": bot " + found.UID + " at " + (found.Position - Swim.Origin).ToString("F1"));
+            Note("picture " + name + ": bot " + found.UID + " at " + (found.Position - Hall).ToString("F1"));
         }
 
         private static void TickShot()

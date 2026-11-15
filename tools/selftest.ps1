@@ -1,17 +1,20 @@
-# Runs the mod's hands-free self-test of the swim class (see ClassPack\AutoTest.cs):
+# Runs the mod's hands-free self-test of the swim or dance class (see ClassPack\AutoTest.cs):
 # builds and installs the mod, leaves the one-shot "autotest.txt" in the mod's settings folder,
 # starts the game and waits for it to close by itself. The pictures and the report end up in
-# dist\autotest\<role>, with overview sheets made by tools\selftest_sheets.py.
+# dist\autotest\<role> (dist\autotest\dance_<role> for the dance class), with overview sheets
+# made by tools\selftest_sheets.py.
 #
-#   .\tools\selftest.ps1                      as a student
+#   .\tools\selftest.ps1                      as a student, swim class
 #   .\tools\selftest.ps1 -Role teacher -Kind 2    as a teacher (0 normal, 1 gym, 2 lunch lady, 3 janitor, 4 wig)
-param([string]$Role = 'student', [int]$Kind = 0, [switch]$NoBuild)
+#   .\tools\selftest.ps1 -Class dance         the dance class
+param([string]$Role = 'student', [int]$Kind = 0, [string]$Class = 'swim', [switch]$NoBuild)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $settings = Join-Path $env:USERPROFILE 'AppData\LocalLow\Funcore Games\Worst Class Ever\Mods\Config\classpack'
 $made = Join-Path $settings 'autotest'
 $name = if ($Role -eq 'teacher') { "teacher$Kind" } else { 'student' }
+if ($Class -eq 'dance') { $name = "dance_$name" }
 $keep = Join-Path $root "dist\autotest\$name"
 
 function Game-Running { [bool](Get-Process | Where-Object { $_.ProcessName -like 'Worst Class Ever*' }) }
@@ -22,7 +25,7 @@ if (-not $NoBuild) {
 }
 New-Item -ItemType Directory -Force $settings | Out-Null
 if (Test-Path $made) { Get-ChildItem $made -File | Remove-Item -Force }
-Set-Content -Path (Join-Path $settings 'autotest.txt') -Value @("role=$Role", "kind=$Kind") -Encoding ascii
+Set-Content -Path (Join-Path $settings 'autotest.txt') -Value @("role=$Role", "kind=$Kind", "class=$Class") -Encoding ascii
 
 Start-Process 'steam://rungameid/5175310'
 $deadline = (Get-Date).AddMinutes(9)
