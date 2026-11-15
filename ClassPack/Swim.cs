@@ -154,6 +154,54 @@ namespace ClassPack
         public static Vector3 Origin => _origin;
 
         /// <summary>A line about the host's side of things, for the self-test's report.</summary>
+        /// <summary>For the self-test: how much of the hall the bots can walk on, and whether the pool can be reached.</summary>
+        public static string WalkableReport()
+        {
+            if (_nav == null || _navArea == null)
+            {
+                return "walkable area: none";
+            }
+            NavMeshTriangulation mesh = NavMesh.CalculateTriangulation();
+            float deck = 0f, ramp = 0f, pool = 0f, other = 0f;
+            int count = mesh.indices != null ? mesh.indices.Length / 3 : 0;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 a = mesh.vertices[mesh.indices[i * 3]] - _hostOrigin;
+                Vector3 b = mesh.vertices[mesh.indices[i * 3 + 1]] - _hostOrigin;
+                Vector3 c = mesh.vertices[mesh.indices[i * 3 + 2]] - _hostOrigin;
+                Vector3 middle = (a + b + c) / 3f;
+                if (Mathf.Abs(middle.x) > HalfLength + 8f || Mathf.Abs(middle.z) > HalfWidth + 2f || Mathf.Abs(middle.y) > 8f)
+                {
+                    continue;
+                }
+                float size = Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+                if (middle.y > 0.3f || middle.y < -1.2f)
+                {
+                    other += size;
+                }
+                else if (middle.y > -0.15f)
+                {
+                    deck += size;
+                }
+                else if (middle.y > -0.7f)
+                {
+                    ramp += size;
+                }
+                else
+                {
+                    pool += size;
+                }
+            }
+            var filter = new NavMeshQueryFilter { agentTypeID = _nav.agentTypeID, areaMask = NavMesh.AllAreas };
+            var path = new NavMeshPath();
+            bool found = NavMesh.CalculatePath(_hostOrigin + new Vector3(-11f, 0f, 0f), _hostOrigin + new Vector3(2f, -Depth, 0f), filter, path);
+            NavMeshBuildSettings walker = NavMesh.GetSettingsByID(_nav.agentTypeID);
+            return "walkable area in square metres: deck " + deck.ToString("F0") + ", ramp " + ramp.ToString("F0") + ", pool floor " + pool.ToString("F0")
+                + ", elsewhere " + other.ToString("F0") + "; way from the deck into the pool: " + (found ? path.status.ToString() : "none")
+                + "; walker radius " + walker.agentRadius.ToString("F2") + ", height " + walker.agentHeight.ToString("F2")
+                + ", step " + walker.agentClimb.ToString("F2") + ", slope " + walker.agentSlope.ToString("F0");
+        }
+
         public static string TestState()
         {
             return "host class on " + _hostOn + ", bots brought " + HostBots.Count + ", walkable area "
@@ -972,19 +1020,19 @@ namespace ClassPack
             _hall.transform.position = _origin;
             Transform room = _hall.transform;
 
-            const float glow = 0.22f;
-            Texture2D sandPicture = Keep(Rooms.Tiles(new Color32(236, 224, 200, 255), new Color32(198, 186, 162, 255), 11));
-            Texture2D wallPicture = Keep(Rooms.Tiles(new Color32(244, 247, 250, 255), new Color32(203, 213, 222, 255), 23));
-            Texture2D poolPicture = Keep(Rooms.Tiles(new Color32(126, 204, 238, 255), new Color32(92, 172, 216, 255), 37));
+            const float glow = 0.08f;
+            Texture2D sandPicture = Keep(Rooms.Tiles(new Color32(196, 180, 152, 255), new Color32(164, 148, 122, 255), 11));
+            Texture2D wallPicture = Keep(Rooms.Tiles(new Color32(200, 206, 212, 255), new Color32(164, 175, 188, 255), 23));
+            Texture2D poolPicture = Keep(Rooms.Tiles(new Color32(112, 192, 230, 255), new Color32(80, 158, 206, 255), 37));
             Texture2D ripples = Keep(Rooms.Ripples());
             Material deck = Keep(Rooms.Tiled(sandPicture, 0.2f, glow));
             Material wall = Keep(Rooms.Tiled(wallPicture, 0.35f, glow));
             Material basin = Keep(Rooms.Tiled(poolPicture, 0.4f, glow));
             Material stripe = Keep(Rooms.Plain(new Color32(58, 128, 200, 255), 0.4f, glow));
-            Material white = Keep(Rooms.Plain(new Color32(250, 250, 250, 255), 0.4f, glow));
+            Material white = Keep(Rooms.Plain(new Color32(226, 226, 226, 255), 0.4f, glow));
             Material lane = Keep(Rooms.Plain(new Color32(38, 84, 164, 255), 0.4f, glow));
-            Material ceiling = Keep(Rooms.Plain(new Color32(232, 238, 244, 255), 0.1f, glow));
-            Material glass = Keep(Rooms.Plain(new Color32(176, 222, 255, 255), 0.6f, 1f));
+            Material ceiling = Keep(Rooms.Plain(new Color32(214, 220, 228, 255), 0.1f, 0.3f));
+            Material glass = Keep(Rooms.Plain(new Color32(150, 205, 245, 255), 0.6f, 0.5f));
             Material bulb = Keep(Rooms.Plain(new Color32(255, 250, 236, 255), 0.2f, 1f));
             _waterPaint = Keep(Rooms.Water(new Color(0.22f, 0.6f, 0.92f, 0.62f), ripples));
             if (deck == null || _waterPaint == null)
@@ -1096,11 +1144,11 @@ namespace ClassPack
             NoBots(holder);
             _lounge = holder.transform;
 
-            Texture2D woodPicture = Keep(Rooms.Tiles(new Color32(204, 158, 106, 255), new Color32(162, 118, 76, 255), 53));
-            Material wood = Keep(Rooms.Tiled(woodPicture, 0.3f, 0.2f));
-            Material cream = Keep(Rooms.Plain(new Color32(252, 238, 208, 255), 0.15f, 0.22f));
-            Material rug = Keep(Rooms.Plain(new Color32(214, 84, 62, 255), 0.05f, 0.2f));
-            Material frame = Keep(Rooms.Plain(new Color32(140, 92, 56, 255), 0.3f, 0.2f));
+            Texture2D woodPicture = Keep(Rooms.Tiles(new Color32(180, 136, 92, 255), new Color32(140, 100, 64, 255), 53));
+            Material wood = Keep(Rooms.Tiled(woodPicture, 0.3f, 0.08f));
+            Material cream = Keep(Rooms.Plain(new Color32(220, 206, 178, 255), 0.15f, 0.08f));
+            Material rug = Keep(Rooms.Plain(new Color32(196, 76, 58, 255), 0.05f, 0.08f));
+            Material frame = Keep(Rooms.Plain(new Color32(140, 92, 56, 255), 0.3f, 0.08f));
 
             float far = LoungeNear + LoungeDepth;
             float middle = (LoungeNear + far) * 0.5f;

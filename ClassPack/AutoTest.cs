@@ -316,6 +316,7 @@ namespace ClassPack
             Steps.Clear();
             float t = 1f;
             // The hall itself, from fixed camera spots (hall frame: x along the pool, z across).
+            Add(t += 0.5f, "skeleton", () => DumpSkeleton(Game.LocalPlayer, me.IsTeacher ? "skeleton_teacher.txt" : "skeleton_student.txt"));
             Add(t += 1f, "eyes", () => Screen("01_eyes_arrival"));
             Add(t += 1f, "overview", () => Shot("02_overview_shallow", new Vector3(-13f, 5f, -8f), new Vector3(3f, 0f, 0.5f)));
             Add(t += 1f, "overview", () => Shot("03_overview_deep", new Vector3(13f, 5f, 8f), new Vector3(-3f, 0f, -0.5f)));
@@ -328,7 +329,20 @@ namespace ClassPack
             Add(t += 1f, "count", CountThings);
 
             // Bots: wait for them to arrive and spread out, then look at them.
-            Add(t += 14f, "bots", () => Shot("10_bots_overview", new Vector3(-13f, 6f, 8f), new Vector3(2f, 0f, 0f)));
+            Add(t += 14f, "bots", () => Shot("10_bots_overview", new Vector3(-13f, 5.2f, 8f), new Vector3(2f, 0f, 0f)));
+            Add(t += 0.6f, "walkable", () => Note(Swim.WalkableReport()));
+            Add(t += 0.2f, "bot skeleton", () =>
+            {
+                UnitManager all = Game.Peek<UnitManager>();
+                foreach (Unit unit in all.unitsDict.Values)
+                {
+                    if (unit != null && unit.isActived && unit.model != null && unit.GetComponent<StudentNPCComponent>() != null)
+                    {
+                        DumpSkeleton(unit, "skeleton_bot.txt");
+                        break;
+                    }
+                }
+            });
             Add(t += 1f, "count", CountThings);
             for (int i = 0; i < 4; i++)
             {
@@ -401,6 +415,62 @@ namespace ClassPack
             Add(t += 1.5f, "overview", () => Shot("30_overview_end", new Vector3(-13f, 6f, -8f), new Vector3(2f, 0f, 0f)));
             Add(t += 1f, "count", CountThings);
             Add(t += 1.5f, "end", () => { });
+        }
+
+        /// <summary>
+        /// Writes down every part of a character's body: its name, what it hangs under, and
+        /// where it is and how it is turned, measured from the character's own place and facing.
+        /// With this the swimming move can be worked out away from the game.
+        /// </summary>
+        private static void DumpSkeleton(Unit unit, string file)
+        {
+            if (unit == null || unit.model == null)
+            {
+                Note("skeleton: nobody to write down");
+                return;
+            }
+            Transform root = unit.model.transform;
+            Quaternion toBody = Quaternion.Inverse(Quaternion.Euler(0f, unit.transform.eulerAngles.y, 0f));
+            Vector3 at = unit.Position;
+            var lines = new List<string>
+            {
+                "# name | parent | depth | place from the character (x right, y up, z forward) | turn (x y z w) | local place | local turn | size",
+                "# character at " + at.ToString("F3") + ", model root " + root.name + ", unit yaw " + unit.transform.eulerAngles.y.ToString("F1")
+            };
+            var skinned = new HashSet<Transform>();
+            foreach (SkinnedMeshRenderer skin in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                lines.Add("# skin " + skin.name + " active " + skin.gameObject.activeInHierarchy + " bones " + skin.bones.Length
+                    + " root bone " + (skin.rootBone != null ? skin.rootBone.name : "none"));
+                foreach (Transform bone in skin.bones)
+                {
+                    if (bone != null)
+                    {
+                        skinned.Add(bone);
+                    }
+                }
+            }
+            foreach (Transform part in root.GetComponentsInChildren<Transform>(true))
+            {
+                int depth = 0;
+                for (Transform up = part; up != null && up != root; up = up.parent)
+                {
+                    depth++;
+                }
+                Vector3 place = toBody * (part.position - at);
+                Quaternion turn = toBody * part.rotation;
+                lines.Add(string.Join("|", new[]
+                {
+                    part.name, part.parent != null && part != root ? part.parent.name : "-", depth.ToString(),
+                    place.x.ToString("F4") + " " + place.y.ToString("F4") + " " + place.z.ToString("F4"),
+                    turn.x.ToString("F5") + " " + turn.y.ToString("F5") + " " + turn.z.ToString("F5") + " " + turn.w.ToString("F5"),
+                    part.localPosition.x.ToString("F4") + " " + part.localPosition.y.ToString("F4") + " " + part.localPosition.z.ToString("F4"),
+                    part.localRotation.x.ToString("F5") + " " + part.localRotation.y.ToString("F5") + " " + part.localRotation.z.ToString("F5") + " " + part.localRotation.w.ToString("F5"),
+                    part.lossyScale.x.ToString("F3") + (skinned.Contains(part) ? " bone" : "")
+                }));
+            }
+            File.WriteAllLines(Path.Combine(_folder, file), lines.ToArray());
+            Note("skeleton written: " + file + ", " + (lines.Count - 2) + " lines");
         }
 
         private static void WaitForClass()

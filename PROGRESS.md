@@ -498,6 +498,63 @@ Log lines to read after his next test: `swim: walkable area for bots ready`, `sw
 brought to the pool`, `swim move: loaded`, `swim move: first character set up` (names the top
 of the skeleton and what the hips and thighs hang under), and any `error in the swimming move`.
 
+## Seeing yourself swim, and the hands-free self-test (version 0.11.0, 2026-11-15)
+
+He asked: "make the swim class 100% and the swim anim so the teacher and yourself can see".
+He had not played a class with 0.10.0 (the log only showed it loading).
+
+- `SelfView.cs`: while the local player swims, the picture is taken from 3 m behind and a
+  little above their head, and their own body is drawn (Looks treats it like the wardrobe's
+  preview) with the swimming move on it. The game's camera is not touched: the camera object is
+  moved in `RenderPipelineManager.beginCameraRendering` and put back in `endCameraRendering`,
+  so everything that aims along the camera still works from the eyes. Setting `swimSelfView`,
+  also a toggle in the F6 window. How the game hides your own body: `Unit.SetPlayerLayer` puts
+  Hair/Body/Cloth on layer PlayerSelf and sets them to shadows only; the hands stay visible.
+- `AutoTest.cs` + `tools\selftest.ps1`: the way to SEE the mod without a player. The script
+  builds and installs, leaves a one-shot `autotest.txt` in the settings folder and starts the
+  game; the mod then hosts an offline room (`GameRoot.Inst.NetworkType = ENetworkType.Local`,
+  `NetManager.StartHost()`, `SceneManager.ChangeScene(2001)`, the same calls the menu's Create
+  button makes), rings the bell (`ClassroomManager.ClassPrepare(0)`), and during the swim
+  class takes pictures from fixed spots with its own camera, pictures of the player's own
+  screen, moves the player into the pool, under water, onto the board and into the lounge,
+  orders DoorDash, writes `report.txt` and quits the game. Results: `dist\autotest\<role>\`
+  with `sheet_N.jpg` overviews. He said yes to running it a few times on 2026-11-15; ask again
+  on another day, since the game window takes over his screen for about two minutes a run.
+
+### What the first two self-test runs showed (2026-11-15), and what is NOT fixed yet
+
+He watched a run and said: "make the bots also swim" and "the anim looks like ass". Both are
+true in the pictures (`dist\autotest\student\`, not kept in git).
+
+Works, seen in pictures: the hall, pool, water, diving board (standing on it and diving off
+pays), ladders, chair, benches, rings, ducks, the four poles, the doorway and the lounge with
+sofa and table, 20 bots brought to the deck and walking around, the view from behind while
+swimming, the under-water view with the air bar, under-water and dive mischief.
+
+Still wrong, to do next, in this order:
+1. Bots never enter the water. The game's walker for bots has max slope 0 (radius 0.18,
+   height 1.00, step 0.30), so the ramp is not walkable and the pool floor (114 m2 of walkable
+   area) is an island: a path from the deck to the pool is only "partial". Plan: a wide
+   `NavMeshLink` from the top of the ramp to its foot (the bot code crosses links by walking
+   straight to the far end, `StudentNPCComponent.MoveAcrossLink`), and a Harmony postfix on
+   `PlaygroundNavigationArea.TryGetDestination` that sends about half the picks into the pool.
+2. The swimming move on the game's own characters looks bad. Causes found: the real hips bone
+   is `gupen` (spine1 hangs under it, the thighs hang under it too), and I had turned spine1
+   as the hips, so pelvis and legs stayed upright; and Meshy's "Swim Forward" is a small
+   breaststroke glide that does not read on big-headed characters (`tools\show_moves.py`
+   renders the original). Plan: replace the copied move in `SwimPose.cs` with a front crawl
+   and treading water made in code on the real bones (big arm circles about the shoulder
+   line, kicking legs, head up), hips placed just under the surface. The skeleton is known
+   now: `AutoTest.DumpSkeleton` writes `skeleton_student.txt` / `skeleton_bot.txt` (bones
+   gupen, spine1, spine2, neck, head, shoulder/upper_arm/forearm .L/.R, thigh/shin .L/.R;
+   foot.L/R hang under Root, not under the shins; the whole skeleton is scaled by 80).
+3. Too bright: the school's sun shines into the hall (the mod's ceiling casts no shadow) on top
+   of the flat grey ambient light, so pale tiles clip to white. Colours and glow were toned
+   down in the code after the second run; that change is NOT yet seen in a picture.
+4. DoorDash in the test: the order was taken but the class ended (he won at 20 of 10 mischief
+   in the solo test) before the food was photographed. Unchecked.
+5. Not run yet: the test as a teacher (`-Role teacher -Kind 0..4`).
+
 Most likely to be wrong, in my order of doubt: the swimming pose on the game's skeleton (blind:
 left/right, the hips' height, hats on swimmers), bots that were already seated when the class
 turned into a swim class, bots walking through the poles (they are not in the walkable area's
