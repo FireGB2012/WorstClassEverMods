@@ -1233,7 +1233,8 @@ namespace ClassPack
             public Vector2[] Middles;
             /// <summary>For each eye point, how far the front half of its eye reaches on the picture.</summary>
             public float[] Reach;
-            public Vector2[] Uv;
+            /// <summary>The mesh's own picture places (x and y; some meshes keep 3 or 4 numbers each).</summary>
+            public Vector4[] Uv;
         }
 
         private static readonly Dictionary<Mesh, EyeMap> EyeMaps = new Dictionary<Mesh, EyeMap>();
@@ -1425,6 +1426,30 @@ namespace ClassPack
                 face.Head.localScale = face.HeadWritten;
             }
 
+            bool pupilsOnPicture = false;
+            foreach (SkinnedMeshRenderer skin in face.Skins)
+            {
+                Mesh now = skin != null ? skin.sharedMesh : null;
+                if (now == null)
+                {
+                    continue;
+                }
+                Mesh original;
+                if (!PupilSource.TryGetValue(now, out original))
+                {
+                    original = now;
+                }
+                Mesh want = look.Pupils == 0 ? original : PupilCopy(skin, original, look.Pupils, face);
+                pupilsOnPicture |= want != original;
+                if (want != now)
+                {
+                    skin.sharedMesh = want;
+                }
+            }
+            // When the face mesh can't be changed, the eyeballs themselves grow (or shrink a
+            // little) across, inside eyelids that keep their size: the pupil grows with them.
+            float pupils = pupilsOnPicture || look.Pupils == 0 ? 1f : Mathf.Max(0.85f, look.PupilScale);
+
             float eyes = look.EyeScale;
             // Across the face the eyes grow fully, in depth only a little.
             float deep = 1f + 0.3f * (eyes - 1f);
@@ -1447,31 +1472,13 @@ namespace ClassPack
                 {
                     part.GameAt = nowAt;
                 }
-                Vector3 grow = new Vector3(eyes, eyes, eyes);
+                float across = part.IsEye ? eyes * pupils : eyes;
+                Vector3 grow = new Vector3(across, across, across);
                 grow[part.Depth] = deep;
                 part.WrittenScale = Vector3.Scale(part.GameScale, grow);
                 part.WrittenAt = part.GameAt + part.Out * apart;
                 part.T.localScale = part.WrittenScale;
                 part.T.localPosition = part.WrittenAt;
-            }
-
-            foreach (SkinnedMeshRenderer skin in face.Skins)
-            {
-                Mesh now = skin != null ? skin.sharedMesh : null;
-                if (now == null)
-                {
-                    continue;
-                }
-                Mesh original;
-                if (!PupilSource.TryGetValue(now, out original))
-                {
-                    original = now;
-                }
-                Mesh want = look.Pupils == 0 ? original : PupilCopy(skin, original, look.Pupils, face);
-                if (want != now)
-                {
-                    skin.sharedMesh = want;
-                }
             }
         }
 
@@ -1522,21 +1529,22 @@ namespace ClassPack
                 {
                     copy = UnityEngine.Object.Instantiate(original);
                     copy.name = original.name + " (pupils " + Look.Size(step).ToString("F1") + ")";
-                    var uv = (Vector2[])map.Uv.Clone();
+                    var uv = (Vector4[])map.Uv.Clone();
                     float zoom = 1f / Look.Size(step);
                     for (int n = 0; n < map.Points.Length; n++)
                     {
                         int i = map.Points[n];
                         Vector2 middle = map.Middles[n];
-                        Vector2 to = middle + (uv[i] - middle) * zoom;
+                        Vector2 to = middle + (new Vector2(uv[i].x, uv[i].y) - middle) * zoom;
                         // Smaller pupils show more of the picture round the eye: no further than the eye's own white.
                         if (zoom > 1f && map.Reach[n] > 0f && (to - middle).magnitude > map.Reach[n])
                         {
                             to = middle + (to - middle).normalized * map.Reach[n];
                         }
-                        uv[i] = to;
+                        uv[i].x = to.x;
+                        uv[i].y = to.y;
                     }
-                    copy.uv = uv;
+                    copy.SetUVs(0, uv);
                     PupilSource[copy] = original;
                 }
                 catch (System.Exception ex)
@@ -1557,11 +1565,16 @@ namespace ClassPack
                 Transform[] bones = skin.bones;
                 BoneWeight[] weights = mesh.boneWeights;
                 Vector3[] points = mesh.vertices;
-                Vector2[] uv = mesh.uv;
+                // Read with four numbers each: the plain two-number read comes back empty when the
+                // game keeps more than two.
+                var places = new List<Vector4>();
+                mesh.GetUVs(0, places);
+                Vector4[] uv = places.ToArray();
                 Matrix4x4[] binds = mesh.bindposes;
-                if (uv == null || uv.Length != points.Length || weights.Length != points.Length)
+                if (uv.Length != points.Length || weights.Length != points.Length)
                 {
-                    Plugin.Log("looks: " + mesh.name + " has no picture places for its points, pupils stay as they are");
+                    Plugin.Log("looks: " + mesh.name + " has " + points.Length + " points, " + uv.Length + " picture places and "
+                        + weights.Length + " weights (readable " + mesh.isReadable + "), pupils stay as they are");
                     return null;
                 }
                 var found = new List<int>();
@@ -1605,7 +1618,7 @@ namespace ClassPack
                     {
                         if (depth[k] >= cut)
                         {
-                            sum += uv[mine[k]];
+                            sum += new Vector2(uv[mine[k]].x, uv[mine[k]].y);
                             count++;
                         }
                     }
@@ -1615,7 +1628,7 @@ namespace ClassPack
                     {
                         if (depth[k] >= half)
                         {
-                            far = Mathf.Max(far, (uv[mine[k]] - middle).magnitude);
+                            far = Mathf.Max(far, (new Vector2(uv[mine[k]].x, uv[mine[k]].y) - middle).magnitude);
                         }
                     }
                     foreach (int i in mine)

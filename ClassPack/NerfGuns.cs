@@ -75,10 +75,10 @@ namespace ClassPack
     /// turning, and is picked up like a snack (look at it, press the pick-up key). The mod's
     /// own key also takes it from anywhere in the seat, drawer open or shut.
     ///
-    /// A student who is hit goes straight up on a pole and can't be rescued; a teacher who is
-    /// hit falls over like on a banana peel. The RPG hits everybody in the class, the shooter
-    /// included. The shooter's own game works out what the dart hit; the host checks it and
-    /// applies it.
+    /// Whoever is hit faints and falls over like a rag doll (Faint.cs): a student player for 3
+    /// seconds and then onto a pole with no rescue, the teacher for 5 seconds, a bot for 4. The
+    /// RPG hits every player in the class, the shooter included. The shooter's own game works
+    /// out what the dart hit; the host checks it and applies it.
     /// </summary>
     internal static class NerfGuns
     {
@@ -540,6 +540,11 @@ namespace ClassPack
             Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
             foreach (RaycastHit hit in hits)
             {
+                if (Faint.IsDollPart(hit.collider))
+                {
+                    // Someone already knocked out: the dart flies over them.
+                    continue;
+                }
                 ObjectModel model = hit.collider.GetComponentInParent<ObjectModel>();
                 Unit unit = model != null ? units.GetUnitByUID(model.UID) : null;
                 if (unit == me)
@@ -740,37 +745,18 @@ namespace ClassPack
 
         private static void Hit(Unit shooter, Unit target, bool blast)
         {
-            if (target == null || !target.isActived || target.IsDead)
+            if (target == null || !target.isActived || target.IsDead || !(target.IsTeacher || target.IsStudent))
             {
                 return;
             }
-            if (target.IsTeacher)
-            {
-                Poles.Slip(target);
-                return;
-            }
-            if (!target.IsStudent)
+            // The RPG's blast reaches the players; the bots in the class are left alone.
+            if (blast && !target.isPlayer)
             {
                 return;
             }
-            if (!target.isPlayer)
-            {
-                // A computer-controlled classmate just gets knocked over.
-                if (!blast)
-                {
-                    Poles.Slip(target);
-                }
-                return;
-            }
-            if (Poles.PutOnPole(target, true))
-            {
-                Net.Toast(target, target == shooter ? "Your own RPG got you. No rescue from this pole." : Poles.NameOf(shooter) + " hit you with a nerf dart. No rescue from this pole.", 4f);
-            }
-            else if (Poles.CanBeHung(target))
-            {
-                // Every pole is taken, so the dart only knocks them over.
-                Poles.Slip(target);
-            }
+            // Everybody hit faints like a rag doll (Faint.cs); a student player then wakes up on
+            // a pole with no rescue.
+            Faint.Knock(target, shooter, shooter != null ? shooter.Position : target.Position);
         }
 
         // ------------------------------------------------------------ every player

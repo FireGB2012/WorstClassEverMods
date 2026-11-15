@@ -618,6 +618,30 @@ namespace ClassPack
                 Add(t += 1.5f, "eyes", () => Screen("19_eyes_teacher_at_booth"));
                 Add(t += 0.5f, "state", () => DescribeMe("at the DJ booth"));
             }
+            // Nerf darts knock people out: a bot first, then this player. Pictures of the rag
+            // dolls on the floor, and whether a student wakes up on a pole.
+            Unit fainted = null;
+            Add(t += 1f, "faint bot", () =>
+            {
+                fainted = Dance.DancingBot(4) ?? Dance.DancingBot(0);
+                bool done = fainted != null && Faint.TestKnock(fainted);
+                Note("knocked out a bot: " + done + ", rag dolls " + Faint.DollCount);
+            });
+            Add(t += 0.7f, "faint bot", () => ShotOfUnit("31_bot_fainted_side", fainted, 2.4f));
+            Add(t += 0.6f, "faint bot", () => ShotOfUnit("32_bot_fainted_front", fainted, -2.4f));
+            Add(t += 0.4f, "faint me", () =>
+            {
+                bool done = Faint.TestKnock(Game.LocalPlayer);
+                Note("knocked out myself: " + done + ", rag dolls " + Faint.DollCount);
+            });
+            Add(t += 1.2f, "faint me", () => Screen("33_eyes_fainted"));
+            Add(t += 0.3f, "faint me", () => ShotOfUnit("34_me_fainted_side", Game.LocalPlayer, 2.4f));
+            Add(t += 0.3f, "state", () => DescribeMe("fainted"));
+            Add(t += (me.IsTeacher ? Faint.TeacherSeconds : Faint.StudentSeconds) + 1.2f, "state",
+                () => DescribeMe("after the faint (a student should be on a pole)"));
+            Add(t += 0.2f, "faint", () => Note("rag dolls left " + Faint.DollCount + ", the bot's state " + (fainted != null ? fainted.CurState().ToString() : "none")));
+            Add(t += 0.5f, "faint me", () => ShotOfUnit("35_me_after_faint", Game.LocalPlayer, 2.4f));
+
             Add(t += 1.5f, "overview", () => Shot("30_overview_end", new Vector3(11f, 5f, 7.5f), new Vector3(-2f, 0f, -1f)));
             Add(t += 0.3f, "state", () => Note(Dance.TestState()));
             Add(t += 1.5f, "end", () => { });

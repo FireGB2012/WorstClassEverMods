@@ -101,6 +101,16 @@ namespace ClassPack
                         "A splash covers your screen with water for a few seconds"
                     };
                     return true;
+                case "faint":
+                    title = "KNOCKED OUT BY A NERF DART";
+                    lines = new[]
+                    {
+                        "Whoever a nerf dart hits faints and falls over for a few seconds",
+                        "A student wakes up on a pole, and nobody can rescue them from it",
+                        "The teacher gets up after 5 seconds, a classmate (bot) after 4",
+                        "Nerf guns turn up in desks when students eat snacks. One shot each"
+                    };
+                    return true;
                 case "dance2":
                     title = "DANCE CLASS: what you can do as a student";
                     lines = new[]
@@ -143,6 +153,10 @@ namespace ClassPack
             if (me == null)
             {
                 return null;
+            }
+            if (Faint.IsDown(me))
+            {
+                return "faint";
             }
             if (Dance.Active && (me.IsTeacher || me.IsStudent))
             {

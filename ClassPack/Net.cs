@@ -94,7 +94,8 @@ namespace ClassPack
         Pee = 74,           // tell: student a peed in the pool at v: a yellow cloud spreads there
         DanceHall = 75,     // tell: dance class: the hall stands at v with song i (j = 1), or is taken away (j = 0)
         DanceAsk = 76,      // ask: I start (i = 1) or stop (i = 0) dancing
-        Dancing = 77        // tell: character a dances (i = 1) or stops (i = 0)
+        Dancing = 77,       // tell: character a dances (i = 1) or stops (i = 0)
+        Faint = 78          // tell: character a was hit by a nerf dart and faints for f seconds, knocked along v
     }
 
     /// <summary>Any player to the host: a request for one of the newer features.</summary>
@@ -405,6 +406,9 @@ namespace ClassPack
                 case CpKind.DanceHall:
                 case CpKind.Dancing:
                     Dance.OnTell(tell);
+                    break;
+                case CpKind.Faint:
+                    Faint.OnTell(tell);
                     break;
                 case CpKind.Pool:
                 case CpKind.Splash:
