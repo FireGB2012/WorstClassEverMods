@@ -95,7 +95,7 @@ namespace ClassPack
                     {
                         "Catch students as usual. The poles stand along the pool",
                         "Students pee in the pool for mischief: keep out of the yellow water",
-                        "There is no blackboard here: stand next to the lifeguard chair and your stamina fills up",
+                        "No blackboard here: stamina fills slowly anywhere, and fast at the lifeguard chair",
                         "The water slows you down too. Stay back from the edge, or you get splashed",
                         "Students order DoorDash to your lounge, through the door at the deep end",
                         "A splash covers your screen with water for a few seconds"
@@ -129,7 +129,7 @@ namespace ClassPack
                         "Everyone has to dance. Students doing the worm make mischief: catch them!",
                         Plugin.Settings.DanceKeyCode + "  lets you dance too, just for fun",
                         "The poles stand along the wall",
-                        "No blackboard here: stand at the DJ booth on the stage for stamina",
+                        "No blackboard here: stamina fills slowly anywhere, and fast at the DJ booth on the stage",
                         "Students order DoorDash to the snack table"
                     };
                     return true;

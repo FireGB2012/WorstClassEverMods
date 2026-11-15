@@ -742,3 +742,8 @@ Still to do:
   report lines "knocked out ...", "fainted", "after the faint").
 - Version 0.14.0 in package/mod.json. Not run yet: the game was open on the PC when it was
   built, and it is never closed without asking.
+- Teacher stamina in the swim and dance halls (asked while playing with friends): 2 a second
+  anywhere in the hall, and 10 a second at the lifeguard chair or DJ booth, which is what the
+  blackboard gives in a normal class (it was 5 a second at the station only). Settings
+  hallStaminaPerSecond and hallStationStaminaPerSecond in config.json; each teacher's own game
+  applies them, so the teacher needs 0.14.0. Built, not tried in the game yet.

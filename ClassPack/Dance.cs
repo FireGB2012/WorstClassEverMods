@@ -818,13 +818,15 @@ namespace ClassPack
             }
 
             _atBooth = me.IsTeacher && Tricks.Flat(feet - BoothSpot).magnitude < BoothReach && feet.y > StageTop - 0.3f;
-            if (Game.InClass && _atBooth && Time.time >= _nextBoothAt)
+            if (Game.InClass && me.IsTeacher && InHall(feet) && Time.time >= _nextBoothAt)
             {
+                // A little all the time anywhere in the dance hall, as much as a blackboard at the booth.
                 _nextBoothAt = Time.time + 0.25f;
                 SkillComponent skill = me.GetComponent<SkillComponent>();
-                if (skill != null)
+                float perSecond = _atBooth ? Plugin.Settings.hallStationStaminaPerSecond : Plugin.Settings.hallStaminaPerSecond;
+                if (skill != null && perSecond > 0f)
                 {
-                    skill.AddSkillEnergy(1.25f);
+                    skill.AddSkillEnergy(Mathf.Clamp(perSecond, 0f, 50f) * 0.25f);
                 }
             }
 

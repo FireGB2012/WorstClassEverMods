@@ -1252,13 +1252,15 @@ namespace ClassPack
             }
 
             _atChair = me.IsTeacher && Tricks.Flat(feet - ChairAt).magnitude < ChairReach && feet.y > -0.3f;
-            if (inClass && _atChair && Time.time >= _nextChairAt)
+            if (inClass && me.IsTeacher && Time.time >= _nextChairAt)
             {
+                // A little all the time anywhere in the pool hall, as much as a blackboard at the chair.
                 _nextChairAt = Time.time + 0.25f;
                 SkillComponent skill = me.GetComponent<SkillComponent>();
-                if (skill != null)
+                float perSecond = _atChair ? Plugin.Settings.hallStationStaminaPerSecond : Plugin.Settings.hallStaminaPerSecond;
+                if (skill != null && perSecond > 0f)
                 {
-                    skill.AddSkillEnergy(1.25f);
+                    skill.AddSkillEnergy(Mathf.Clamp(perSecond, 0f, 50f) * 0.25f);
                 }
             }
         }

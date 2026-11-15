@@ -98,6 +98,12 @@ namespace ClassPack
         public float dancePoints = 1f;
         public float danceSeconds = 5f;
 
+        // The teacher's stamina in the swim and dance halls, which have no blackboard: a little
+        // all the time anywhere in the hall, and as much as the blackboard gives (10 a second,
+        // out of 100) at the lifeguard chair or the DJ booth. Each teacher's own game applies it.
+        public float hallStaminaPerSecond = 2f;
+        public float hallStationStaminaPerSecond = 10f;
+
         // Raised when a number the player may have saved has to change once (see Load).
         public int rulesVersion = 0;
 
