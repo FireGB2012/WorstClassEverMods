@@ -79,7 +79,7 @@ namespace ClassPack
                         "You can mop again after 6 seconds"
                     };
                     return true;
-                case "swimpee2":
+                case "swimpee3":
                     title = "SWIM CLASS: what you can do as a student";
                     lines = new[]
                     {
@@ -87,18 +87,19 @@ namespace ClassPack
                         "Pee right next to the teacher while they are in the water: double mischief. Then you have to wait a while",
                         "In the water,  " + Use + "  splashes the teacher's screen. Crawl in the pool to dive under",
                         "The ramp at the shallow end leads in and out; at a ladder or the diving board's steps the pick-up key climbs up",
-                        "DoorDash food lands in the teachers' lounge, through the door at the deep end"
+                        "Now and then a phone turns up on the coffee table in the teachers' lounge, through the door at the deep end",
+                        "The first to grab it gets it: one DoorDash order (the food lands in the lounge), prank call or trick"
                     };
                     return true;
-                case "swimteacher2":
+                case "swimteacher3":
                     title = "SWIM CLASS: what you can do as the teacher";
                     lines = new[]
                     {
                         "Catch students as usual. The poles stand along the pool",
                         "Students pee in the pool for mischief: keep out of the yellow water",
-                        "No blackboard here: stamina fills slowly anywhere, and fast at the lifeguard chair",
+                        "No blackboard here: your stamina drains at half speed, and fills fast at the lifeguard chair",
                         "The water slows you down too. Stay back from the edge, or you get splashed",
-                        "Students order DoorDash to your lounge, through the door at the deep end",
+                        "Now and then a phone turns up in your lounge (the door at the deep end): students race for it",
                         "A splash covers your screen with water for a few seconds"
                     };
                     return true;
@@ -112,7 +113,7 @@ namespace ClassPack
                         "Nerf guns turn up in desks when students eat snacks. One shot each"
                     };
                     return true;
-                case "dance2":
+                case "dance3":
                     title = "DANCE CLASS: what you can do as a student";
                     lines = new[]
                     {
@@ -120,18 +121,19 @@ namespace ClassPack
                         Plugin.Settings.WormKeyCode + "  does the worm: mischief every few seconds while you keep it up",
                         "Doing the worm you only creep along: the teacher can catch you at it",
                         Plugin.Settings.DanceKeyCode + "  gets you back up to the class dance",
-                        "DoorDash food lands on the snack table"
+                        "Now and then a phone turns up on the snack table. The first to grab it gets it",
+                        "One use: a DoorDash order (the food lands on the snack table), a prank call or a trick"
                     };
                     return true;
-                case "danceteacher2":
+                case "danceteacher3":
                     title = "DANCE CLASS: what you can do as the teacher";
                     lines = new[]
                     {
                         "Everyone has to dance. Students doing the worm make mischief: catch them!",
                         Plugin.Settings.DanceKeyCode + "  lets you dance too, just for fun",
                         "The poles stand along the wall",
-                        "No blackboard here: stamina fills slowly anywhere, and fast at the DJ booth on the stage",
-                        "Students order DoorDash to the snack table"
+                        "No blackboard here: your stamina drains at half speed, and fills fast at the DJ booth",
+                        "Now and then a phone turns up on the snack table: students race for it"
                     };
                     return true;
                 case "teacher4":
@@ -161,11 +163,11 @@ namespace ClassPack
             }
             if (Dance.Active && (me.IsTeacher || me.IsStudent))
             {
-                return me.IsTeacher ? "danceteacher2" : "dance2";
+                return me.IsTeacher ? "danceteacher3" : "dance3";
             }
             if (Swim.Active && (me.IsTeacher || me.IsStudent))
             {
-                return me.IsTeacher ? "swimteacher2" : "swimpee2";
+                return me.IsTeacher ? "swimteacher3" : "swimpee3";
             }
             if (me.IsTeacher)
             {
@@ -235,7 +237,13 @@ namespace ClassPack
                 _lineStyle = new GUIStyle(Skin.Label) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
                 _footStyle = new GUIStyle(Skin.Small) { fontSize = 14, alignment = TextAnchor.MiddleCenter, wordWrap = false };
             }
+            // As wide as the longest line needs (they don't wrap), within the screen.
             float panelWidth = 780f;
+            foreach (string line in _lines)
+            {
+                panelWidth = Mathf.Max(panelWidth, _lineStyle.CalcSize(new GUIContent("-  " + line)).x + 100f);
+            }
+            panelWidth = Mathf.Min(panelWidth, width - 40f);
             float panelHeight = 104f + _lines.Length * 32f;
             var panel = new Rect((width - panelWidth) * 0.5f, 70f, panelWidth, panelHeight);
             GUI.Box(panel, GUIContent.none, Skin.Panel);
