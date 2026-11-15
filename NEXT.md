@@ -1,10 +1,33 @@
 # What to do next
 
-Written 2026-11-15, updated the same evening on the second PC. The mod is at version 0.13.0:
-built, installed and self-tested there. Details are in `PROGRESS.md`, sections "Bots in the
-pool and a new swimming move" and "Dance class".
+Written 2026-11-15, updated the same evening on the second PC. The mod is at version 0.14.0:
+built and committed; the faces were self-tested up to 0.13.x, the nerf faint is NOT self-tested
+yet (the game was open). Details are in `PROGRESS.md`, sections "Dance class" and "Looks pack".
 
-## 0. Dance class (new in 0.13.0)
+## 0. Looks pack and the nerf faint (new in 0.14.0)
+
+Built:
+- Face sliders in the wardrobe's Face tab: eyes, pupils, head. Eye size and head size seen
+  working in the self-test; the pupil slider is the open question (see below).
+- Two new hairstyles from Meshy: afro (cut off below the mouth) and dreads, tinted by the hair colour.
+- Bots each dress exactly like one of the players (F6 toggle "Bots dress exactly like us").
+- The wardrobe in tabs: Hair, Face, Outfit, Teacher, Fit.
+- Nerf darts knock people out like a rag doll (`Faint.cs`): a student player faints 3 s and
+  wakes up on a pole with no rescue, the teacher faints 5 s, a bot 4 s. A fainted player sees
+  themselves from behind with a big "You fainted!"; a how-to card the first time.
+
+To check (self-test with `.\tools\selftest.ps1 -Class dance -Looks`, pictures 12_face_*,
+31_* to 35_*):
+- [ ] The rag doll falls over and lies on the floor (not through it, not flying off).
+- [ ] The student ends on a pole after 3 s; the bot gets up after 4 s.
+- [ ] The pupil slider: the log line "looks: eyes in Body1 ..." or "... picture places ..."
+      says whether the eye picture could be read. If not, the eyeballs grow inside the lids instead.
+
+Waiting for Gabriel:
+- [ ] Try the faces in the wardrobe and shoot someone with a nerf gun (F6 has a setting to
+      make guns always turn up for testing).
+
+## 0b. Dance class (new in 0.13.0)
 
 Done and seen in the self-test: the dance hall with the six Meshy props, lights and the game's
 own party song; everyone always dances (Q, the chicken dance, shuffling slowly); the worm (J)

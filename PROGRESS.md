@@ -721,3 +721,24 @@ Still to do:
 - Idea 4 of the pack, the nerf faint ragdoll, as approved: a student ragdolls 3 s and then goes on a pole with no rescue; the teacher faints 5 s and gets up; a bot faints 4 s. Not started. Plan: host tell Faint = 78 (a = uid, f = seconds, v = hit direction); stun with StudentStunComponent.TryGetProjectileStun for students and bots, Poles.Slip for the teacher; a physics ragdoll built on the spot from the character skeleton (SwimPose mode 4); the fainted player sees themselves from behind (SelfView) with a "You fainted!" line; NerfGuns.Hit rewired; a how-to card in Tips.cs.
 - Bump package/mod.json to 0.14.0 (plain text edit), notes, ask before pushing.
 - Run 3 result: eye size now works (big round googly eyes, moved apart, pupils show, no bulging balls). The pupil slider does nothing yet: the log says "Body1 has no picture places for its points" for Body1 to Body4, so mesh.uv came back empty or the wrong length although mesh.boneWeights reads fine. Next try: mesh.GetUVs(0, list), and log the counts of uv, vertices and boneWeights. Front of each eye bone is about its +Y axis; the lids hang under head.
+
+### Nerf faint and version 0.14.0 (2026-11-15, later the same day, NOT self-tested yet)
+
+- Pushed everything up to the run 3 notes (Gabriel said yes).
+- Pupils: the eye picture is now read with mesh.GetUVs into four-number places (the plain
+  mesh.uv read came back empty). If that still fails, the log line says how many points, places
+  and weights the face mesh has, and the eyeballs grow across inside the lids instead.
+- Nerf darts knock people out (ClassPack/Faint.cs, new tell CpKind.Faint = 78). The host picks
+  the time (student player 3 s then a no-rescue pole, teacher 5 s with the banana slip, bot 4 s)
+  and tells everybody. Every game stuns a fainted student the game way and builds a physics rag
+  doll from the skeleton: capsules for pelvis, chest, arms and legs, a ball for the head,
+  CharacterJoints between them, on the Ignore Raycast layer so the game aiming looks through it.
+  Each frame after the animation the bones follow the capsules; at the end the body eases back
+  in 0.5 s, or stops at once when the character is moved more than 3 m (put on a pole). A
+  fainted player is held still (speedFac 0), sees themselves from behind (SelfView) and gets a
+  big "You fainted!" with a countdown; how-to card "faint" the first time. Darts fly through
+  dolls. The RPG still only hits players.
+- Self-test: the dance test now ends by knocking out a bot and the player (pictures 31 to 35,
+  report lines "knocked out ...", "fainted", "after the faint").
+- Version 0.14.0 in package/mod.json. Not run yet: the game was open on the PC when it was
+  built, and it is never closed without asking.
