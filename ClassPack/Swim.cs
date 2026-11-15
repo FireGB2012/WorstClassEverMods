@@ -1213,7 +1213,8 @@ namespace ClassPack
             {
                 AskClimb();
             }
-            if (inClass && me.IsStudent && _inWater && free && !_under && !Game.IsTyping && !CursorGrab.Busy
+            // (At a ladder the key climbs instead of splashing.)
+            if (inClass && me.IsStudent && _inWater && free && !_under && !Game.IsTyping && !CursorGrab.Busy && _climbSpot < 0
                 && Input.GetKeyDown(Plugin.Settings.UseKeyCode) && Tricks.HeldLocal == 0 && !NerfGuns.HoldingLocal)
             {
                 if (Time.time < _nextSplashAt)
