@@ -332,9 +332,22 @@ namespace ClassPack
 
         private static float _nextNotNowLogAt;
 
+        /// <summary>What happened the last time a teacher's power was used, for the self-test.</summary>
+        public static string LastPowerNote = "not used yet";
+
+        /// <summary>Self-test: uses this teacher's power as if its key was pressed, without the wait.</summary>
+        public static void TestUsePower()
+        {
+            _readyAt = 0f;
+            HostReadyAt.Clear();
+            LastPowerNote = "key pressed, nothing came back";
+            TryUsePower();
+        }
+
         /// <summary>Writes down why this player's power key did nothing, at most every few seconds.</summary>
         private static void NotNow(string why)
         {
+            LastPowerNote = "the key did nothing: " + why;
             if (Time.unscaledTime >= _nextNotNowLogAt)
             {
                 _nextNotNowLogAt = Time.unscaledTime + 3f;
@@ -587,6 +600,7 @@ namespace ClassPack
                     string what = kind == Looks.Gym ? "Pizza" : "Mashed potatoes";
                     Net.Toast(player, target != null ? what + " hit " + Poles.NameOf(target) + "!"
                         : what + " missed. Ready again in " + ThrowWait.ToString("F0") + " seconds.", 2.5f);
+                    LastPowerNote = what.ToLowerInvariant() + (target != null ? " hit " + Poles.NameOf(target) : " missed");
                     Plugin.Log("teachers: " + Poles.NameOf(player) + " threw " + (kind == Looks.Gym ? "pizza" : "mashed potatoes")
                         + (target != null ? " and hit" : " and missed"));
                     break;
@@ -616,6 +630,7 @@ namespace ClassPack
                     Net.Toast(player, cleaned > 0 ? "Mopped up " + cleaned + " thing" + (cleaned == 1 ? "" : "s") + ". The floor is wet now."
                         : "The floor is wet now.", 3f);
                     Plugin.Log("teachers: the janitor mopped, cleaned " + cleaned);
+                    LastPowerNote = "mopped, cleaned " + cleaned;
                     break;
                 }
                 case CpKind.WigPull:
@@ -690,6 +705,7 @@ namespace ClassPack
         /// <summary>Host: writes down why a teacher's power did nothing, at most every few seconds.</summary>
         private static void Refused(Unit player, CpAsk ask, string why)
         {
+            LastPowerNote = ask.kind + " refused by the host: " + why;
             if (Time.unscaledTime < _nextRefusedLogAt)
             {
                 return;

@@ -23,9 +23,15 @@ To check (self-test with `.\tools\selftest.ps1 -Class dance -Looks`, pictures 12
 - [ ] The pupil slider: the log line "looks: eyes in Body1 ..." or "... picture places ..."
       says whether the eye picture could be read. If not, the eyeballs grow inside the lids instead.
 
+- [ ] Teachers (self-test with `-Role teacher -Kind 1`, `-Kind 2`, `-Kind 3`, swim and dance):
+      report lines "teacher power ..." and the stamina in "at the chair" / "at the DJ booth".
+- [ ] If the mashed potatoes still don't fly: the log lines "teachers: my power key did
+      nothing: ..." or "... refused: ..." say why.
+
 Waiting for Gabriel:
 - [ ] Try the faces in the wardrobe and shoot someone with a nerf gun (F6 has a setting to
       make guns always turn up for testing).
+- [ ] Play the new teachers again: walking, carrying a student, slipping, the pot, throwing.
 
 ## 0b. Dance class (new in 0.13.0)
 

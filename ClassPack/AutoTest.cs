@@ -471,9 +471,16 @@ namespace ClassPack
             else
             {
                 Add(t += 1f, "to the chair", () => Put(Game.LocalPlayer, new Vector3(0f, 0.08f, 5.2f), 0f));
-                Add(t += 1.5f, "eyes", () => Screen("19_eyes_teacher_at_chair"));
+                Add(t += 0.4f, "state", () => DescribeMe("just at the chair"));
+                Add(t += 1.1f, "eyes", () => Screen("19_eyes_teacher_at_chair"));
                 Add(t += 0.5f, "side", () => ShotOfUnit("20_teacher_on_deck", Game.LocalPlayer, 3f));
-                Add(t += 0.5f, "state", () => DescribeMe("at the chair"));
+                Add(t += 0.5f, "state", () => DescribeMe("at the chair (stamina should be up)"));
+                if (_kind >= Looks.Gym && _kind <= Looks.Janitor)
+                {
+                    Add(t += 0.5f, "power", TestPower);
+                    Add(t += 0.25f, "power", () => Screen("24_eyes_teacher_power"));
+                    Add(t += 1f, "power", () => Note("teacher power afterwards: " + Teachers.LastPowerNote));
+                }
             }
             Add(t += 1.5f, "overview", () => Shot("30_overview_end", new Vector3(-13f, 6f, -8f), new Vector3(2f, 0f, 0f)));
             Add(t += 1f, "count", CountThings);
@@ -615,8 +622,16 @@ namespace ClassPack
             {
                 Add(t += 0.5f, "stop", () => Dance.TestDance(Dance.ClassDance));
                 Add(t += 1f, "to the booth", () => Put(Game.LocalPlayer, new Vector3(-10.1f, 0.67f, 0.6f), 270f));
-                Add(t += 1.5f, "eyes", () => Screen("19_eyes_teacher_at_booth"));
-                Add(t += 0.5f, "state", () => DescribeMe("at the DJ booth"));
+                Add(t += 0.4f, "state", () => DescribeMe("just at the DJ booth"));
+                Add(t += 1.1f, "eyes", () => Screen("19_eyes_teacher_at_booth"));
+                Add(t += 0.5f, "state", () => DescribeMe("at the DJ booth (stamina should be up)"));
+                if (_kind >= Looks.Gym && _kind <= Looks.Janitor)
+                {
+                    Add(t += 0.5f, "off the stage", () => Put(Game.LocalPlayer, new Vector3(-4f, 0.05f, 0f), 90f));
+                    Add(t += 0.8f, "power", TestPower);
+                    Add(t += 0.25f, "power", () => Screen("19b_eyes_teacher_power"));
+                    Add(t += 1f, "power", () => Note("teacher power afterwards: " + Teachers.LastPowerNote));
+                }
             }
             // Nerf darts knock people out: a bot first, then this player. Pictures of the rag
             // dolls on the floor, and whether a student wakes up on a pole.
@@ -933,9 +948,49 @@ namespace ClassPack
             }
             InputComponent input = me.GetComponent<InputComponent>();
             ClassroomManager classroom = Game.Peek<ClassroomManager>();
+            SkillComponent skill = me.IsTeacher ? me.GetComponent<SkillComponent>() : null;
             Note(when + ": at " + (me.Position - Hall).ToString("F2") + ", swimming " + Swim.Swimming(me) + ", dancing " + Dance.IsDancing(me)
                 + ", seen from behind " + SelfView.Showing + ", speed factor " + (input != null ? input.speedFac.ToString("F2") : "?")
-                + ", state " + me.CurState() + ", mischief " + (classroom != null ? classroom.currentTrickCount.ToString("F0") : "?"));
+                + ", state " + me.CurState() + ", mischief " + (classroom != null ? classroom.currentTrickCount.ToString("F0") : "?")
+                + (skill != null ? ", stamina " + skill.currentSkillEnergy.ToString("F1") + (skill.PauseAutoEnergyConsume ? " (drain paused)" : "") : "")
+                + (classroom != null ? ", class " + classroom.curState : ""));
+        }
+
+        /// <summary>
+        /// The teacher's own power, as if the player pressed its key: the camera is turned to the
+        /// nearest bot in front first, so a throw has someone to hit.
+        /// </summary>
+        private static void TestPower()
+        {
+            Unit me = Game.LocalPlayer;
+            Camera camera = Camera.main;
+            UnitManager units = Game.Peek<UnitManager>();
+            if (me == null || camera == null || units == null)
+            {
+                Note("teacher power: no player or camera");
+                return;
+            }
+            Unit aim = null;
+            float best = 14f;
+            foreach (Unit unit in units.unitsDict.Values)
+            {
+                if (unit == null || unit == me || !unit.isActived || unit.isPlayer || !unit.IsStudent)
+                {
+                    continue;
+                }
+                float distance = (unit.Position - me.Position).magnitude;
+                if (distance > 2f && distance < best)
+                {
+                    best = distance;
+                    aim = unit;
+                }
+            }
+            if (aim != null)
+            {
+                camera.transform.rotation = Quaternion.LookRotation(aim.Position + Vector3.up * 0.5f - camera.transform.position);
+            }
+            Teachers.TestUsePower();
+            Note("teacher power used, aimed at " + (aim != null ? "a bot " + best.ToString("F1") + " m away" : "nothing") + ": " + Teachers.LastPowerNote);
         }
 
         private static void CountThings()

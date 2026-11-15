@@ -742,8 +742,49 @@ Still to do:
   report lines "knocked out ...", "fainted", "after the faint").
 - Version 0.14.0 in package/mod.json. Not run yet: the game was open on the PC when it was
   built, and it is never closed without asking.
-- Teacher stamina in the swim and dance halls (asked while playing with friends): 2 a second
-  anywhere in the hall, and 10 a second at the lifeguard chair or DJ booth, which is what the
-  blackboard gives in a normal class (it was 5 a second at the station only). Settings
-  hallStaminaPerSecond and hallStationStaminaPerSecond in config.json; each teacher's own game
-  applies them, so the teacher needs 0.14.0. Built, not tried in the game yet.
+
+### Teacher bug hunt (same evening, 0.14.0, NOT run in the game yet: Gabriel was playing)
+
+Gabriel, playing with four friends: "the other teachers rlly buggin", "remove the caught UI 0/1
+at the top", "I can't throw pizza and potato and pot doesn't work", "go crazy on bug fix". His
+game's log of that session had no mod errors; it showed the janitor's mop working three times,
+Marcel's pizza thrown twice (both missed), the lunch lady's pot put "on the floor by the
+blackboard", and no mashed potatoes at all.
+
+Facts found in the current game's code (decompiled again into %TEMP%\claude_wce_full; the
+C:\wce\src copy is from an older version):
+- The game drains a teacher's stamina all through class (SkillComponent, rate from
+  StudentNumBalanceConfig by class size). Writing on the blackboard sets
+  SkillComponent.PauseAutoEnergyConsume and refills at the board's rate. The mod's pot, chair
+  and booth only added 5 a second on top of the drain, so they could do nothing at all.
+- TeacherStunComponent has IsStunned, a private `slipping` flag and `remaining`; a slip or stun
+  makes the host release a carried student. CatchComponent.catchedUnitUID is who is carried.
+- The "Caught 0/1" line is UIBattleMainView.caughtText, written in OnStudentGetCaught.
+- A player gets a new unit id when they become the teacher; the mod already sends the look again.
+
+Fixed:
+- Stamina (Teachers.TickStamina, one place): at the lunch lady's pot, the lifeguard chair and the
+  DJ booth the game's drain stops and stamina fills at least stationStaminaPerSecond (10) or the
+  blackboard's own rate if faster. Anywhere in the swim and dance halls only hallDrainShare (half)
+  of the drain applies. The drain is always let go again when leaving or when class ends.
+- Pizza and mashed potatoes: a student near the aim line counts as hit (about 0.35 m off close
+  by, 1 m far away, nothing solid in between); the food flies 1.7 times bigger; the thrower is
+  told "hit X" or "missed"; the host logs why a throw was refused and the thrower's own game logs
+  why the key did nothing (lines "teachers: ..."). The real reason the potatoes never flew is
+  still unknown: the code path looks right, so the next log will say.
+- The pot's message says where it really is; the lunch lady's hint line says how far away it is.
+  No pot in the swim and dance classes (it stood in the empty classroom).
+- The whole-body teachers (Looks.PlaceBody): placed late in the frame (no lag), the body is kept
+  when the game refreshes it (no restart, no size jump), the standing height is measured only in
+  the first two seconds, walk and run don't flick (room between the switch points) and play as
+  fast as the teacher moves (the Meshy walk carries 0.27 body heights a second, the run 1.8), the
+  body tips over flat while knocked out or slipping, wobbles while dizzy, holds both arms out
+  (bones 9 to 11 and 13 to 15, found from the rest pose) while carrying a student, and sways on
+  the beat when dancing.
+- Hats, held tricks and nerf guns are placed late in the frame too (they shook while walking).
+  Each late step has its own error guard.
+- The wig lands where the teacher can walk to it, and goes back on by itself after 30 s.
+- The "Caught 0/1" count is hidden (setting hideCaughtCount).
+- A fainted teacher gets the game's own slip held for the whole 5 s (drops a carried student).
+- Self-test: as gym teacher, lunch lady or janitor it now notes the stamina at the chair or booth
+  and uses the power at the nearest bot (report lines "teacher power ...", pictures 19b and 24).
