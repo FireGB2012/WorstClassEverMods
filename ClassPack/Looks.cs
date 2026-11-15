@@ -1393,6 +1393,19 @@ namespace ClassPack
             public Vector3 Out;
         }
 
+        /// <summary>
+        /// The body slider: the lower spine bone (the belly) goes wider across, and the upper one
+        /// narrower by as much, so the chest, arms and head above it keep their size. (The
+        /// game's meshes can't be read by a mod, so they can't be reshaped point by point.)
+        /// </summary>
+        private sealed class BodyPart
+        {
+            public Transform T;
+            public Vector3 Game;
+            public Vector3 Written;
+            public bool Inverse;
+        }
+
         /// <summary>The bones and meshes the face sliders change on one student body.</summary>
         private sealed class FaceRig
         {
@@ -1400,6 +1413,7 @@ namespace ClassPack
             public Transform Head;
             public Vector3 HeadGame;
             public Vector3 HeadWritten;
+            public readonly List<BodyPart> Body = new List<BodyPart>();
             public readonly List<EyePart> Parts = new List<EyePart>();
             /// <summary>The meshes that draw the eyes (the face, in each of the game's variants).</summary>
             public readonly List<SkinnedMeshRenderer> Skins = new List<SkinnedMeshRenderer>();
@@ -1455,6 +1469,23 @@ namespace ClassPack
                 return null;
             }
             var rig = new FaceRig { Model = model, Head = head, HeadGame = head.localScale, HeadWritten = head.localScale };
+            Transform spine1 = null, spine2 = null;
+            foreach (Transform part in model.GetComponentsInChildren<Transform>(true))
+            {
+                if (spine1 == null && part.name == "spine1")
+                {
+                    spine1 = part;
+                }
+                else if (spine2 == null && part.name == "spine2")
+                {
+                    spine2 = part;
+                }
+            }
+            if (spine1 != null && spine2 != null && spine2.parent == spine1)
+            {
+                rig.Body.Add(new BodyPart { T = spine1, Game = spine1.localScale, Written = spine1.localScale });
+                rig.Body.Add(new BodyPart { T = spine2, Game = spine2.localScale, Written = spine2.localScale, Inverse = true });
+            }
             // Every mesh on the skeleton (face, body, clothes): the body slider widens all of them alike.
             foreach (SkinnedMeshRenderer skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             {
@@ -1630,7 +1661,8 @@ namespace ClassPack
                 {
                     original = now;
                 }
-                Mesh want = look.Pupils == 0 && look.BodyWidth == 0 ? original : ShapedCopy(skin, original, look.Pupils, look.BodyWidth, face);
+                // Only a mesh a mod may read can be copied and changed (the game's own can't).
+                Mesh want = look.Pupils == 0 || !original.isReadable ? original : ShapedCopy(skin, original, look.Pupils, 0, face);
                 EyeMap map;
                 pupilsOnPicture |= look.Pupils != 0 && want != original && EyeMaps.TryGetValue(original, out map) && map != null;
                 if (want != now)
@@ -1641,6 +1673,24 @@ namespace ClassPack
             // When the face mesh can't be changed, the eyeballs themselves grow (or shrink a
             // little) across, inside eyelids that keep their size: the pupil grows with them.
             float pupils = pupilsOnPicture || look.Pupils == 0 ? 1f : Mathf.Max(0.85f, look.PupilScale);
+
+            float width = look.BodyScale;
+            foreach (BodyPart part in face.Body)
+            {
+                if (part.T == null)
+                {
+                    continue;
+                }
+                Vector3 nowScale = part.T.localScale;
+                if (nowScale != part.Written)
+                {
+                    part.Game = nowScale;
+                }
+                // Across the bone (x and z: every bone points along y), not along it.
+                float across = part.Inverse ? 1f / width : width;
+                part.Written = Vector3.Scale(part.Game, new Vector3(across, 1f, across));
+                part.T.localScale = part.Written;
+            }
 
             float eyes = teacher ? TeacherSize(look.EyeScale, 1.4f) : look.EyeScale;
             // Across the face the eyes grow fully, in depth only a little.
@@ -1680,6 +1730,13 @@ namespace ClassPack
             if (face.Head != null)
             {
                 face.Head.localScale = face.HeadGame;
+            }
+            foreach (BodyPart part in face.Body)
+            {
+                if (part.T != null)
+                {
+                    part.T.localScale = part.Game;
+                }
             }
             foreach (EyePart part in face.Parts)
             {

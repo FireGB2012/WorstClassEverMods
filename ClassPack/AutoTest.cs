@@ -672,7 +672,9 @@ namespace ClassPack
             });
             Add(t += 1.5f, "window", () => ShotWorld("36_window_hang_inside", hangInside, hangSill));
             Add(t += 0.5f, "window", () => ShotWorld("37_window_hang_outside", hangOutside, hangSill - Vector3.up * 0.5f));
-            Add(t += 0.3f, "window", () => Note("hanging out of a window now: " + WindowPoles.AnyHanging));
+            Add(t += 0.3f, "window", () => Note("hanging out of a window now: " + WindowPoles.AnyHanging
+                + (hangBot != null ? ", the bot stands at " + hangBot.Position.ToString("F2") + ", state " + hangBot.CurState() : "")));
+            Add(t += 0.2f, "window", () => ShotOfUnit("38_window_hang_bot", hangBot, 2.4f));
 
             // Nerf darts knock people out: a bot first, then this player. Pictures of the rag
             // dolls on the floor, and whether a student is up again.

@@ -96,6 +96,7 @@ namespace ClassPack
             public int Mode;
             /// <summary>The window it hangs out of (Mode 4).</summary>
             public WindowPoles.Hang Hang;
+            public bool LoggedHang;
             public float Weight;
             public float Clock;
             public float Still;
@@ -558,7 +559,14 @@ namespace ClassPack
             Vector3 shoulders = (rig.Arms[0].Upper.T.position + rig.Arms[1].Upper.T.position) * 0.5f;
             float reach = (rig.Arms[0].UpperLength + rig.Arms[0].LowerLength) * 0.96f;
             Vector3 want = hang.Sill + hang.Out * 0.3f - u * reach;
+            Vector3 hipsBefore = rig.HipBone.position;
             rig.Top.position += (want - shoulders) * weight;
+            if (!rig.LoggedHang && weight >= 1f)
+            {
+                rig.LoggedHang = true;
+                Plugin.Log("swim move: hanging at a window: body from " + hipsBefore.ToString("F2") + " to " + rig.HipBone.position.ToString("F2")
+                    + ", sill " + hang.Sill.ToString("F2") + ", skeleton top " + rig.Top.name);
+            }
 
             foreach (Limb arm in rig.Arms)
             {

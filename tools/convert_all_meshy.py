@@ -93,7 +93,7 @@ MODELS = {
     'hair_afro': (0.40, '0.5,0.5,0.32', '0,0,0', FRONT, -0.06),
     'hair_dreads': (0.42, '0.5,0.5,0.69', '0,0,0', FRONT),
     'hair_mohawk': (0.34, '0.5,0.5,0.3', '0,0,0', FRONT),
-    'hair_spiky': (0.40, '0.5,0.5,0.31', '0,0,0', FRONT),
+    'hair_spiky': (0.37, '0.5,0.5,0.22', '0,0,0', FRONT),
     # The phone: held in the hand like food, its screen facing the holder (+Y is forward, so
     # the screen faces -Y, back at the player). (0, 0, 0) is its middle.
     'phone': (0.16, '0.5,0.5,0.5', '0,0,0', BACK),
