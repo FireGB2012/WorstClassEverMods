@@ -117,7 +117,7 @@ very light grey so the wardrobe's hair colour tints it. Style pictures: meshy/st
 
 | Model | Picture task | 3D task |
 |-------|--------------|---------|
-| hair_mohawk | 01a1e101-8b38-7644-b076-b03ae8f36a4a | |
-| hair_spiky | 01a1e101-8d1d-72f6-b682-84baea69ff98 | |
-| phone | 01a1e101-8f35-7479-aea5-c89bc35249ae | |
-| elevator_panel | 01a1e101-90eb-72d9-9d25-d94ded736cd5 | |
+| hair_mohawk | 01a1e101-8b38-7644-b076-b03ae8f36a4a | 01a1e102-677d-73c7-8f64-cea35296a5df |
+| hair_spiky | 01a1e101-8d1d-72f6-b682-84baea69ff98 | 01a1e102-69fd-73fe-bc68-ce60bf750959 |
+| phone | 01a1e101-8f35-7479-aea5-c89bc35249ae | 01a1e102-6cc5-70d1-9d17-e0c0c80a4bbc |
+| elevator_panel | 01a1e101-90eb-72d9-9d25-d94ded736cd5 | 01a1e102-6f7b-72d5-8fb4-2d3a53d56d50 |
