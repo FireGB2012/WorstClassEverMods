@@ -658,31 +658,51 @@ How it plays now:
   DoorDash, whose food also pays mischief) and takes a picture of the F6 window
   (`29_owner_window`).
 
-## Dance class (asked for 2026-11-15, IN PROGRESS: props made, code not written yet)
+## Dance class (version 0.13.0, 2026-11-15, built and self-tested on the second PC)
 
-Gabriel: "make dance class, ask me questions if needed". His answers:
-- Mischief: "2 people dance together at all times, you need to twerk dance to get mischief".
-  The twerk was declined again (the students are kids; same call as on the first PC), so: two
-  dancers right next to each other earn mischief, only while both keep dancing.
-- Dances: one silly dance (planned: a chicken dance made in code on the game's skeleton,
-  like the swim crawl in `SwimPose.cs`: flapping elbows, pecking head, bouncing knees, sway).
+Gabriel: "make dance class, ask me questions if needed". The answers that count in the end:
+- First he said "2 people dance together at all times, you need to twerk dance to get
+  mischief". The twerk was declined again (the students are kids; same call as on the first
+  PC). A pairs version was built first (two dancers next to each other earn mischief), then he
+  said "that's not how I wanted it: you always have to emote, but you get mischief for the
+  naughty emote". Asked which naughty dance instead of the twerk, he picked the worm, and
+  "normal dance on Q, naughty on J".
 - Props: 6 from Meshy, 126 credits (approved, made, 165 left): disco ball, speaker, DJ booth,
-  stage, boombox, snack table. Converted to `package/models/dance_*.cpm` (stage about 0.6 m
-  high, front with the steps; disco ball hangs from (0, 0, 0)). Pictures:
-  `meshy/pictures/dance_models.png` (shown to him). Tasks in `meshy/tasks.md`.
-- Music: the game's own. `AudioManager.PlayBGM(AudioEvents.bgm_Hajimi1)` (also `bgm_Hajimi2`),
-  `StopBGM(FMOD.Studio.STOP_MODE)`, and the field `currentBGMPath` to put the old music back.
+  stage, boombox, snack table. `package/models/dance_*.cpm` (stage about 0.6 m high, its steps
+  at its front; the disco ball hangs from (0, 0, 0)). Pictures: `meshy/pictures/dance_models.png`
+  (shown to him before they went in). Tasks in `meshy/tasks.md`.
+- Music: the game's own party songs. `AudioManager.PlayBGM(AudioEvents.bgm_Hajimi1 / 2)`,
+  `StopBGM(FMOD.Studio.STOP_MODE)`; the field `currentBGMPath` puts the old music back after.
 
-Planned (not built yet), modelled on `Swim.cs` in a new `Dance.cs`:
-- `nextClass` 2 = "Dance class" in the F6 window (`Swim.ClassNames`); a hall 24 x 18 m built
-  far away at the bell, players teleported in, bots brought on a NavMeshSurface like the pool.
-- J (`danceKey`) starts and stops dancing; a dancer can't walk (speedFac 0), so the teacher
-  can catch them. Host pays `dancePoints` (1) every `danceSeconds` (6) to a dancing student
-  with another dancer (student or dancing bot) within 1.6 m; the timer resets when the pair
-  breaks. Net kinds planned: DanceHall 75, DanceAsk 76, Dancing 77.
-- Bots that stand still on the dance floor dance; a `TryGetDestination` postfix sends bots to
-  dancers who dance alone, so a solo student gets a partner.
-- Teacher stamina at the DJ booth; DoorDash food on the snack table; how-to cards `dance` and
-  `danceteacher`; SelfView from behind while dancing; hats follow the dance (Looks.LateTick).
-- Self-test: `selftest.ps1 -Class dance` (not written yet).
-- Only code change so far: `Swim.Feet` is now internal, for the dance class to use.
+How it plays (`Dance.cs`, the moves in `SwimPose.cs`):
+- The owner picks "Dance class" under "Next class" in F6 (`nextClass` 2). At the bell a dance
+  hall (24 x 18 m) is built far away and every modded player is teleported in, like the pool.
+  A light-up 8 x 8 m dance floor whose tiles change colour on the beat, four coloured party
+  lights circling over it, the disco ball turning, neon strips, the stage at the far end with
+  the DJ booth and the speakers, the snack table and boombox, benches, four poles.
+- Students always dance. The class dance (Q, `danceKey`) is a silly chicken dance (elbows
+  flapping, head pecking, knees bouncing, a sway) and lets them shuffle at 0.6 speed. The worm
+  (J, `wormKey`) puts them face down on the floor with a wave rolling from the feet to the head;
+  they creep at 0.3 speed, so the teacher can catch them, and the host pays `dancePoints` (1)
+  every `danceSeconds` (5) while they keep it up, in class only. Q gets them back up. The view
+  from behind (SelfView) shows only during the worm. F6: "Worm pays" and "Worm every".
+- The teacher doesn't have to dance (Q dances for fun), catches as usual, and the DJ booth
+  fills stamina. Bots always do the class dance and mostly hang around on the dance floor
+  (the shared `TryGetDestination` postfix moves 70 % of their picks there).
+- DoorDash food lands on the snack table; DoorDash's messages now name the right spot in every
+  class (`DoorDash.WhereFood`). How-to cards `dance2` and `danceteacher2`. Hats follow dancers.
+- Net kinds: DanceHall 75, DanceAsk 76, Dancing 77 (a = character, i = 0 none, 1 class dance,
+  2 worm). Settings `rulesVersion` 2 moves a saved J dance key (from a test build) to Q.
+- Self-test: `.\tools\selftest.ps1 -Class dance` (and `-Role teacher`), results in
+  `dist\autotest\dance_<role>`.
+
+Seen in the self-test so far (pairs version and then the worm version): the hall, props, lights
+and music; 20 bots arrive and dance; the student is rooted or slowed as set and back to normal
+after; DoorDash on the snack table; the teacher arrives on the stage and stands at the booth.
+
+Worm version, self-test `dist\autotest\dance_student` (run 3): 21 dancers (20 bots and the
+student) doing the class dance at once; the student shuffles at 0.6 speed; the worm creeps at
+0.3, shows from behind, and paid 0 -> 3 mischief in about 13 s; Q put him back on his feet at
+0.6. Pictures 17 to 19: face down on the dance floor, chest up, arms pushing. The card and the
+hint line show the keys. Not yet seen: the worm by a teacher-caught student, and it played by
+Gabriel himself.

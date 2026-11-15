@@ -1,8 +1,21 @@
 # What to do next
 
-Written 2026-11-15, updated the same evening on the second PC. The mod is at version 0.12.0:
-built, installed and self-tested there; committed but NOT pushed yet. Details are in
-`PROGRESS.md`, section "Bots in the pool and a new swimming move".
+Written 2026-11-15, updated the same evening on the second PC. The mod is at version 0.13.0:
+built, installed and self-tested there. Details are in `PROGRESS.md`, sections "Bots in the
+pool and a new swimming move" and "Dance class".
+
+## 0. Dance class (new in 0.13.0)
+
+Done and seen in the self-test: the dance hall with the six Meshy props, lights and the game's
+own party song; everyone always dances (Q, the chicken dance, shuffling slowly); the worm (J)
+pays mischief while a student keeps it up; bots always dance; DoorDash on the snack table; the
+teacher at the DJ booth.
+
+Waiting for Gabriel:
+
+- [ ] Play a dance class and say how it feels: the chicken dance, the worm, and whether the
+      worm's mischief (+1 every 5 s, F6 "Worm pays" / "Worm every") is balanced.
+- [ ] Ideas if he wants more: bots that do the worm now and then, the music as a choice in F6.
 
 ## 1. Swim class
 
@@ -40,8 +53,7 @@ Then look at the sheets in `dist\autotest\student\` or `dist\autotest\teacher1\`
 
 ## 3. After the swim class
 
-- [ ] **Dance class** (idea 9): a hall with a dance floor; two students close together who both
-      dance earn mischief; a goofy dance, not a twerk emote.
+- [x] **Dance class** (idea 9): built in 0.13.0, see section 0.
 - [ ] **Pack 4, events:** coffee mug, snitch, hamster, food fight, random events, points shop,
       principal.
 - [ ] **Toilet idea** (idea 10).
