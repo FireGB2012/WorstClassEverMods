@@ -657,3 +657,32 @@ How it plays now:
   early in the solo test. The self-test now pees right after the class starts (before
   DoorDash, whose food also pays mischief) and takes a picture of the F6 window
   (`29_owner_window`).
+
+## Dance class (asked for 2026-11-15, IN PROGRESS: props made, code not written yet)
+
+Gabriel: "make dance class, ask me questions if needed". His answers:
+- Mischief: "2 people dance together at all times, you need to twerk dance to get mischief".
+  The twerk was declined again (the students are kids; same call as on the first PC), so: two
+  dancers right next to each other earn mischief, only while both keep dancing.
+- Dances: one silly dance (planned: a chicken dance made in code on the game's skeleton,
+  like the swim crawl in `SwimPose.cs`: flapping elbows, pecking head, bouncing knees, sway).
+- Props: 6 from Meshy, 126 credits (approved, made, 165 left): disco ball, speaker, DJ booth,
+  stage, boombox, snack table. Converted to `package/models/dance_*.cpm` (stage about 0.6 m
+  high, front with the steps; disco ball hangs from (0, 0, 0)). Pictures:
+  `meshy/pictures/dance_models.png` (shown to him). Tasks in `meshy/tasks.md`.
+- Music: the game's own. `AudioManager.PlayBGM(AudioEvents.bgm_Hajimi1)` (also `bgm_Hajimi2`),
+  `StopBGM(FMOD.Studio.STOP_MODE)`, and the field `currentBGMPath` to put the old music back.
+
+Planned (not built yet), modelled on `Swim.cs` in a new `Dance.cs`:
+- `nextClass` 2 = "Dance class" in the F6 window (`Swim.ClassNames`); a hall 24 x 18 m built
+  far away at the bell, players teleported in, bots brought on a NavMeshSurface like the pool.
+- J (`danceKey`) starts and stops dancing; a dancer can't walk (speedFac 0), so the teacher
+  can catch them. Host pays `dancePoints` (1) every `danceSeconds` (6) to a dancing student
+  with another dancer (student or dancing bot) within 1.6 m; the timer resets when the pair
+  breaks. Net kinds planned: DanceHall 75, DanceAsk 76, Dancing 77.
+- Bots that stand still on the dance floor dance; a `TryGetDestination` postfix sends bots to
+  dancers who dance alone, so a solo student gets a partner.
+- Teacher stamina at the DJ booth; DoorDash food on the snack table; how-to cards `dance` and
+  `danceteacher`; SelfView from behind while dancing; hats follow the dance (Looks.LateTick).
+- Self-test: `selftest.ps1 -Class dance` (not written yet).
+- Only code change so far: `Swim.Feet` is now internal, for the dance class to use.

@@ -1014,7 +1014,7 @@ namespace ClassPack
         // ------------------------------------------------------------------------- where things are
 
         /// <summary>The lowest point of a player, whatever point of its body the game counts as its place.</summary>
-        private static Vector3 Feet(Unit unit)
+        internal static Vector3 Feet(Unit unit)
         {
             Vector3 at = unit.Position;
             float drop;
