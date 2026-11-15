@@ -371,7 +371,9 @@ namespace ClassPack
                 {
                     continue;
                 }
-                Vector3 chest = unit.Position + Vector3.up * 0.5f;
+                // The head: a student sitting at a desk is hidden behind it from the chest down.
+                Transform neck = unit.GetPartRoot(EUnitPartType.HeadPosition);
+                Vector3 chest = (neck != null ? neck.position : unit.Position + Vector3.up * 0.76f) + Vector3.up * 0.1f;
                 float along = Vector3.Dot(chest - from, direction);
                 if (along < 0.5f || along > ThrowReach)
                 {
