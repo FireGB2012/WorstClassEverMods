@@ -13,20 +13,25 @@ namespace ClassPack
     /// player who runs the mod there, with the bots. The game's own music changes to one of
     /// its party songs.
     ///
-    ///   Students  press the dance key to dance (and again to stop). A dancer can't walk. Two
-    ///             dancers right next to each other (a classmate or a dancing bot) earn
-    ///             mischief every few seconds, only while both keep dancing.
-    ///   Teacher   catches dancers as usual; the DJ booth on the stage fills stamina, since
-    ///             there is no blackboard.
-    ///   Bots      dance when they stand still on the dance floor, and walk over to anyone who
-    ///             dances alone, so a student always finds a partner.
+    ///   Students  always dance. The class dance (a silly chicken dance, Q) lets them shuffle
+    ///             around slowly. The naughty dance is the worm (J): down on the floor,
+    ///             wiggling, mischief every few seconds while they keep at it, but they can only
+    ///             creep along, so the teacher can catch them at it. Q gets them back up.
+    ///   Teacher   doesn't have to dance (Q dances for fun), catches as usual; the DJ booth on
+    ///             the stage fills stamina, since there is no blackboard.
+    ///   Bots      always do the class dance, and mostly hang around on the dance floor.
     ///
-    /// The dance itself is a silly chicken dance made in code (SwimPose). All distances below
-    /// are in the hall's own frame: x along the hall, z across it, and y = 0 at the floor.
+    /// The moves are made in code on the game's skeleton (SwimPose). All distances below are
+    /// in the hall's own frame: x along the hall, z across it, and y = 0 at the floor.
     /// </summary>
     internal static class Dance
     {
         public const int DanceClass = 2;
+
+        /// <summary>What a character dances: nothing, the class dance or the worm.</summary>
+        public const int None = 0;
+        public const int ClassDance = 1;
+        public const int Worm = 2;
 
         private const float HalfLength = 12f;
         private const float HalfWidth = 9f;
@@ -50,9 +55,11 @@ namespace ClassPack
         private const float SnackTop = 0.5f;
         private static readonly float[] PoleX = { -4f, 0f, 4f, 8f };
         private const float PoleZ = -HalfWidth + 1.4f;
-        /// <summary>How close two dancers have to be to count as dancing together.</summary>
-        private const float DanceReach = 1.6f;
+        /// <summary>The share of the bots' picks that is moved onto the dance floor.</summary>
         private const float BotShare = 0.7f;
+        /// <summary>How fast one can move while doing the class dance, and the worm.</summary>
+        private const float ShuffleSpeed = 0.6f;
+        private const float WormSpeed = 0.3f;
 
         private static readonly AudioEvents[] Songs = { AudioEvents.bgm_Hajimi1, AudioEvents.bgm_Hajimi2 };
 
@@ -68,15 +75,16 @@ namespace ClassPack
         private static bool _hadMusic;
         private static float _nextMusicCheckAt;
         private static bool _slowed;
-        private static float _nextToggleAt;
+        private static float _nextKeyAt;
         private static float _nextBoothAt;
         private static bool _atBooth;
-        private static float _togetherShown;
+        private static float _wormShown;
         private static Transform _ball;
         private static readonly List<Object> Made = new List<Object>();
         private static readonly List<Material> TilePaint = new List<Material>();
         private static readonly List<Light> PartyLights = new List<Light>();
-        private static readonly HashSet<ulong> Dancers = new HashSet<ulong>();
+        /// <summary>Who dances what, as the host said (players and bots alike).</summary>
+        private static readonly Dictionary<ulong, int> Kinds = new Dictionary<ulong, int>();
 
         private static readonly Color[] Palette =
         {
@@ -85,17 +93,10 @@ namespace ClassPack
         };
 
         // ---- what the host keeps
-        private sealed class Dancer
+        private sealed class Wormer
         {
-            public float Together;
+            public float Time;
             public bool Told;
-        }
-
-        private sealed class BotState
-        {
-            public Vector3 Last;
-            public float StillFor;
-            public float DanceUntil;
         }
 
         private static bool _hostOn;
@@ -108,18 +109,11 @@ namespace ClassPack
         private static float _nextBotsAt;
         private static readonly List<ulong> HostPoles = new List<ulong>();
         private static readonly HashSet<ulong> HostBots = new HashSet<ulong>();
-        private static readonly Dictionary<ulong, Dancer> HostDancers = new Dictionary<ulong, Dancer>();
-        private static readonly Dictionary<ulong, BotState> BotStates = new Dictionary<ulong, BotState>();
-        private static readonly Dictionary<ulong, float> Claimed = new Dictionary<ulong, float>();
-        /// <summary>Bots on their way to dance with a player who danced alone: bot's walker, player.</summary>
-        private static readonly Dictionary<NavMeshAgent, ulong> Recruits = new Dictionary<NavMeshAgent, ulong>();
-        /// <summary>When each player who dances alone last had a bot sent over.</summary>
-        private static readonly Dictionary<ulong, float> RecruitedAt = new Dictionary<ulong, float>();
+        private static readonly Dictionary<ulong, Wormer> Wormers = new Dictionary<ulong, Wormer>();
         private static NavMeshSurface _nav;
         private static PlaygroundNavigationArea _navArea;
         private static bool _navTried;
         private static bool _loggedPick;
-        private static bool _loggedRecruit;
 
         /// <summary>True while this player's game shows the dance hall.</summary>
         public static bool Active => _on;
@@ -127,25 +121,36 @@ namespace ClassPack
         /// <summary>Where the hall stands in the world: the middle of its floor.</summary>
         public static Vector3 Origin => _origin;
 
-        /// <summary>True while this character dances (players and bots alike, as the host said).</summary>
-        public static bool IsDancing(Unit unit)
+        /// <summary>What this character dances right now (None, ClassDance or Worm).</summary>
+        public static int Kind(Unit unit)
         {
-            return _on && unit != null && Dancers.Contains(unit.UID);
+            int kind;
+            return _on && unit != null && Kinds.TryGetValue(unit.UID, out kind) ? kind : None;
         }
 
-        /// <summary>For the self-test: how many bots dance right now, and how many were brought.</summary>
+        public static bool IsDancing(Unit unit)
+        {
+            return Kind(unit) != None;
+        }
+
+        /// <summary>For the self-test: how the host's side of things stands.</summary>
         public static string TestState()
         {
             int dancing = 0;
-            foreach (ulong uid in HostBots)
+            int worming = 0;
+            foreach (KeyValuePair<ulong, int> pair in Kinds)
             {
-                if (Dancers.Contains(uid))
+                if (pair.Value == ClassDance)
                 {
                     dancing++;
                 }
+                else if (pair.Value == Worm)
+                {
+                    worming++;
+                }
             }
-            return "host class on " + _hostOn + ", bots brought " + HostBots.Count + ", bots dancing " + dancing
-                + ", players dancing " + HostDancers.Count + ", walkable area " + (_navArea != null ? "ready" : _navTried ? "FAILED" : "not asked for yet")
+            return "host class on " + _hostOn + ", bots brought " + HostBots.Count + ", doing the class dance " + dancing
+                + ", doing the worm " + worming + ", walkable area " + (_navArea != null ? "ready" : _navTried ? "FAILED" : "not asked for yet")
                 + ", poles " + HostPoles.Count;
         }
 
@@ -168,10 +173,7 @@ namespace ClassPack
                 _bringAt = 0f;
                 HostPoles.Clear();
                 HostBots.Clear();
-                HostDancers.Clear();
-                BotStates.Clear();
-                Recruits.Clear();
-                RecruitedAt.Clear();
+                Wormers.Clear();
                 if (_on || _hall != null)
                 {
                     Take();
@@ -239,7 +241,6 @@ namespace ClassPack
             {
                 _nextBotsAt = Time.time + 0.3f;
                 BringBots();
-                TickBots(0.3f);
             }
             if (Time.time >= _nextRulesAt)
             {
@@ -261,11 +262,7 @@ namespace ClassPack
             _hostOrigin = FindSpot(centre);
             _hostOn = true;
             HostBots.Clear();
-            HostDancers.Clear();
-            BotStates.Clear();
-            Claimed.Clear();
-            Recruits.Clear();
-            RecruitedAt.Clear();
+            Wormers.Clear();
             _song = (_song + 1) % Songs.Length;
             Net.SendToModded(new CpTell { kind = CpKind.DanceHall, j = 1, i = _song, v = _hostOrigin });
             SpawnPoles(units, centre);
@@ -360,11 +357,7 @@ namespace ClassPack
             _hostOn = false;
             _bringAt = 0f;
             HostBots.Clear();
-            HostDancers.Clear();
-            BotStates.Clear();
-            Claimed.Clear();
-            Recruits.Clear();
-            RecruitedAt.Clear();
+            Wormers.Clear();
             RemovePoles();
             Net.SendToModded(new CpTell { kind = CpKind.DanceHall, j = 0 });
             Plugin.Log("dance: class over, the dance hall is taken away");
@@ -396,8 +389,7 @@ namespace ClassPack
                     without++;
                     continue;
                 }
-                Vector3 p = player.Position - _hostOrigin;
-                if (Mathf.Abs(p.x) < HalfLength + 1f && Mathf.Abs(p.z) < HalfWidth + 1f && p.y > -3f && p.y < Height + 1f)
+                if (InHall(player.Position - _hostOrigin))
                 {
                     continue;
                 }
@@ -442,9 +434,9 @@ namespace ClassPack
         }
 
         /// <summary>
-        /// Host: mischief for dancing together. A dancing student with another dancer within
-        /// reach (a classmate or a dancing bot) earns the owner's dance mischief every few
-        /// seconds; the count starts again as soon as the pair breaks up.
+        /// Host, every half second: every student in the hall dances (the class dance unless
+        /// they do the worm), nobody dances while caught, and the worm pays the owner's dance
+        /// mischief every few seconds while a student keeps at it.
         /// </summary>
         private static void HostRules(ClassroomManager classroom, float dt)
         {
@@ -456,92 +448,87 @@ namespace ClassPack
             bool classing = classroom.curState == EClassroomState.Classing;
             float every = Mathf.Clamp(Plugin.Settings.danceSeconds, 2f, 60f);
             float points = Mathf.Clamp(Plugin.Settings.dancePoints, 0f, 20f);
-            var stop = new List<ulong>();
-            foreach (KeyValuePair<ulong, Dancer> pair in HostDancers)
+            foreach (Unit player in new List<Unit>(units.playerList))
             {
-                Unit player = units.GetUnitByUID(pair.Key);
-                if (player == null || !player.isActived || player.transform == null)
+                if (player == null || !player.isPlayer || !player.isActived || player.transform == null)
                 {
-                    stop.Add(pair.Key);
                     continue;
                 }
                 int state = player.CurState();
-                Vector3 feet = Swim.Feet(player) - _hostOrigin;
-                if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished || player.IsSitting || !InHall(feet))
+                bool free = state != (int)EUnitFsmStateType.StudentBeCatched && state != (int)EUnitFsmStateType.StudentPunished && !player.IsSitting;
+                bool inside = InHall(Swim.Feet(player) - _hostOrigin);
+                int kind = KindOf(player.UID);
+                if (!free || !inside)
                 {
-                    stop.Add(pair.Key);
+                    SetKind(player.UID, None);
                     continue;
                 }
-                if (!classing || !player.IsStudent)
+                if (!player.IsStudent)
                 {
                     continue;
                 }
-                Dancer dancer = pair.Value;
-                if (HasPartner(units, player))
+                // Everyone has to dance.
+                if (kind == None)
                 {
-                    dancer.Together += dt;
-                    if (dancer.Together >= every)
+                    SetKind(player.UID, ClassDance);
+                    continue;
+                }
+                if (kind != Worm || !classing)
+                {
+                    Wormers.Remove(player.UID);
+                    continue;
+                }
+                Wormer wormer;
+                if (!Wormers.TryGetValue(player.UID, out wormer))
+                {
+                    wormer = new Wormer();
+                    Wormers[player.UID] = wormer;
+                }
+                wormer.Time += dt;
+                if (wormer.Time >= every)
+                {
+                    wormer.Time -= every;
+                    classroom.AddTrickCount(player.UID, points);
+                    if (!wormer.Told)
                     {
-                        dancer.Together -= every;
-                        classroom.AddTrickCount(player.UID, points);
-                        if (!dancer.Told)
-                        {
-                            dancer.Told = true;
-                            Net.Toast(player, "Dancing together! +" + Mathf.RoundToInt(points) + " mischief every " + Mathf.RoundToInt(every)
-                                + " seconds while you both keep dancing", 4f);
-                        }
+                        wormer.Told = true;
+                        Net.Toast(player, "The worm! +" + Mathf.RoundToInt(points) + " mischief every " + Mathf.RoundToInt(every)
+                            + " seconds while you keep it up", 4f);
                     }
                 }
-                else
-                {
-                    dancer.Together = 0f;
-                }
             }
-            foreach (ulong uid in stop)
+            // Bots do the class dance the whole time.
+            foreach (ulong uid in HostBots)
             {
-                SetDancing(uid, false);
-            }
-        }
-
-        /// <summary>True when another dancer is close enough to this one to count as dancing together.</summary>
-        private static bool HasPartner(UnitManager units, Unit dancer)
-        {
-            foreach (ulong uid in Dancers)
-            {
-                if (uid == dancer.UID)
+                Unit bot = units.GetUnitByUID(uid);
+                if (bot == null || !bot.isActived || bot.transform == null)
                 {
                     continue;
                 }
-                Unit other = units.GetUnitByUID(uid);
-                if (other != null && other.isActived && other.transform != null
-                    && Tricks.Flat(other.Position - dancer.Position).magnitude < DanceReach && Mathf.Abs(other.Position.y - dancer.Position.y) < 1f)
-                {
-                    return true;
-                }
+                int state = bot.CurState();
+                bool free = state != (int)EUnitFsmStateType.StudentBeCatched && state != (int)EUnitFsmStateType.StudentPunished && !bot.IsSitting;
+                SetKind(uid, free && InHall(bot.Position - _hostOrigin) ? ClassDance : None);
             }
-            return false;
         }
 
-        /// <summary>Host: starts or stops a character's dance and tells every modded player.</summary>
-        private static void SetDancing(ulong uid, bool dancing)
+        private static int KindOf(ulong uid)
         {
-            if (dancing)
+            int kind;
+            return Kinds.TryGetValue(uid, out kind) ? kind : None;
+        }
+
+        /// <summary>Host: sets what a character dances and tells every modded player.</summary>
+        private static void SetKind(ulong uid, int kind)
+        {
+            if (kind != Worm)
             {
-                Unit unit = Game.Peek<UnitManager>()?.GetUnitByUID(uid);
-                if (unit != null && unit.isPlayer && !HostDancers.ContainsKey(uid))
-                {
-                    HostDancers[uid] = new Dancer();
-                }
+                Wormers.Remove(uid);
             }
-            else
-            {
-                HostDancers.Remove(uid);
-            }
-            if (Dancers.Contains(uid) == dancing)
+            if (KindOf(uid) == kind)
             {
                 return;
             }
-            Net.SendToModded(new CpTell { kind = CpKind.Dancing, a = uid, i = dancing ? 1 : 0 });
+            Net.SendToModded(new CpTell { kind = CpKind.Dancing, a = uid, i = kind });
         }
 
         public static void OnAsk(Unit player, CpAsk ask)
@@ -550,21 +537,26 @@ namespace ClassPack
             {
                 return;
             }
-            if (ask.i == 0)
-            {
-                SetDancing(player.UID, false);
-                return;
-            }
             int state = player.CurState();
-            Vector3 feet = Swim.Feet(player) - _hostOrigin;
-            if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished || player.IsSitting || !InHall(feet))
+            if (state == (int)EUnitFsmStateType.StudentBeCatched || state == (int)EUnitFsmStateType.StudentPunished || player.IsSitting
+                || !InHall(Swim.Feet(player) - _hostOrigin))
             {
                 return;
             }
-            SetDancing(player.UID, true);
+            int kind = Mathf.Clamp(ask.i, None, Worm);
+            if (player.IsStudent)
+            {
+                // A student always dances: the class dance or the worm.
+                SetKind(player.UID, kind == Worm ? Worm : ClassDance);
+            }
+            else
+            {
+                // The teacher may dance for fun, and stop again.
+                SetKind(player.UID, KindOf(player.UID) == ClassDance ? None : ClassDance);
+            }
         }
 
-        /// <summary>A player's game joined the room while a dance class runs: show them the hall and who dances.</summary>
+        /// <summary>A player's game joined the room while a dance class runs: show them the hall and who dances what.</summary>
         public static void OnPeerJoined(NetworkConnectionToClient connection)
         {
             if (!_hostOn)
@@ -572,20 +564,15 @@ namespace ClassPack
                 return;
             }
             Net.SendTo(connection, new CpTell { kind = CpKind.DanceHall, j = 1, i = _song, v = _hostOrigin });
-            foreach (ulong uid in Dancers)
+            foreach (KeyValuePair<ulong, int> pair in Kinds)
             {
-                Net.SendTo(connection, new CpTell { kind = CpKind.Dancing, a = uid, i = 1 });
+                Net.SendTo(connection, new CpTell { kind = CpKind.Dancing, a = pair.Key, i = pair.Value });
             }
         }
 
         private static bool InHall(Vector3 local)
         {
             return Mathf.Abs(local.x) < HalfLength && Mathf.Abs(local.z) < HalfWidth && local.y > -1f && local.y < Height;
-        }
-
-        private static bool OnDanceFloor(Vector3 local)
-        {
-            return Mathf.Abs(local.x - FloorMiddle.x) < FloorHalf && Mathf.Abs(local.z - FloorMiddle.z) < FloorHalf && Mathf.Abs(local.y) < 0.5f;
         }
 
         // ------------------------------------------------------------------------- bots
@@ -703,224 +690,19 @@ namespace ClassPack
         }
 
         /// <summary>
-        /// Host: a bot that stands still on the dance floor dances until it walks on (the game
-        /// lets bots wait a few seconds wherever they arrive).
-        /// </summary>
-        private static void TickBots(float dt)
-        {
-            UnitManager units = Game.Peek<UnitManager>();
-            if (units == null)
-            {
-                return;
-            }
-            foreach (ulong uid in HostBots)
-            {
-                Unit bot = units.GetUnitByUID(uid);
-                if (bot == null || !bot.isActived || bot.transform == null)
-                {
-                    continue;
-                }
-                BotState state;
-                if (!BotStates.TryGetValue(uid, out state))
-                {
-                    state = new BotState { Last = bot.Position };
-                    BotStates[uid] = state;
-                }
-                Vector3 at = bot.Position - _hostOrigin;
-                float moved = Tricks.Flat(bot.Position - state.Last).magnitude;
-                state.Last = bot.Position;
-                bool withPlayer = NextToDancingPlayer(units, bot);
-                bool dancing = Dancers.Contains(uid);
-                if (dancing)
-                {
-                    if (withPlayer)
-                    {
-                        // A player's dance partner stays as long as the player keeps dancing.
-                        Hold(bot);
-                        state.DanceUntil = Mathf.Max(state.DanceUntil, Time.time + 3f);
-                    }
-                    if (moved > 0.12f || !(OnDanceFloor(at) || withPlayer) || Time.time > state.DanceUntil)
-                    {
-                        SetDancing(uid, false);
-                        state.StillFor = 0f;
-                    }
-                    continue;
-                }
-                state.StillFor = moved < 0.06f ? state.StillFor + dt : 0f;
-                if (state.StillFor > 0.5f && (OnDanceFloor(at) || withPlayer))
-                {
-                    state.DanceUntil = Time.time + 25f;
-                    SetDancing(uid, true);
-                }
-            }
-            RecruitPartners(units);
-        }
-
-        /// <summary>True when a dancing player is close enough to this bot to dance with it.</summary>
-        private static bool NextToDancingPlayer(UnitManager units, Unit bot)
-        {
-            foreach (ulong uid in HostDancers.Keys)
-            {
-                Unit player = units.GetUnitByUID(uid);
-                if (player != null && player.isActived && player.transform != null
-                    && Tricks.Flat(player.Position - bot.Position).magnitude < DanceReach && Mathf.Abs(player.Position.y - bot.Position.y) < 1f)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>Keeps a bot where it stands a little longer: the game lets it wait before it walks on.</summary>
-        private static void Hold(Unit bot)
-        {
-            StudentNPCComponent npc = bot.GetComponent<StudentNPCComponent>();
-            if (npc == null)
-            {
-                return;
-            }
-            Traverse wait = Traverse.Create(npc).Field("playgroundWaitUntil");
-            if (wait.FieldExists() && wait.GetValue<float>() < Time.time + 1.5f)
-            {
-                wait.SetValue(Time.time + 1.5f);
-            }
-        }
-
-        /// <summary>
-        /// Host: a student who dances alone gets a partner. The nearest bot that isn't busy
-        /// dancing with someone is told to pick a new spot now (SteerBot then sends it to the
-        /// student), and is asked again if it hasn't got there after a while.
-        /// </summary>
-        private static void RecruitPartners(UnitManager units)
-        {
-            foreach (ulong playerUid in HostDancers.Keys)
-            {
-                Unit player = units.GetUnitByUID(playerUid);
-                if (player == null || !player.isActived || !player.IsStudent || player.transform == null || HasPartner(units, player))
-                {
-                    continue;
-                }
-                float at;
-                if (RecruitedAt.TryGetValue(playerUid, out at) && Time.time < at + 9f)
-                {
-                    continue;
-                }
-                Unit best = null;
-                NavMeshAgent bestAgent = null;
-                float nearest = 14f;
-                foreach (ulong uid in HostBots)
-                {
-                    Unit bot = units.GetUnitByUID(uid);
-                    NavMeshAgent agent = bot != null && bot.model != null ? bot.model.GetComponent<NavMeshAgent>() : null;
-                    if (agent == null || !bot.isActived || Recruits.ContainsKey(agent) || (Dancers.Contains(uid) && HasPartner(units, bot)))
-                    {
-                        continue;
-                    }
-                    float distance = Tricks.Flat(bot.Position - player.Position).magnitude;
-                    if (distance < nearest)
-                    {
-                        nearest = distance;
-                        best = bot;
-                        bestAgent = agent;
-                    }
-                }
-                if (best == null)
-                {
-                    continue;
-                }
-                StudentNPCComponent npc = best.GetComponent<StudentNPCComponent>();
-                if (npc == null)
-                {
-                    continue;
-                }
-                RecruitedAt[playerUid] = Time.time;
-                Recruits[bestAgent] = playerUid;
-                Claimed.Remove(playerUid);
-                // Drop what it was doing: with no spot to go to and no wait, it picks a new
-                // spot on its next update, and SteerBot makes that the spot next to the player.
-                Traverse.Create(npc).Field("hasDestination").SetValue(false);
-                Traverse.Create(npc).Field("playgroundWaitUntil").SetValue(0f);
-                if (Dancers.Contains(best.UID))
-                {
-                    SetDancing(best.UID, false);
-                }
-                if (!_loggedRecruit)
-                {
-                    _loggedRecruit = true;
-                    Plugin.Log("dance: a bot " + nearest.ToString("F1") + " m away was sent to dance with a student who danced alone");
-                }
-            }
-        }
-
-        /// <summary>
         /// Host, called from the game's own bot code with the spot a roaming bot picked to walk to
-        /// next (see PoolBotDestinations). Most picks are moved onto the dance floor: next to
-        /// someone who dances alone if there is one, so dancers find partners, or else anywhere
-        /// on it.
+        /// next (see PoolBotDestinations): most picks are moved onto the dance floor.
         /// </summary>
         public static void SteerBot(PlaygroundNavigationArea area, NavMeshAgent agent, NavMeshPath path, ref Vector3 destination)
         {
-            if (area == null || area != _navArea || !_hostOn || agent == null || path == null)
+            if (area == null || area != _navArea || !_hostOn || agent == null || path == null || Random.value > BotShare)
             {
                 return;
-            }
-            UnitManager units = Game.Peek<UnitManager>();
-            if (units == null)
-            {
-                return;
-            }
-            // A bot sent to dance with a particular student (RecruitPartners) goes to that student.
-            Unit lonely = null;
-            ulong recruitedFor;
-            if (Recruits.TryGetValue(agent, out recruitedFor))
-            {
-                Recruits.Remove(agent);
-                Unit player = units.GetUnitByUID(recruitedFor);
-                if (player != null && player.isActived && player.transform != null && Dancers.Contains(recruitedFor))
-                {
-                    lonely = player;
-                }
-            }
-            if (lonely == null && Random.value > BotShare)
-            {
-                return;
-            }
-            // Otherwise someone dancing alone who no bot is on its way to yet.
-            foreach (ulong uid in Dancers)
-            {
-                if (lonely != null)
-                {
-                    break;
-                }
-                float until;
-                if (Claimed.TryGetValue(uid, out until) && Time.time < until)
-                {
-                    continue;
-                }
-                Unit dancer = units.GetUnitByUID(uid);
-                if (dancer != null && dancer.isActived && dancer.transform != null && dancer.model != null && dancer.model.transform != agent.transform
-                    && OnDanceFloor(dancer.Position - _hostOrigin) && !HasPartner(units, dancer))
-                {
-                    lonely = dancer;
-                    if (dancer.isPlayer)
-                    {
-                        break;
-                    }
-                }
             }
             var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
             for (int tries = 0; tries < 6; tries++)
             {
-                Vector3 want;
-                if (lonely != null)
-                {
-                    float turn = Random.Range(0f, Mathf.PI * 2f);
-                    want = lonely.Position + new Vector3(Mathf.Cos(turn), 0f, Mathf.Sin(turn)) * 0.9f;
-                }
-                else
-                {
-                    want = _hostOrigin + FloorMiddle + new Vector3(Random.Range(-FloorHalf + 0.6f, FloorHalf - 0.6f), 0f, Random.Range(-FloorHalf + 0.6f, FloorHalf - 0.6f));
-                }
+                Vector3 want = _hostOrigin + FloorMiddle + new Vector3(Random.Range(-FloorHalf + 0.6f, FloorHalf - 0.6f), 0f, Random.Range(-FloorHalf + 0.6f, FloorHalf - 0.6f));
                 NavMeshHit hit;
                 if (!NavMesh.SamplePosition(want, out hit, 0.5f, filter) || (agent.transform.position - hit.position).sqrMagnitude < 1f)
                 {
@@ -929,10 +711,6 @@ namespace ClassPack
                 if (agent.CalculatePath(hit.position, path) && path.status == NavMeshPathStatus.PathComplete)
                 {
                     destination = hit.position;
-                    if (lonely != null)
-                    {
-                        Claimed[lonely.UID] = Time.time + 8f;
-                    }
                     if (!_loggedPick)
                     {
                         _loggedPick = true;
@@ -958,7 +736,7 @@ namespace ClassPack
                         _song = Mathf.Clamp(tell.i, 0, Songs.Length - 1);
                         _hideAt = 0f;
                         _overAt = 0f;
-                        Dancers.Clear();
+                        Kinds.Clear();
                         Build();
                         _on = _hall != null;
                         if (_on)
@@ -972,13 +750,13 @@ namespace ClassPack
                     }
                     break;
                 case CpKind.Dancing:
-                    if (tell.i == 1)
+                    if (tell.i == None)
                     {
-                        Dancers.Add(tell.a);
+                        Kinds.Remove(tell.a);
                     }
                     else
                     {
-                        Dancers.Remove(tell.a);
+                        Kinds[tell.a] = Mathf.Clamp(tell.i, ClassDance, Worm);
                     }
                     break;
             }
@@ -1021,15 +799,22 @@ namespace ClassPack
             int state = me.CurState();
             bool free = state != (int)EUnitFsmStateType.StudentBeCatched && state != (int)EUnitFsmStateType.StudentPunished;
             Vector3 feet = Swim.Feet(me) - _origin;
-            bool dancing = Dancers.Contains(me.UID);
-            // A dancer stays where they are: the teacher can catch them at it.
-            Slow(me, dancing && free ? 0f : 1f);
+            int kind = Kind(me);
+            // The class dance is a shuffle; the worm only creeps along.
+            Slow(me, !free ? 1f : kind == Worm ? WormSpeed : kind == ClassDance ? ShuffleSpeed : 1f);
 
-            if (Game.InClass && (me.IsStudent || me.IsTeacher) && free && InHall(feet) && !Game.IsTyping && !CursorGrab.Busy
-                && Input.GetKeyDown(Plugin.Settings.DanceKeyCode) && Time.time >= _nextToggleAt)
+            if (Game.InClass && (me.IsStudent || me.IsTeacher) && free && InHall(feet) && !Game.IsTyping && !CursorGrab.Busy && Time.time >= _nextKeyAt)
             {
-                _nextToggleAt = Time.time + 0.3f;
-                Net.SendToHost(new CpAsk { kind = CpKind.DanceAsk, i = dancing ? 0 : 1, v = me.Position });
+                if (Input.GetKeyDown(Plugin.Settings.DanceKeyCode))
+                {
+                    _nextKeyAt = Time.time + 0.25f;
+                    Net.SendToHost(new CpAsk { kind = CpKind.DanceAsk, i = ClassDance, v = me.Position });
+                }
+                else if (me.IsStudent && Input.GetKeyDown(Plugin.Settings.WormKeyCode))
+                {
+                    _nextKeyAt = Time.time + 0.25f;
+                    Net.SendToHost(new CpAsk { kind = CpKind.DanceAsk, i = kind == Worm ? ClassDance : Worm, v = me.Position });
+                }
             }
 
             _atBooth = me.IsTeacher && Tricks.Flat(feet - BoothSpot).magnitude < BoothReach && feet.y > StageTop - 0.3f;
@@ -1043,21 +828,20 @@ namespace ClassPack
                 }
             }
 
-            // How long this player has danced with someone, for the bar on screen (the host
-            // keeps the real count).
-            UnitManager units = Game.Peek<UnitManager>();
-            if (dancing && me.IsStudent && units != null && HasPartner(units, me))
+            // How long this student has done the worm, for the bar on screen (the host keeps
+            // the real count, which only runs in class).
+            if (kind == Worm && me.IsStudent && classroom.curState == EClassroomState.Classing)
             {
-                _togetherShown += Time.deltaTime;
                 float every = Mathf.Clamp(Plugin.Settings.danceSeconds, 2f, 60f);
-                if (_togetherShown >= every)
+                _wormShown += Time.deltaTime;
+                if (_wormShown >= every)
                 {
-                    _togetherShown -= every;
+                    _wormShown -= every;
                 }
             }
             else
             {
-                _togetherShown = 0f;
+                _wormShown = 0f;
             }
         }
 
@@ -1382,8 +1166,8 @@ namespace ClassPack
             _hideAt = 0f;
             _overAt = 0f;
             _atBooth = false;
-            _togetherShown = 0f;
-            Dancers.Clear();
+            _wormShown = 0f;
+            Kinds.Clear();
             TilePaint.Clear();
             PartyLights.Clear();
             _ball = null;
@@ -1407,7 +1191,7 @@ namespace ClassPack
 
         // ------------------------------------------------------------------------- on screen
 
-        /// <summary>Draws the dance-together bar. Returns the hint line.</summary>
+        /// <summary>Draws the worm's mischief bar. Returns the hint line.</summary>
         public static string DrawHud(float width, float height)
         {
             Unit me = Game.LocalPlayer;
@@ -1415,9 +1199,10 @@ namespace ClassPack
             {
                 return null;
             }
-            KeyCode key = Plugin.Settings.DanceKeyCode;
-            bool dancing = Dancers.Contains(me.UID);
-            if (me.IsStudent && dancing && _togetherShown > 0f)
+            KeyCode dance = Plugin.Settings.DanceKeyCode;
+            KeyCode worm = Plugin.Settings.WormKeyCode;
+            int kind = Kind(me);
+            if (me.IsStudent && kind == Worm && _wormShown > 0f)
             {
                 Color old = GUI.color;
                 float every = Mathf.Clamp(Plugin.Settings.danceSeconds, 2f, 60f);
@@ -1425,20 +1210,18 @@ namespace ClassPack
                 GUI.color = new Color(0f, 0f, 0f, 0.5f);
                 GUI.DrawTexture(new Rect(bar.x - 2f, bar.y - 2f, bar.width + 4f, bar.height + 4f), Texture2D.whiteTexture);
                 GUI.color = new Color(1f, 0.35f, 0.75f, 0.95f);
-                GUI.DrawTexture(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(_togetherShown / every), bar.height), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(_wormShown / every), bar.height), Texture2D.whiteTexture);
                 GUI.color = old;
                 Skin.Ensure();
-                Skin.Outlined(new Rect(bar.x, bar.y - 24f, bar.width, 22f), "DANCING TOGETHER", Skin.Hint, Skin.White, Skin.Outline, 1.5f);
+                Skin.Outlined(new Rect(bar.x, bar.y - 24f, bar.width, 22f), "THE WORM", Skin.Hint, Skin.White, Skin.Outline, 1.5f);
             }
             if (me.IsStudent)
             {
-                if (dancing)
+                if (kind == Worm)
                 {
-                    return _togetherShown > 0f
-                        ? "Dancing together: keep it up!     [" + key + "] stop"
-                        : "Dancing alone: get right next to another dancer for mischief     [" + key + "] stop";
+                    return "The worm! Mischief while you keep it up     [" + dance + "] back to the class dance";
                 }
-                return "Dance class     [" + key + "] dance     dance right next to another dancer for mischief";
+                return "Dance class: everyone has to dance     [" + worm + "] the worm for mischief     [" + dance + "] class dance";
             }
             if (me.IsTeacher)
             {
@@ -1448,20 +1231,20 @@ namespace ClassPack
                 }
                 return Plugin.Settings.teachers && Looks.KindOf(me.UID) >= Looks.Gym && Looks.KindOf(me.UID) <= Looks.Janitor
                     ? null
-                    : "Dance class     catch the dancers     stand at the DJ booth for stamina";
+                    : "Dance class     catch the students doing the worm     stand at the DJ booth for stamina";
             }
             return null;
         }
 
         // ------------------------------------------------------------------------- self-test
 
-        /// <summary>Self-test: start or stop this player's dance without the key.</summary>
-        public static void TestDance(bool dance)
+        /// <summary>Self-test: ask for the class dance or the worm without the keys.</summary>
+        public static void TestDance(int kind)
         {
             Unit me = Game.LocalPlayer;
             if (me != null)
             {
-                Net.SendToHost(new CpAsk { kind = CpKind.DanceAsk, i = dance ? 1 : 0, v = me.Position });
+                Net.SendToHost(new CpAsk { kind = CpKind.DanceAsk, i = kind, v = me.Position });
             }
         }
 
@@ -1473,7 +1256,7 @@ namespace ClassPack
             {
                 return null;
             }
-            foreach (ulong uid in Dancers)
+            foreach (ulong uid in Kinds.Keys)
             {
                 Unit unit = units.GetUnitByUID(uid);
                 if (unit != null && unit.isActived && !unit.isPlayer && skip-- <= 0)

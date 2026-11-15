@@ -327,7 +327,7 @@ namespace ClassPack
             if (isHost && (dance || Dance.Active))
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Dancing pays", _label, GUILayout.Width(120f));
+                GUILayout.Label("Worm pays", _label, GUILayout.Width(120f));
                 float points = GUILayout.HorizontalSlider(Mathf.Clamp(settings.dancePoints, 1f, 5f), 1f, 5f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
                 points = Mathf.Round(points);
                 GUILayout.Space(12f);
@@ -339,7 +339,7 @@ namespace ClassPack
                     _lightChanged = true;
                 }
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Dance every", _label, GUILayout.Width(120f));
+                GUILayout.Label("Worm every", _label, GUILayout.Width(120f));
                 float every = GUILayout.HorizontalSlider(Mathf.Clamp(settings.danceSeconds, 3f, 15f), 3f, 15f, Skin.Track, Skin.Thumb, GUILayout.Width(190f));
                 every = Mathf.Round(every);
                 GUILayout.Space(12f);
@@ -351,7 +351,7 @@ namespace ClassPack
                     _lightChanged = true;
                 }
                 GUILayout.Space(6f);
-                GUILayout.Label("Two dancers right next to each other earn this, again and again while both keep dancing.", _note);
+                GUILayout.Label("Everyone has to dance. A student doing the worm earns this, again and again while they keep it up.", _note);
             }
         }
 

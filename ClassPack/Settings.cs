@@ -86,12 +86,13 @@ namespace ClassPack
         // how long a student has to wait before the next. The room owner's numbers count.
         public float peePoints = 4f;
         public float peeWaitSeconds = 30f;
-        // Dance class (nextClass 2): danceKey starts and stops a dance. Two dancers right next
-        // to each other earn dancePoints every danceSeconds while both keep dancing.
+        // Dance class (nextClass 2): everyone dances. danceKey is the class dance, wormKey the
+        // worm, which earns dancePoints every danceSeconds while a student keeps it up.
         public bool danceClass = true;
-        public string danceKey = "J";
+        public string danceKey = "Q";
+        public string wormKey = "J";
         public float dancePoints = 1f;
-        public float danceSeconds = 6f;
+        public float danceSeconds = 5f;
 
         // Raised when a number the player may have saved has to change once (see Load).
         public int rulesVersion = 0;
@@ -131,6 +132,15 @@ namespace ClassPack
                     // 2026-11-15: a DoorDash meal pays 5 mischief, not 15.
                     settings.doorDashPoints = 5f;
                     settings.rulesVersion = 1;
+                }
+                if (settings.rulesVersion < 2)
+                {
+                    // 2026-11-15: the dance class's keys became Q (class dance) and J (the worm),
+                    // and the worm pays every 5 seconds. A test build had saved J and 6.
+                    settings.danceKey = "Q";
+                    settings.wormKey = "J";
+                    settings.danceSeconds = 5f;
+                    settings.rulesVersion = 2;
                 }
                 if (settings.fitVersion < CurrentFit)
                 {
@@ -186,7 +196,9 @@ namespace ClassPack
 
         public KeyCode PeeKeyCode => ParseKey(peeKey, KeyCode.P);
 
-        public KeyCode DanceKeyCode => ParseKey(danceKey, KeyCode.J);
+        public KeyCode DanceKeyCode => ParseKey(danceKey, KeyCode.Q);
+
+        public KeyCode WormKeyCode => ParseKey(wormKey, KeyCode.J);
 
         private static KeyCode ParseKey(string name, KeyCode fallback)
         {

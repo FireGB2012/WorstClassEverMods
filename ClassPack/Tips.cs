@@ -101,22 +101,23 @@ namespace ClassPack
                         "A splash covers your screen with water for a few seconds"
                     };
                     return true;
-                case "dance":
+                case "dance2":
                     title = "DANCE CLASS: what you can do as a student";
                     lines = new[]
                     {
-                        Plugin.Settings.DanceKeyCode + "  starts your dance, and stops it again. You can't walk while you dance",
-                        "Dance right next to another dancer, a classmate or a bot, for mischief every few seconds",
-                        "It only counts while you both keep dancing",
-                        "Dance alone on the dance floor and a bot comes over to dance with you",
+                        "Everyone has to dance! You do the class dance all the time and can shuffle around slowly",
+                        Plugin.Settings.WormKeyCode + "  does the worm: down on the floor for mischief every few seconds, while you keep it up",
+                        "Doing the worm you only creep along, so the teacher can catch you at it",
+                        Plugin.Settings.DanceKeyCode + "  gets you back up to the class dance",
                         "DoorDash food lands on the snack table"
                     };
                     return true;
-                case "danceteacher":
+                case "danceteacher2":
                     title = "DANCE CLASS: what you can do as the teacher";
                     lines = new[]
                     {
-                        "Students dance in pairs for mischief. A dancer can't run away: catch them at it",
+                        "Everyone has to dance. Students doing the worm on the floor are making mischief: catch them!",
+                        Plugin.Settings.DanceKeyCode + "  lets you dance too, just for fun",
                         "The poles stand along the wall",
                         "There is no blackboard here: stand at the DJ booth on the stage and your stamina fills up",
                         "Students order DoorDash to the snack table"
@@ -145,7 +146,7 @@ namespace ClassPack
             }
             if (Dance.Active && (me.IsTeacher || me.IsStudent))
             {
-                return me.IsTeacher ? "danceteacher" : "dance";
+                return me.IsTeacher ? "danceteacher2" : "dance2";
             }
             if (Swim.Active && (me.IsTeacher || me.IsStudent))
             {

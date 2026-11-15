@@ -488,28 +488,34 @@ namespace ClassPack
                 Add(t += 1.2f, "bot dancing", () => ShotOfDancingBot("11_bot_dance_" + index, index));
             }
 
-            // This player dances on the floor: from the side, the front and through their eyes.
+            // This player on the floor: a student is made to dance by itself (the class dance);
+            // the teacher dances with the class dance key. From the side, the front and the eyes.
             Add(t += 1f, "to the floor", () => Put(Game.LocalPlayer, new Vector3(4.5f, 0.05f, 2.5f), 90f));
-            Add(t += 1.5f, "dance", () => Dance.TestDance(true));
+            if (me.IsTeacher)
+            {
+                Add(t += 0.5f, "dance", () => Dance.TestDance(Dance.ClassDance));
+            }
             Add(t += 1.5f, "side", () => ShotOfUnit("13_me_dancing_side", Game.LocalPlayer, 2.4f));
             Add(t += 0.35f, "side", () => ShotOfUnit("14_me_dancing_side2", Game.LocalPlayer, 2.4f));
             Add(t += 0.35f, "front", () => ShotOfUnit("15_me_dancing_front", Game.LocalPlayer, -2.4f));
             Add(t += 0.4f, "eyes", () => Screen("16_eyes_dancing"));
-            Add(t += 0.3f, "state", () => DescribeMe("dancing alone"));
+            Add(t += 0.3f, "state", () => DescribeMe("class dance (a student must dance)"));
 
             if (!me.IsTeacher)
             {
-                // A partner: bots walk over to anyone who dances alone. Mischief needs the class running.
-                Add(t += 1f, "wait for class", WaitForClass);
-                Add(t += 0.5f, "state", () => DescribeMe("in class, still dancing"));
-                Add(t += Plugin.Settings.danceSeconds * 2.5f, "partner", () =>
-                {
-                    ShotOfUnit("17_me_with_partner", Game.LocalPlayer, 3f);
-                    Note(Dance.TestState());
-                });
-                Add(t += 0.3f, "state", () => DescribeMe("after dancing with a partner (mischief should be up)"));
-                Add(t += 0.5f, "stop", () => Dance.TestDance(false));
-                Add(t += 1f, "state", () => DescribeMe("stopped dancing (speed factor back to normal)"));
+                // The worm: the naughty dance. Mischief needs the class running.
+                Add(t += 0.5f, "worm", () => Dance.TestDance(Dance.Worm));
+                Add(t += 1.5f, "side", () => ShotOfUnit("17_me_worm_side", Game.LocalPlayer, 2.4f));
+                Add(t += 0.4f, "side", () => ShotOfUnit("18_me_worm_side2", Game.LocalPlayer, 2.4f));
+                Add(t += 0.4f, "front", () => ShotOfUnit("19_me_worm_front", Game.LocalPlayer, -2.4f));
+                Add(t += 0.4f, "eyes", () => Screen("20_eyes_worm"));
+                Add(t += 0.3f, "state", () => DescribeMe("the worm, before class"));
+                Add(t += 0.5f, "wait for class", WaitForClass);
+                Add(t += 0.5f, "state", () => DescribeMe("the worm, class started"));
+                Add(t += Plugin.Settings.danceSeconds * 2.5f, "worm", () => Note(Dance.TestState()));
+                Add(t += 0.3f, "state", () => DescribeMe("after the worm (mischief should be up)"));
+                Add(t += 0.5f, "class dance", () => Dance.TestDance(Dance.ClassDance));
+                Add(t += 1f, "state", () => DescribeMe("back to the class dance"));
                 Add(t += 0.5f, "order", () =>
                 {
                     DoorDash.Order(0);
@@ -535,7 +541,7 @@ namespace ClassPack
             }
             else
             {
-                Add(t += 0.5f, "stop", () => Dance.TestDance(false));
+                Add(t += 0.5f, "stop", () => Dance.TestDance(Dance.ClassDance));
                 Add(t += 1f, "to the booth", () => Put(Game.LocalPlayer, new Vector3(-10.1f, 0.67f, 0.6f), 270f));
                 Add(t += 1.5f, "eyes", () => Screen("19_eyes_teacher_at_booth"));
                 Add(t += 0.5f, "state", () => DescribeMe("at the DJ booth"));

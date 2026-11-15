@@ -148,8 +148,8 @@ namespace ClassPack
                     continue;
                 }
                 bool swims = Swim.Swimming(unit) && !Looks.HasOwnBody(unit.UID);
-                bool dances = !swims && Dance.IsDancing(unit) && !Looks.HasOwnBody(unit.UID);
-                bool posed = swims || dances;
+                int dances = !swims && !Looks.HasOwnBody(unit.UID) ? Dance.Kind(unit) : Dance.None;
+                bool posed = swims || dances != Dance.None;
                 Rig rig;
                 if (!Rigs.TryGetValue(unit.UID, out rig) || rig.Model != unit.model.transform)
                 {
@@ -216,7 +216,7 @@ namespace ClassPack
             }
         }
 
-        private static void Apply(Unit unit, Rig rig, bool swims, bool dances, bool keepSpeed)
+        private static void Apply(Unit unit, Rig rig, bool swims, int dances, bool keepSpeed)
         {
             float dt = Time.deltaTime;
             Vector3 at = unit.Position;
@@ -226,11 +226,11 @@ namespace ClassPack
                 rig.Speed = Mathf.Lerp(rig.Speed, Mathf.Min(moved, 8f), 1f - Mathf.Exp(-dt * 6f));
             }
             rig.LastAt = at;
-            if (swims || dances)
+            if (swims || dances != Dance.None)
             {
-                rig.Mode = swims ? 1 : 2;
+                rig.Mode = swims ? 1 : dances == Dance.Worm ? 3 : 2;
             }
-            rig.Weight = Mathf.MoveTowards(rig.Weight, swims || dances ? 1f : 0f, dt / 0.3f);
+            rig.Weight = Mathf.MoveTowards(rig.Weight, swims || dances != Dance.None ? 1f : 0f, dt / 0.3f);
             if (rig.Weight <= 0f)
             {
                 if (rig.Swimming)
@@ -258,6 +258,13 @@ namespace ClassPack
             {
                 rig.Clock += dt;
                 ApplyDance(unit, rig, rig.Weight);
+                return;
+            }
+            if (rig.Mode == 3)
+            {
+                // The worm waves a little faster while it creeps along.
+                rig.Clock += dt * (rig.Speed > 0.15f ? 1.4f : 1f);
+                ApplyWorm(unit, rig, rig.Weight);
                 return;
             }
             // Two moves, eased into each other: the crawl while moving, treading water while still.
@@ -408,6 +415,71 @@ namespace ClassPack
                 Pose(leg.Upper, thigh.normalized, yaw, weight);
                 Pose(leg.Lower, shin.normalized, yaw, weight);
                 PlaceFlat(leg, weight, yaw);
+            }
+        }
+
+        /// <summary>Waves a second of the worm.</summary>
+        private const float WormWaves = 1.2f;
+
+        /// <summary>
+        /// The dance class's naughty dance, the worm: face down on the floor, a wave rolling
+        /// through the body from the feet to the head (the legs, then the hips, the chest and
+        /// the head come up in turn), elbows out with the hands down by the shoulders.
+        /// </summary>
+        private static void ApplyWorm(Unit unit, Rig rig, float weight)
+        {
+            Quaternion yaw = Quaternion.Euler(0f, unit.transform.eulerAngles.y, 0f);
+            Vector3 f = yaw * Vector3.forward;
+            Vector3 r = yaw * Vector3.right;
+            Vector3 u = Vector3.up;
+
+            rig.Top.localPosition = rig.TopHome;
+            foreach (Bone bone in rig.All)
+            {
+                bone.Anim = bone.T.rotation;
+            }
+
+            float t = rig.Clock * WormWaves * Mathf.PI * 2f;
+            float legs = Mathf.Sin(t + 1.2f);
+            float hipsUp = Mathf.Sin(t);
+            float chestUp = Mathf.Sin(t - 1.2f);
+            float headUp = Mathf.Sin(t - 2.4f);
+
+            // Down on the floor: the hips just over it, coming up a little as the wave passes.
+            float hipsY = unit.Position.y + rig.Torso * (0.38f + 0.3f * Mathf.Max(0f, hipsUp));
+            rig.Top.position += u * ((hipsY - rig.HipBone.position.y) * weight);
+            foreach (Limb limb in Ends(rig))
+            {
+                limb.AnimEndAt = limb.End.position;
+                limb.AnimEndTurn = limb.End.rotation;
+            }
+
+            Vector3 hips = (f + u * (0.45f * hipsUp)).normalized;
+            Vector3 chest = (f + u * (0.55f * chestUp)).normalized;
+            Pose(rig.Hips, hips, yaw, weight);
+            Pose(rig.Spine1, hips, yaw, weight);
+            Pose(rig.Spine2, chest, yaw, weight);
+            Pose(rig.Neck, (f + u * (0.7f + 0.5f * headUp)).normalized, yaw, weight);
+            Pose(rig.Head, (u + f * (0.55f - 0.3f * headUp)).normalized, yaw, weight);
+
+            foreach (Limb arm in rig.Arms)
+            {
+                float s = arm.Side;
+                Vector3 upper = r * (s * 0.75f) - u * (0.45f + 0.25f * Mathf.Max(0f, chestUp)) - f * 0.15f;
+                Vector3 lower = f * 0.55f - u * 0.7f - r * (s * 0.2f);
+                Pose(arm.Upper, upper.normalized, yaw, weight);
+                Pose(arm.Lower, lower.normalized, yaw, weight);
+                PlaceEnd(arm, weight, 0f, Vector3.zero);
+            }
+            foreach (Limb leg in rig.Legs)
+            {
+                float s = leg.Side;
+                Vector3 thigh = -f + u * (0.35f * legs) + r * (s * 0.06f);
+                Vector3 shin = (-f + u * (0.55f * Mathf.Sin(t + 2.4f)) + r * (s * 0.04f)).normalized;
+                Pose(leg.Upper, thigh.normalized, yaw, weight);
+                Pose(leg.Lower, shin, yaw, weight);
+                // Toes pointed back.
+                PlaceEnd(leg, weight, 0.8f, shin);
             }
         }
 
