@@ -453,7 +453,7 @@ and `StudentCrawlComponent.IsCrawling` is synced, the bots only count as scenery
 
 Dance class: not started. He tests the swim class first.
 
-## Swim class, second round (version 0.10.0, built 2026-11-15, NOT installed: the game was running)
+## Swim class, second round (version 0.10.0, installed 2026-11-15, the log shows it loads; NOT yet seen in a class)
 
 His first swim class worked (log: hall built at (300, 100, 0), 4 poles, he was sent to the pool
 as the only student; ambient light is flat 0.5 grey and extra lights are on per pixel, max 8).

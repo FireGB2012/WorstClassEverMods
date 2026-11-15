@@ -1,2 +1,5 @@
 dist/
 share/
+# The game's own decompiled code and the tool that makes it: never in git.
+ilspy/
+game-src/
