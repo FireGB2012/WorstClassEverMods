@@ -2,7 +2,7 @@
 
 Run with Blender in the background, always with absolute paths:
     blender --background --factory-startup --python tools/convert_meshy.py -- <in.glb> <models_dir> <name>
-        [--size 0.3] [--tris 6000] [--origin 0.5,0.5,0.5] [--offset 0,0,0] [--rot 0,0,180] [--picture 512]
+        [--size 0.3] [--tris 6000] [--origin 0.5,0.5,0.5] [--offset 0,0,0] [--rot 0,0,180] [--picture 512] [--cut -0.06]
 
     name      the model's name in the mod, e.g. hat_cap. Writes <name>.cpm and <name>.png.
     --size    the longest side of the finished model, in metres.
@@ -13,6 +13,8 @@ Run with Blender in the background, always with absolute paths:
     --rot     turns the model first, in degrees around x, y and z. Meshy models usually
               face the camera, so the default turns them to face forward (+Y).
     --picture the size the picture is shrunk to.
+    --cut     leaves out every face wholly below this height, in metres after the moves above
+              (the afro's ball of curls ends at the mouth instead of going round the chin).
 
 The mod's axes are the same as in make_nerf_models.py: +Y forward, +Z up, in metres.
 """
@@ -93,6 +95,19 @@ def main():
     anchor = Vector((low.x + (high.x - low.x) * origin[0], low.y + (high.y - low.y) * origin[1], low.z + (high.z - low.z) * origin[2]))
     mesh.transform(Matrix.Translation(offset) @ Matrix.Scale(scale, 4) @ Matrix.Translation(-anchor))
     mesh.update()
+
+    # Everything wholly below this height (in metres, after the moves above) is left out.
+    cut = option(args, '--cut', '')
+    if cut:
+        import bmesh
+        level = float(cut)
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        gone = [face for face in bm.faces if all(vert.co.z < level for vert in face.verts)]
+        bmesh.ops.delete(bm, geom=gone, context='FACES')
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
     mesh.calc_loop_triangles()
 
     # Pictures: one per material that has one, shrunk and saved next to the model.

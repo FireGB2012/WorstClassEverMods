@@ -1183,19 +1183,64 @@ namespace ClassPack
 
         // ------------------------------------------------------------------- the face sliders
 
-        /// <summary>The bones the face sliders change on one student body, and how big they were.</summary>
+        // How the game's faces are made (from the self-test's face file): the eyes are balls
+        // on the bones eye.L and eye.R, with the pupil painted on, inside eyelid shells on
+        // yanpi1 and yanpi2. All of them are part of the face's mesh.
+        //
+        //   eye size    the eyes and their lids grow across the face but hardly in depth, so
+        //               they don't bulge out, and move apart once they would touch.
+        //   pupil size  the eyes' points are moved on the face's picture, towards the middle
+        //               of the pupil to make it bigger, away from it to make it smaller. Each
+        //               face mesh with each pupil size is made once and shared.
+        //   head size   the head bone, with everything on it.
+        //
+        // Sizes and places start from what the game's own animation gave the bone, so a
+        // blink or a look to the side still plays.
+
+        /// <summary>An eye or eyelid bone the eye slider changes.</summary>
+        private sealed class EyePart
+        {
+            public Transform T;
+            public bool IsEye;
+            public Vector3 GameScale;
+            public Vector3 WrittenScale;
+            public Vector3 GameAt;
+            public Vector3 WrittenAt;
+            /// <summary>Which of the bone's own axes points out of the face (0 x, 1 y, 2 z), and which way.</summary>
+            public int Depth;
+            public float DepthSign;
+            /// <summary>Away from the middle of the face, in the parent's space, as long as from eye to eye.</summary>
+            public Vector3 Out;
+        }
+
+        /// <summary>The bones and meshes the face sliders change on one student body.</summary>
         private sealed class FaceRig
         {
             public Transform Model;
             public Transform Head;
-            public Vector3 HeadRest;
-            /// <summary>eye.L and eye.R: the eyes the game turns to look around.</summary>
-            public Transform[] Eyes;
-            public Vector3[] EyeRest;
-            /// <summary>yanpi1 and yanpi2, left and right: the eyelids round the eyes.</summary>
-            public Transform[] Lids;
-            public Vector3[] LidRest;
+            public Vector3 HeadGame;
+            public Vector3 HeadWritten;
+            public readonly List<EyePart> Parts = new List<EyePart>();
+            /// <summary>The meshes that draw the eyes (the face, in each of the game's variants).</summary>
+            public readonly List<SkinnedMeshRenderer> Skins = new List<SkinnedMeshRenderer>();
         }
+
+        /// <summary>The eyes' points in one face mesh, and where on the picture each eye's pupil is.</summary>
+        private sealed class EyeMap
+        {
+            public int[] Points;
+            /// <summary>For each eye point, the middle of its eye's pupil on the picture.</summary>
+            public Vector2[] Middles;
+            /// <summary>For each eye point, how far the front half of its eye reaches on the picture.</summary>
+            public float[] Reach;
+            public Vector2[] Uv;
+        }
+
+        private static readonly Dictionary<Mesh, EyeMap> EyeMaps = new Dictionary<Mesh, EyeMap>();
+        /// <summary>The face meshes with other pupil sizes, by the game's mesh and the size step.</summary>
+        private static readonly Dictionary<long, Mesh> PupilCopies = new Dictionary<long, Mesh>();
+        /// <summary>For each such copy, the game's mesh it was made from.</summary>
+        private static readonly Dictionary<Mesh, Mesh> PupilSource = new Dictionary<Mesh, Mesh>();
 
         private static FaceRig FindFace(Transform model)
         {
@@ -1228,31 +1273,90 @@ namespace ClassPack
             {
                 return null;
             }
-            var rig = new FaceRig
+            var rig = new FaceRig { Model = model, Head = head, HeadGame = head.localScale, HeadWritten = head.localScale };
+            if (eyes.Count == 2)
             {
-                Model = model,
-                Head = head,
-                HeadRest = head.localScale,
-                Eyes = eyes.ToArray(),
-                EyeRest = new Vector3[eyes.Count],
-                Lids = lids.ToArray(),
-                LidRest = new Vector3[lids.Count]
-            };
-            for (int i = 0; i < rig.Eyes.Length; i++)
-            {
-                rig.EyeRest[i] = rig.Eyes[i].localScale;
-            }
-            for (int i = 0; i < rig.Lids.Length; i++)
-            {
-                rig.LidRest[i] = rig.Lids[i].localScale;
+                foreach (SkinnedMeshRenderer skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    Transform[] used = skin.bones;
+                    if (skin.sharedMesh != null && used != null && System.Array.IndexOf(used, eyes[0]) >= 0)
+                    {
+                        rig.Skins.Add(skin);
+                    }
+                }
+                // The face mesh's resting pose says which way each bone faces, even when an
+                // eyelid is half shut in a blink right now.
+                Transform[] faceBones = rig.Skins.Count > 0 ? rig.Skins[0].bones : null;
+                Matrix4x4[] binds = rig.Skins.Count > 0 ? rig.Skins[0].sharedMesh.bindposes : null;
+                int headIndex = faceBones != null ? System.Array.IndexOf(faceBones, head) : -1;
+
+                // The front of the face in the head bone's own space, whichever way the head is
+                // tipped right now: the head bone points up its own y axis.
+                Vector3 middle = (eyes[0].position + eyes[1].position) * 0.5f;
+                Vector3 frontInHead = head.InverseTransformDirection(middle - head.position);
+                frontInHead.y = 0f;
+                frontInHead = frontInHead.sqrMagnitude > 1e-8f ? frontInHead.normalized : head.InverseTransformDirection(model.forward);
+                Vector3 front = head.TransformDirection(frontInHead);
+                float gap = (eyes[0].position - eyes[1].position).magnitude;
+                var bones = new List<Transform>(eyes);
+                bones.AddRange(lids);
+                var said = new List<string>();
+                foreach (Transform bone in bones)
+                {
+                    if (bone.parent == eyes[0] || bone.parent == eyes[1])
+                    {
+                        // An eyelid hanging under its eye follows the eye anyway.
+                        continue;
+                    }
+                    Transform eye = bone.name.EndsWith(".L") == eyes[0].name.EndsWith(".L") ? eyes[0] : eyes[1];
+                    Vector3 away = eye.position - middle;
+                    away = away.sqrMagnitude > 1e-8f ? away.normalized * gap : Vector3.zero;
+                    Vector3 local = bone.InverseTransformDirection(front);
+                    int index = faceBones != null ? System.Array.IndexOf(faceBones, bone) : -1;
+                    if (index >= 0 && headIndex >= 0 && index < binds.Length && headIndex < binds.Length)
+                    {
+                        Vector3 rested = binds[index].MultiplyVector(binds[headIndex].inverse.MultiplyVector(frontInHead));
+                        if (rested.sqrMagnitude > 1e-12f)
+                        {
+                            local = rested.normalized;
+                        }
+                    }
+                    said.Add(bone.name + " " + local.ToString("F2") + " under " + (bone.parent != null ? bone.parent.name : "nothing"));
+                    int depth = 0;
+                    for (int axis = 1; axis < 3; axis++)
+                    {
+                        if (Mathf.Abs(local[axis]) > Mathf.Abs(local[depth]))
+                        {
+                            depth = axis;
+                        }
+                    }
+                    rig.Parts.Add(new EyePart
+                    {
+                        T = bone,
+                        IsEye = bone == eyes[0] || bone == eyes[1],
+                        GameScale = bone.localScale,
+                        WrittenScale = bone.localScale,
+                        GameAt = bone.localPosition,
+                        WrittenAt = bone.localPosition,
+                        Depth = depth,
+                        DepthSign = Mathf.Sign(local[depth]),
+                        Out = bone.parent != null ? bone.parent.InverseTransformVector(away) : away
+                    });
+                }
+                if (!_loggedFace)
+                {
+                    _loggedFace = true;
+                    Plugin.Log("looks: face on " + model.name + ", " + rig.Skins.Count + " face meshes, the front in each bone: " + string.Join("; ", said.ToArray()));
+                }
             }
             return rig;
         }
 
+        private static bool _loggedFace;
+
         /// <summary>
         /// Late in every frame, after the game's own animation: the face sliders on every student
-        /// who wears them. The head bone is scaled for the head size; the eyes and the eyelids
-        /// round them for the eye size; the eyes alone once more for the pupil size.
+        /// who wears them.
         /// </summary>
         public static void FaceTick()
         {
@@ -1275,13 +1379,18 @@ namespace ClassPack
                     continue;
                 }
                 Unit unit = units.GetUnitByUID(pair.Key);
-                if (unit == null || !unit.isActived || unit.model == null || !unit.IsStudent)
+                Transform model = unit != null && unit.isActived && unit.model != null && unit.IsStudent ? unit.model.transform : null;
+                if (worn.Face != null && (!changed || worn.Face.Model != model))
                 {
+                    // Back to normal, or another body now: the old one is put back as the game had it.
+                    ResetFace(worn.Face);
                     worn.Face = null;
+                }
+                if (!changed || model == null)
+                {
                     continue;
                 }
-                Transform model = unit.model.transform;
-                if (worn.Face == null || worn.Face.Model != model)
+                if (worn.Face == null)
                 {
                     worn.Face = FindFace(model);
                     if (worn.Face == null)
@@ -1289,27 +1398,246 @@ namespace ClassPack
                         continue;
                     }
                 }
-                FaceRig face = worn.Face;
-                face.Head.localScale = face.HeadRest * look.HeadScale;
-                for (int i = 0; i < face.Lids.Length; i++)
+                try
                 {
-                    if (face.Lids[i] != null)
+                    ShapeFace(worn.Face, look);
+                }
+                catch (System.Exception ex)
+                {
+                    Plugin.Log("looks: the face sliders failed on " + model.name + ": " + ex.Message);
+                    worn.Look.Eyes = 0;
+                    worn.Look.Pupils = 0;
+                    worn.Look.HeadSize = 0;
+                }
+            }
+        }
+
+        private static void ShapeFace(FaceRig face, Look look)
+        {
+            if (face.Head != null)
+            {
+                Vector3 now = face.Head.localScale;
+                if (now != face.HeadWritten)
+                {
+                    face.HeadGame = now;
+                }
+                face.HeadWritten = face.HeadGame * look.HeadScale;
+                face.Head.localScale = face.HeadWritten;
+            }
+
+            float eyes = look.EyeScale;
+            // Across the face the eyes grow fully, in depth only a little.
+            float deep = 1f + 0.3f * (eyes - 1f);
+            // An eye is about 0.365 of the way to the other eye across; past about 1.3 times
+            // they would touch, so each moves out by half of what they would overlap.
+            float apart = Mathf.Max(0f, (0.73f * eyes + 0.08f - 1f) * 0.5f);
+            foreach (EyePart part in face.Parts)
+            {
+                if (part.T == null)
+                {
+                    continue;
+                }
+                Vector3 nowScale = part.T.localScale;
+                if (nowScale != part.WrittenScale)
+                {
+                    part.GameScale = nowScale;
+                }
+                Vector3 nowAt = part.T.localPosition;
+                if (nowAt != part.WrittenAt)
+                {
+                    part.GameAt = nowAt;
+                }
+                Vector3 grow = new Vector3(eyes, eyes, eyes);
+                grow[part.Depth] = deep;
+                part.WrittenScale = Vector3.Scale(part.GameScale, grow);
+                part.WrittenAt = part.GameAt + part.Out * apart;
+                part.T.localScale = part.WrittenScale;
+                part.T.localPosition = part.WrittenAt;
+            }
+
+            foreach (SkinnedMeshRenderer skin in face.Skins)
+            {
+                Mesh now = skin != null ? skin.sharedMesh : null;
+                if (now == null)
+                {
+                    continue;
+                }
+                Mesh original;
+                if (!PupilSource.TryGetValue(now, out original))
+                {
+                    original = now;
+                }
+                Mesh want = look.Pupils == 0 ? original : PupilCopy(skin, original, look.Pupils, face);
+                if (want != now)
+                {
+                    skin.sharedMesh = want;
+                }
+            }
+        }
+
+        /// <summary>Puts a face back the way the game has it.</summary>
+        private static void ResetFace(FaceRig face)
+        {
+            if (face.Head != null)
+            {
+                face.Head.localScale = face.HeadGame;
+            }
+            foreach (EyePart part in face.Parts)
+            {
+                if (part.T != null)
+                {
+                    part.T.localScale = part.GameScale;
+                    part.T.localPosition = part.GameAt;
+                }
+            }
+            foreach (SkinnedMeshRenderer skin in face.Skins)
+            {
+                Mesh original;
+                if (skin != null && skin.sharedMesh != null && PupilSource.TryGetValue(skin.sharedMesh, out original))
+                {
+                    skin.sharedMesh = original;
+                }
+            }
+        }
+
+        /// <summary>The game's face mesh with the pupils at another size, made the first time it is needed.</summary>
+        private static Mesh PupilCopy(SkinnedMeshRenderer skin, Mesh original, int step, FaceRig face)
+        {
+            long key = (long)original.GetInstanceID() * 64L + (step & 31);
+            Mesh copy;
+            if (PupilCopies.TryGetValue(key, out copy))
+            {
+                return copy != null ? copy : original;
+            }
+            EyeMap map;
+            if (!EyeMaps.TryGetValue(original, out map))
+            {
+                map = MakeEyeMap(skin, original, face);
+                EyeMaps[original] = map;
+            }
+            copy = null;
+            if (map != null)
+            {
+                try
+                {
+                    copy = UnityEngine.Object.Instantiate(original);
+                    copy.name = original.name + " (pupils " + Look.Size(step).ToString("F1") + ")";
+                    var uv = (Vector2[])map.Uv.Clone();
+                    float zoom = 1f / Look.Size(step);
+                    for (int n = 0; n < map.Points.Length; n++)
                     {
-                        face.Lids[i].localScale = face.LidRest[i] * look.EyeScale;
+                        int i = map.Points[n];
+                        Vector2 middle = map.Middles[n];
+                        Vector2 to = middle + (uv[i] - middle) * zoom;
+                        // Smaller pupils show more of the picture round the eye: no further than the eye's own white.
+                        if (zoom > 1f && map.Reach[n] > 0f && (to - middle).magnitude > map.Reach[n])
+                        {
+                            to = middle + (to - middle).normalized * map.Reach[n];
+                        }
+                        uv[i] = to;
                     }
+                    copy.uv = uv;
+                    PupilSource[copy] = original;
                 }
-                for (int i = 0; i < face.Eyes.Length; i++)
+                catch (System.Exception ex)
                 {
-                    if (face.Eyes[i] != null)
+                    Plugin.Log("looks: could not make pupils " + Look.Size(step).ToString("F1") + " on " + original.name + ": " + ex.Message);
+                    copy = null;
+                }
+            }
+            PupilCopies[key] = copy;
+            return copy != null ? copy : original;
+        }
+
+        /// <summary>Finds the eyes' points in a face mesh and the middle of each pupil on its picture.</summary>
+        private static EyeMap MakeEyeMap(SkinnedMeshRenderer skin, Mesh mesh, FaceRig face)
+        {
+            try
+            {
+                Transform[] bones = skin.bones;
+                BoneWeight[] weights = mesh.boneWeights;
+                Vector3[] points = mesh.vertices;
+                Vector2[] uv = mesh.uv;
+                Matrix4x4[] binds = mesh.bindposes;
+                if (uv == null || uv.Length != points.Length || weights.Length != points.Length)
+                {
+                    Plugin.Log("looks: " + mesh.name + " has no picture places for its points, pupils stay as they are");
+                    return null;
+                }
+                var found = new List<int>();
+                var middles = new List<Vector2>();
+                var reach = new List<float>();
+                var said = new List<string>();
+                foreach (EyePart eye in face.Parts)
+                {
+                    int bone = eye.IsEye ? System.Array.IndexOf(bones, eye.T) : -1;
+                    if (bone < 0 || bone >= binds.Length)
                     {
-                        face.Eyes[i].localScale = face.EyeRest[i] * (look.EyeScale * look.PupilScale);
+                        continue;
                     }
+                    var mine = new List<int>();
+                    var depth = new List<float>();
+                    float front = float.MinValue;
+                    float back = float.MaxValue;
+                    for (int i = 0; i < points.Length; i++)
+                    {
+                        if (weights[i].boneIndex0 != bone || weights[i].weight0 < 0.5f)
+                        {
+                            continue;
+                        }
+                        // How far the point is towards the front of the eye, in the eye bone's own space.
+                        float d = binds[bone].MultiplyPoint3x4(points[i])[eye.Depth] * eye.DepthSign;
+                        mine.Add(i);
+                        depth.Add(d);
+                        front = Mathf.Max(front, d);
+                        back = Mathf.Min(back, d);
+                    }
+                    if (mine.Count == 0)
+                    {
+                        continue;
+                    }
+                    // The pupil is painted on the front of the eye: the middle of the front points' places.
+                    float cut = front - (front - back) * 0.15f;
+                    float half = (front + back) * 0.5f;
+                    Vector2 sum = Vector2.zero;
+                    int count = 0;
+                    for (int k = 0; k < mine.Count; k++)
+                    {
+                        if (depth[k] >= cut)
+                        {
+                            sum += uv[mine[k]];
+                            count++;
+                        }
+                    }
+                    Vector2 middle = sum / Mathf.Max(1, count);
+                    float far = 0f;
+                    for (int k = 0; k < mine.Count; k++)
+                    {
+                        if (depth[k] >= half)
+                        {
+                            far = Mathf.Max(far, (uv[mine[k]] - middle).magnitude);
+                        }
+                    }
+                    foreach (int i in mine)
+                    {
+                        found.Add(i);
+                        middles.Add(middle);
+                        reach.Add(far);
+                    }
+                    said.Add(eye.T.name + " " + mine.Count + " points, pupil at " + middle.ToString("F3") + ", reach " + far.ToString("F3"));
                 }
-                if (!changed)
+                if (found.Count == 0)
                 {
-                    // Back to normal once, then left alone.
-                    worn.Face = null;
+                    Plugin.Log("looks: no eye points found in " + mesh.name + ", pupils stay as they are");
+                    return null;
                 }
+                Plugin.Log("looks: eyes in " + mesh.name + ": " + string.Join("; ", said.ToArray()));
+                return new EyeMap { Points = found.ToArray(), Middles = middles.ToArray(), Reach = reach.ToArray(), Uv = uv };
+            }
+            catch (System.Exception ex)
+            {
+                Plugin.Log("looks: could not read the eyes in " + mesh.name + ": " + ex.Message);
+                return null;
             }
         }
 
@@ -1351,5 +1679,24 @@ namespace ClassPack
 
         /// <summary>Self-test: how many bots have been dressed like a player.</summary>
         public static int BotsDressed => BotSource.Count;
+
+        /// <summary>Self-test: hides everybody's worn pieces but one character's, or shows them all again.</summary>
+        public static void TestHideAllBut(ulong keep, bool hide)
+        {
+            foreach (KeyValuePair<ulong, Worn> pair in Worns)
+            {
+                foreach (Piece piece in pair.Value.Pieces)
+                {
+                    if (piece.Model == null)
+                    {
+                        continue;
+                    }
+                    foreach (Renderer renderer in piece.Model.GetComponentsInChildren<Renderer>(true))
+                    {
+                        renderer.forceRenderingOff = hide && pair.Key != keep;
+                    }
+                }
+            }
+        }
     }
 }

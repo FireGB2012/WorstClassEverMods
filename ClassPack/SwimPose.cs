@@ -112,6 +112,9 @@ namespace ClassPack
         /// <summary>Self-test only: show this player's own body doing strokes although it stands still.</summary>
         public static bool ForceMoving;
 
+        /// <summary>Self-test only: this character stands still for a close picture of its face.</summary>
+        public static ulong TestStill;
+
         /// <summary>Called late in every frame, after the game has posed its characters.</summary>
         public static void LateTick()
         {
@@ -149,6 +152,11 @@ namespace ClassPack
                 }
                 bool swims = Swim.Swimming(unit) && !Looks.HasOwnBody(unit.UID);
                 int dances = !swims && !Looks.HasOwnBody(unit.UID) ? Dance.Kind(unit) : Dance.None;
+                if (TestStill != 0uL && unit.UID == TestStill)
+                {
+                    swims = false;
+                    dances = Dance.None;
+                }
                 bool posed = swims || dances != Dance.None;
                 Rig rig;
                 if (!Rigs.TryGetValue(unit.UID, out rig) || rig.Model != unit.model.transform)

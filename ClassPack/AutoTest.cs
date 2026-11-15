@@ -548,11 +548,16 @@ namespace ClassPack
                         if (index < _faceBots.Count)
                         {
                             Put(_faceBots[index], new Vector3(10.6f, 0.05f, -6f + index * 2.4f), 270f);
+                            SwimPose.TestStill = _faceBots[index].UID;
                         }
                     });
-                    Add(t += 0.45f, "face", () => FaceShot("12_face_" + TestFaces[index], index));
+                    Add(t += 0.5f, "face", () => FaceShot("12_face_" + TestFaces[index], index));
                 }
-                Add(t += 0.3f, "face dump", () => DumpFace(_faceBots.Count > 0 ? _faceBots[0] : null, "face_bot.txt"));
+                Add(t += 0.4f, "face dump", () =>
+                {
+                    SwimPose.TestStill = 0uL;
+                    DumpFace(_faceBots.Count > 0 ? _faceBots[0] : null, "face_bot.txt");
+                });
             }
 
             // This player on the floor: a student is made to dance by itself (the class dance);
@@ -681,7 +686,53 @@ namespace ClassPack
             Transform neck = unit.GetPartRoot(EUnitPartType.HeadPosition);
             Vector3 head = (neck != null ? neck.position : unit.Position + Vector3.up * 0.76f) + Vector3.up * 0.22f;
             Vector3 forward = Quaternion.Euler(0f, unit.transform.eulerAngles.y, 0f) * Vector3.forward;
+            HideAllBut(unit);
             ShotWorld(name, head + forward * 1.1f + Vector3.up * 0.08f, head);
+        }
+
+        private static readonly List<Renderer> _hidden = new List<Renderer>();
+
+        /// <summary>Hides every other character and what they wear until the next picture is saved.</summary>
+        private static void HideAllBut(Unit keep)
+        {
+            UnitManager units = Game.Peek<UnitManager>();
+            if (units == null)
+            {
+                return;
+            }
+            foreach (Unit unit in units.unitsDict.Values)
+            {
+                if (unit == null || unit == keep || unit.model == null || !(unit.IsStudent || unit.IsTeacher))
+                {
+                    continue;
+                }
+                foreach (Renderer renderer in unit.model.GetComponentsInChildren<Renderer>(false))
+                {
+                    if (!renderer.forceRenderingOff)
+                    {
+                        renderer.forceRenderingOff = true;
+                        _hidden.Add(renderer);
+                    }
+                }
+            }
+            Looks.TestHideAllBut(keep != null ? keep.UID : 0uL, true);
+        }
+
+        private static void ShowAll()
+        {
+            if (_hidden.Count == 0)
+            {
+                return;
+            }
+            foreach (Renderer renderer in _hidden)
+            {
+                if (renderer != null)
+                {
+                    renderer.forceRenderingOff = false;
+                }
+            }
+            _hidden.Clear();
+            Looks.TestHideAllBut(0uL, false);
         }
 
         /// <summary>
@@ -1035,6 +1086,7 @@ namespace ClassPack
             _camera.enabled = false;
             _shotName = null;
             _follow = null;
+            ShowAll();
         }
     }
 }

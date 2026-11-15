@@ -87,8 +87,10 @@ MODELS = {
     'dance_boombox': (0.6, '0.5,0.5,0', '0,0,0', BACK),
     'dance_snacks': (1.2, '0.5,0.5,0', '0,0,0', BACK),
     # Hairstyles: head items like the hats, built around the middle of a 0.11 m head. They are
-    # very light grey, and the wardrobe's hair colour tints them.
-    'hair_afro': (0.40, '0.5,0.5,0.32', '0,0,0', FRONT),
+    # very light grey, and the wardrobe's hair colour tints them. The afro is a ball of curls
+    # with a hole for the face; the part under the mouth is cut off (the fifth number), so it
+    # doesn't wrap round the chin like a hood.
+    'hair_afro': (0.40, '0.5,0.5,0.32', '0,0,0', FRONT, -0.06),
     'hair_dreads': (0.42, '0.5,0.5,0.69', '0,0,0', FRONT),
 }
 
@@ -113,7 +115,8 @@ def main():
     script = os.path.join(ROOT, 'tools', 'convert_meshy.py')
     failed = []
     for name in wanted:
-        size, origin, offset, rot = MODELS[name]
+        size, origin, offset, rot = MODELS[name][:4]
+        cut = ['--cut', str(MODELS[name][4])] if len(MODELS[name]) > 4 else []
         source = os.path.join(source_dir, name + '.glb')
         if not os.path.exists(source):
             failed.append(name + ' (no .glb)')
@@ -121,7 +124,7 @@ def main():
         result = subprocess.run(
             [BLENDER, '--background', '--factory-startup', '--python', script, '--', source, out_dir, name,
              '--size', str(size), '--origin', origin, '--offset', offset, '--rot', rot, '--tris', '6000',
-             '--picture', '512', '--preview', os.path.join(preview_dir, name + '.png')],
+             '--picture', '512', '--preview', os.path.join(preview_dir, name + '.png')] + cut,
             capture_output=True, text=True)
         line = [l for l in result.stdout.splitlines() if l.startswith('wrote ')]
         if line:

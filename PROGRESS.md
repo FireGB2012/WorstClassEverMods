@@ -706,3 +706,17 @@ student) doing the class dance at once; the student shuffles at 0.6 speed; the w
 0.6. Pictures 17 to 19: face down on the dance floor, chest up, arms pushing. The card and the
 hint line show the keys. Not yet seen: the worm by a teacher-caught student, and it played by
 Gabriel himself.
+
+## Looks pack (to be 0.14.0, not pushed yet): state on 2026-11-15
+
+Done and committed:
+- Face sliders (eyes, pupils, head), afro and dreads from Meshy, bots copy a player, wardrobe tabs.
+- Looks test run 2: head size, dreads and the bots dressed like players look right. Eyes and pupils came out as giant balls.
+- Reworked (builds; test run 3 was started, its pictures are not checked yet): eye size grows the eyes and lids across the face (little in depth) and moves them apart past 1.3 times; pupil size moves the eye points on the face picture (one shared copy of the face mesh per pupil size); every size starts from what the game animation gave the bone that frame, so blinks still play.
+- Afro: the converter has a --cut option; the afro is cut off below the mouth so it no longer wraps round the chin.
+- Test: each face picture hides every other character, and the bot in it stops dancing (SwimPose.TestStill).
+
+Still to do:
+- Check run 3: dist/autotest/dance_student/12_face_*.jpg, 07_wardrobe_tab_1.png, 11_bot_dance_*.jpg (bots copy pupils 0.6) and the log line "looks: eyes in ..." (pupil middles). Change the slider ranges if needed.
+- Idea 4 of the pack, the nerf faint ragdoll, as approved: a student ragdolls 3 s and then goes on a pole with no rescue; the teacher faints 5 s and gets up; a bot faints 4 s. Not started. Plan: host tell Faint = 78 (a = uid, f = seconds, v = hit direction); stun with StudentStunComponent.TryGetProjectileStun for students and bots, Poles.Slip for the teacher; a physics ragdoll built on the spot from the character skeleton (SwimPose mode 4); the fainted player sees themselves from behind (SelfView) with a "You fainted!" line; NerfGuns.Hit rewired; a how-to card in Tips.cs.
+- Bump package/mod.json to 0.14.0 (plain text edit), notes, ask before pushing.
