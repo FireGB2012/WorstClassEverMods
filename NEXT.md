@@ -1,9 +1,9 @@
 # What to do next
 
 Written 2026-11-15, updated late that night on the second PC. The mod is at version 0.15.0:
-committed, self-tested (dance and swim, student and teacher) and installed in Gabriel's game by
-the self-tests, NOT pushed yet. Details are in `PROGRESS.md`, sections "Teacher bug hunt",
-"Pack 0.15.0" and "Self-tests of 0.15.0".
+committed, self-tested (dance and swim, student and teacher), installed in Gabriel's game by
+the self-tests, and pushed on 2026-11-16. Details are in `PROGRESS.md`, sections "Teacher bug
+hunt", "Pack 0.15.0" and "Self-tests of 0.15.0".
 
 ## 00. Pack 0.15.0 (Gabriel's list of ten, late 2026-11-15)
 
@@ -35,7 +35,7 @@ Checked in the self-tests (2026-11-15, late night):
 - [x] Swim: the table phone in the lounge, grabbed and used for DoorDash (23b_lounge_phone).
 
 Waiting for Gabriel:
-- [ ] Push (many commits since 3d80e9e); his friends need the same version.
+- [x] Pushed on 2026-11-16 (he said "Yes, push"). His friends need the same version.
 - [ ] Play it with friends: the knockout, phones (drawer and table), elevator, window hanging.
 - [ ] Pick a third hairstyle if he wants one (21 of 39 Meshy credits).
 
