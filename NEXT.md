@@ -36,6 +36,10 @@ Checked in the self-tests (2026-11-15, late night):
 
 Waiting for Gabriel:
 - [x] Pushed on 2026-11-16 (he said "Yes, push"). His friends need the same version.
+- [x] 2026-11-17: the repository is public (his Gmail swapped for the no-reply address in all
+      commits first; the other PC needs `git fetch origin` and `git reset --hard origin/main`),
+      and release v0.15.0 has ClassPack-0.15.0.zip for his friends:
+      https://github.com/FireGB2012/WorstClassEverMods/releases/tag/v0.15.0
 - [ ] Play it with friends: the knockout, phones (drawer and table), elevator, window hanging.
 - [ ] Pick a third hairstyle if he wants one (21 of 39 Meshy credits).
 

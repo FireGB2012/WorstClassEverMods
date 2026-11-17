@@ -25,6 +25,12 @@ from another one.
   for the room owner, look there first.
 - Bump the version in `package\mod.json` with a plain text edit. PowerShell's
   `Set-Content -Encoding utf8` adds a byte-order mark that breaks the file.
+- The GitHub repository is public (since 2026-11-17). Nothing private goes in it. Commits use
+  the no-reply address `214180419+FireGB2012@users.noreply.github.com` (set it with
+  `git config user.email` in the repository on each PC); his Gmail was taken out of the history.
+- A release: `.\build.ps1 -Share` makes `share\ClassPack-<version>.zip` (the mod folder and
+  `share-notes\HOW TO INSTALL.txt`, which must describe the version); then a GitHub release
+  tagged `v<version>` with that zip. The first one is v0.15.0.
 - In Git Bash, a heredoc holding an odd number of single quotes fails. Write the script to a
   file instead.
 
