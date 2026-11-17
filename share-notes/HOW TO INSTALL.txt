@@ -6,62 +6,80 @@ HOW TO INSTALL
 2. In Steam, right-click Worst Class Ever, then Manage, then Browse local files.
 3. Open the "Mods" folder you see there.
 4. Copy the whole "classpack" folder from this zip into that Mods folder.
+   Updating? Replace the old "classpack" folder with the new one.
 5. Start the game and open the mod menu.
 6. Switch "Class Pack" on, then restart the game.
 
 Everyone in the room should have the same version of the mod.
 The extra stuff only works in rooms where the room owner has the mod too.
+In class, press F1 to see what you can do right now.
 
 WHAT IT ADDS
 
-- Phone with DoorDash: as a student, press O during class to pull up your phone.
-  Open the DoorDash app and order. The food is dropped in the teacher's office.
-  Go and get it, then eat it for 15 mischief.
-- Prank call: the phone also has a Call app. Ring the teacher. If the teacher does not
-  press H to answer in time, the teacher loses stamina.
-- Wardrobe: press F7 in a room (or open Wardrobe on the phone) to dress up. Pick a hat,
-  sunglasses, a backpack, cape or wings. Students can also mix hair, face and clothes,
-  go bald and recolour hair, clothes and skin. A small picture shows how you look.
-  Everybody with the mod sees your outfit. If a hat sits wrong, move the Fit sliders.
-- New teachers: in the wardrobe, pick what you are when you are the teacher.
-    Gym teacher: bald on top with a big belly. X throws a slice of pizza that lands on
-      a student's face and knocks them over.
-    Lunch lady: hairnet, apron and ladle. X throws mashed potatoes that stick a student
-      in place. She can't write on the blackboard: hold B at her big pot for stamina.
-    Janitor: X mops. That clears banana peels, glue and whoopee cushions around him
-      and leaves a wet floor that students slip on.
-    Bald with a wig: a student who sneaks up behind him (or holds the plunger) presses
-      B to yank the wig off. No chalk until he walks over and gets it back.
-- Tricks: the phone has a Tricks app. Tap a trick and it goes in your hand. Press X, or
-  click the mouse wheel, to use it. Press B to put it away.
-    Paper airplane: hit the back of the teacher's head for mischief. A miss lands
-      pointing back at you.
-    Water balloon: soak the blackboard and the teacher can't write on it for 20 seconds.
-    Super glue: squirt the teacher and they can't throw chalk for 10 seconds. Squirt
-      the floor and the teacher who walks into it is stuck for a moment. Two per class.
-    Laser pointer: hold X on the teacher's face and their screen goes white. Everybody
-      sees the red line.
-    Whoopee cushion: leave it on a seat or the floor. Mischief when somebody finds it.
-    Pass a note: it hops across the room. Mischief if it arrives. If the teacher gets
-      near it, the teacher grabs it and sees who wrote it.
-    Take a nap: sit down, then nap for slow mischief that grows. You snore louder and
-      louder, and everybody sees the Z z z over your head.
-- Nerf guns: a rare find. Each time a student finishes a snack there is a small chance
-  a gun turns up in their desk drawer, and the teacher gets a warning. Press B in your
-  seat to grab it, or open the drawer, look at the gun floating over it and press the
-  same key you pick up snacks with. A teacher who eats a snack from a student's drawer
-  can find one too, more rarely. Every gun has one shot. Press X, or click the mouse wheel, to
-  shoot. A student who is hit goes up on a pole and can't be rescued. A teacher who is
-  hit falls over. The RPG is the rarest and hits everybody, you too.
-- Fire alarm: a red box hangs above a classroom door. A student presses B under it,
-  once per class. While it rings, a teacher who runs slips over.
-- Window poles: a few extra poles stand by the classroom windows for hanging students.
-- Hungry teacher: the teacher stands next to a desk and presses G to eat a snack
-  from its drawer and get stamina back.
+New classes
+- Swim class: a pool hall with bots that swim. In the water, hold P to pee in the pool
+  for mischief (double next to the teacher), press B to splash the teacher's screen,
+  and crawl (Ctrl) to dive under. The pick-up key (E) climbs the pool ladders and the
+  diving board's steps.
+- Dance class: a disco hall where everybody has to dance. Q does the class dance,
+  J does the worm: mischief every few seconds while you keep it up, but you only creep
+  along, so the teacher can catch you at it.
+- Elevator panel: beside the blackboard. Between classes, anyone looks at a button and
+  presses E or B to pick the next class: the pool, the dance hall or the classroom.
+
+Phones
+- Phones are things you find. Each time you finish a snack there is a 7.4% chance that
+  a phone is in your desk drawer. Grab it with E, or with B from your seat.
+- In the swim and dance halls (no desks) a phone turns up now and then on the coffee
+  table in the teachers' lounge or on the snack table. The first one to grab it gets it.
+- In class, O pulls your phone up. Everybody can see you on it and the teacher hears
+  it scribbling. One use, then it is gone:
+    DoorDash: order food. It is dropped in the teacher's office (in the swim class on
+      the lounge table, in the dance class on the snack table). Go and get it, then
+      eat it for mischief.
+    Prank call: ring the teacher. If the teacher does not press H to answer in time,
+      the teacher loses stamina.
+    Tricks: paper airplane, water balloon, super glue, laser pointer, whoopee cushion,
+      pass a note or take a nap. The trick goes in your hand: X (or the mouse wheel)
+      uses it, B puts it away.
+
+Wardrobe: O, in the lobby or in the break (not during class)
+- Hats, sunglasses, a backpack, a cape or wings. Hair: the game's own, an afro, dreads,
+  a mohawk or spiky hair, in any colour. Face sliders (eyes, pupils, head size) and a
+  thin-to-fat body slider. Recolour clothes and skin, or go bald.
+- Everybody with the mod sees your look, and it stays from game to game.
+- The bots dress like the players.
+
+New teachers: pick one in the wardrobe's Teacher tab
+- Gym teacher: X (or the right mouse button) throws a pizza slice that knocks a
+  student over.
+- Lunch lady: X throws mashed potatoes that stick a student in place. She can't write
+  on the blackboard: standing next to her pot fills up her stamina.
+- Janitor: X mops. That clears banana peels, glue and whoopee cushions around him and
+  leaves a wet floor that students slip on.
+- Bald with a wig: a student who sneaks up behind him presses B to yank the wig off.
+  No chalk until he walks over and gets it back.
+- In the swim and dance halls the teacher's stamina drains at half speed and fills up
+  fast at the lifeguard chair or the DJ booth.
+
+Nerf guns
+- A rare find in your desk drawer after a snack (the teacher gets a warning). Every gun
+  has one shot: X or the mouse wheel. Whoever is hit falls over like a rag doll for
+  4 seconds, and meanwhile the teacher can walk up and grab them. Students can shoot the
+  teacher too: the teacher is out for 5 seconds. The RPG is the rarest and hits everybody.
+
+More
+- Window hanging: a student tied to a pole by a window hangs outside it. From inside the
+  room you only see their fingers on the sill.
+- Fire alarm: a red box hangs above a classroom door. A student presses B under it, once
+  per class. While it rings, a teacher who runs slips over.
+- Hungry teacher: the teacher stands next to a desk and presses G to eat a snack from its
+  drawer and get stamina back.
 - Power cut: once per class the lights go out for a bit.
+- The "Caught 0/1" count at the top of the screen is hidden.
 - Play alone: the room owner can start a class with only the bot classmates.
-- Owner settings: the room owner presses F6 between classes to set class length,
-  number of teachers and points to win.
+- Owner settings: the room owner presses F6 between classes for the class length, the
+  number of teachers, the points to win, the next class and more.
 
 TO REMOVE IT
 
